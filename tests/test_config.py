@@ -1,0 +1,166 @@
+"""Tests for config loading, defaults, merging, RuleConfig, and path filtering."""
+
+import textwrap
+from pathlib import Path
+
+from dbt_linter.config import (
+    DEFAULTS,
+    load_config,
+    matches_path_filter,
+)
+
+
+class TestDefaults:
+    def test_defaults_has_thresholds(self):
+        assert DEFAULTS["models_fanout_threshold"] == 3
+        assert DEFAULTS["too_many_joins_threshold"] == 7
+        assert DEFAULTS["chained_views_threshold"] == 5
+        assert DEFAULTS["documentation_coverage_target"] == 100
+        assert DEFAULTS["test_coverage_target"] == 100
+
+    def test_defaults_has_prefixes(self):
+        assert DEFAULTS["staging_prefixes"] == ["stg_"]
+        assert DEFAULTS["marts_prefixes"] == ["fct_", "dim_"]
+
+    def test_defaults_has_materializations(self):
+        assert DEFAULTS["staging_allowed_materializations"] == ["view"]
+        assert "table" in DEFAULTS["marts_allowed_materializations"]
+
+    def test_defaults_has_pk_test_macros(self):
+        macros = DEFAULTS["primary_key_test_macros"]
+        assert ["dbt.test_unique", "dbt.test_not_null"] in macros
+
+    def test_defaults_include_exclude_are_none(self):
+        assert DEFAULTS["include"] is None
+        assert DEFAULTS["exclude"] is None
+
+    def test_defaults_rules_is_empty(self):
+        assert DEFAULTS["rules"] == {}
+
+
+class TestLoadConfig:
+    def test_load_defaults_when_no_file(self):
+        config = load_config(None)
+        assert config.params["models_fanout_threshold"] == 3
+
+    def test_load_from_yaml(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_linter.yml"
+        config_file.write_text(textwrap.dedent("""\
+            models_fanout_threshold: 5
+            too_many_joins_threshold: 10
+        """))
+        config = load_config(config_file)
+        assert config.params["models_fanout_threshold"] == 5
+        assert config.params["too_many_joins_threshold"] == 10
+        # Non-overridden defaults preserved
+        assert config.params["chained_views_threshold"] == 5
+
+    def test_load_with_rule_overrides(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_linter.yml"
+        config_file.write_text(textwrap.dedent("""\
+            rules:
+              modeling/too-many-joins:
+                severity: error
+              structure/intermediate-materialization:
+                enabled: false
+        """))
+        config = load_config(config_file)
+        rc = config.rule_config("modeling/too-many-joins")
+        assert rc.severity == "error"
+        assert rc.enabled is True
+
+        rc2 = config.rule_config("structure/intermediate-materialization")
+        assert rc2.enabled is False
+
+    def test_load_with_exclude_resources(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_linter.yml"
+        config_file.write_text(textwrap.dedent("""\
+            rules:
+              testing/sources-without-freshness:
+                exclude_resources:
+                  - source.pkg.raw.legacy_*
+        """))
+        config = load_config(config_file)
+        rc = config.rule_config("testing/sources-without-freshness")
+        assert "source.pkg.raw.legacy_*" in rc.exclude_resources
+
+    def test_empty_yaml_file(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_linter.yml"
+        config_file.write_text("")
+        config = load_config(config_file)
+        assert config.params["models_fanout_threshold"] == 3
+
+
+class TestRuleConfig:
+    def test_default_rule_config(self):
+        config = load_config(None)
+        rc = config.rule_config("modeling/source-fanout")
+        assert rc.enabled is True
+        assert rc.severity == "warn"
+        assert rc.exclude_resources == []
+        assert rc.params is config.params
+
+    def test_severity_override(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_linter.yml"
+        config_file.write_text(textwrap.dedent("""\
+            rules:
+              modeling/source-fanout:
+                severity: error
+        """))
+        config = load_config(config_file)
+        rc = config.rule_config("modeling/source-fanout")
+        assert rc.severity == "error"
+
+    def test_unknown_rule_gets_defaults(self):
+        config = load_config(None)
+        rc = config.rule_config("nonexistent/rule")
+        assert rc.enabled is True
+        assert rc.severity == "warn"
+
+
+class TestMatchesPathFilter:
+    def test_no_filters(self):
+        assert matches_path_filter("models/staging/stg_orders.sql", None, None) is True
+
+    def test_include_matches(self):
+        result = matches_path_filter(
+            "models/staging/stg_orders.sql", "models/staging", None
+        )
+        assert result is True
+
+    def test_include_no_match(self):
+        result = matches_path_filter(
+            "models/marts/fct_orders.sql", "models/staging", None
+        )
+        assert result is False
+
+    def test_exclude_matches(self):
+        result = matches_path_filter(
+            "models/staging/stg_legacy.sql",
+            None,
+            "models/staging/stg_legacy",
+        )
+        assert result is False
+
+    def test_exclude_no_match(self):
+        result = matches_path_filter(
+            "models/staging/stg_orders.sql", None, "models/marts"
+        )
+        assert result is True
+
+    def test_include_and_exclude(self):
+        result = matches_path_filter(
+            "models/staging/stg_legacy.sql",
+            "models/staging",
+            "models/staging/stg_legacy",
+        )
+        assert result is False
+
+    def test_regex_pattern(self):
+        pattern = r"models/staging/stg_\w+\.sql"
+        assert matches_path_filter(
+            "models/staging/stg_orders.sql", pattern, None
+        ) is True
+        assert matches_path_filter(
+            "models/staging/raw_orders.sql", pattern, None
+        ) is False

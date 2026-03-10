@@ -45,22 +45,25 @@ def model_directories(
     if resource.resource_type != "model" or not resource.model_type:
         return None
     folder_key = f"{resource.model_type}_folder_name"
-    expected_folder = config.params.get(folder_key)
-    if not expected_folder:
+    expected = config.params.get(folder_key)
+    if not expected:
         return None
-    if f"/{expected_folder}/" not in f"/{resource.file_path}":
-        return Violation(
-            rule_id="structure/model-directories",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=(
-                f"{resource.resource_name}: expected in"
-                f" {expected_folder}/ directory"
-            ),
-            severity=config.severity,
-            file_path=resource.file_path,
-        )
-    return None
+    folders = expected if isinstance(expected, list) else [expected]
+    path = f"/{resource.file_path}"
+    if any(f"/{f}/" in path for f in folders):
+        return None
+    display = folders[0] if len(folders) == 1 else f"one of {folders}"
+    return Violation(
+        rule_id="structure/model-directories",
+        resource_id=resource.resource_id,
+        resource_name=resource.resource_name,
+        message=(
+            f"{resource.resource_name}: expected in"
+            f" {display}/ directory"
+        ),
+        severity=config.severity,
+        file_path=resource.file_path,
+    )
 
 
 @rule(

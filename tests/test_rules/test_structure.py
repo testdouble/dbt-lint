@@ -81,6 +81,33 @@ class TestModelDirectories:
         )
         assert model_directories(r, default_config) is None
 
+    def test_folder_name_as_list(self, make_resource, default_config):
+        """When folder_name is a list, any matching dir passes."""
+        default_config.params["intermediate_folder_name"] = [
+            "intermediate",
+            "transformed_intermediate",
+        ]
+        r = make_resource(
+            resource_type="model",
+            model_type="intermediate",
+            file_path="models/transformed_intermediate/int_orders.sql",
+        )
+        assert model_directories(r, default_config) is None
+
+    def test_folder_name_as_list_flags_mismatch(
+        self, make_resource, default_config
+    ):
+        default_config.params["intermediate_folder_name"] = [
+            "intermediate",
+            "transformed_intermediate",
+        ]
+        r = make_resource(
+            resource_type="model",
+            model_type="intermediate",
+            file_path="models/reporting/int_orders.sql",
+        )
+        assert model_directories(r, default_config) is not None
+
 
 class TestSourceDirectories:
     def test_flags_source_not_in_staging(

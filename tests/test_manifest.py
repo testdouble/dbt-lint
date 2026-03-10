@@ -1,0 +1,732 @@
+"""Tests for manifest.py: JSON manifest parsing into Resources and DirectEdges."""
+
+from __future__ import annotations
+
+import pytest
+
+from dbt_linter.config import DEFAULTS
+from dbt_linter.manifest import (
+    _build_test_index,
+    _check_schema_version,
+    _classify_model_type,
+    _exposure_to_resource,
+    _extract_edges,
+    _extract_skip_rules,
+    _has_hard_coded_references,
+    _is_primary_key_tested,
+    _model_to_resource,
+    _source_to_resource,
+    parse_manifest,
+)
+from dbt_linter.models import DirectEdge
+
+
+class TestCheckSchemaVersion:
+    def test_v11_passes(self):
+        manifest = {
+            "metadata": {
+                "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json"
+            }
+        }
+        _check_schema_version(manifest)  # should not raise
+
+    def test_v12_passes(self):
+        manifest = {
+            "metadata": {
+                "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json"
+            }
+        }
+        _check_schema_version(manifest)
+
+    def test_v10_raises(self):
+        manifest = {
+            "metadata": {
+                "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v10.json"
+            }
+        }
+        with pytest.raises(SystemExit, match="v11"):
+            _check_schema_version(manifest)
+
+    def test_v1_raises(self):
+        manifest = {
+            "metadata": {
+                "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v1.json"
+            }
+        }
+        with pytest.raises(SystemExit, match="v11"):
+            _check_schema_version(manifest)
+
+    def test_missing_metadata_raises(self):
+        with pytest.raises(SystemExit):
+            _check_schema_version({})
+
+    def test_missing_schema_version_raises(self):
+        with pytest.raises(SystemExit):
+            _check_schema_version({"metadata": {}})
+
+
+class TestBuildTestIndex:
+    def test_empty_nodes(self):
+        manifest = {"nodes": {}}
+        assert _build_test_index(manifest) == {}
+
+    def test_indexes_generic_test_by_attached_node(self):
+        manifest = {
+            "nodes": {
+                "test.pkg.unique_orders_id": {
+                    "resource_type": "test",
+                    "test_metadata": {
+                        "name": "unique",
+                        "namespace": "dbt",
+                        "kwargs": {"column_name": "id"},
+                    },
+                    "attached_node": "model.pkg.orders",
+                },
+            }
+        }
+        index = _build_test_index(manifest)
+        assert "model.pkg.orders" in index
+        assert len(index["model.pkg.orders"]) == 1
+        assert index["model.pkg.orders"][0]["name"] == "unique"
+
+    def test_multiple_tests_on_same_model(self):
+        manifest = {
+            "nodes": {
+                "test.pkg.unique_orders_id": {
+                    "resource_type": "test",
+                    "test_metadata": {
+                        "name": "unique",
+                        "namespace": "dbt",
+                        "kwargs": {},
+                    },
+                    "attached_node": "model.pkg.orders",
+                },
+                "test.pkg.not_null_orders_id": {
+                    "resource_type": "test",
+                    "test_metadata": {
+                        "name": "not_null",
+                        "namespace": "dbt",
+                        "kwargs": {},
+                    },
+                    "attached_node": "model.pkg.orders",
+                },
+            }
+        }
+        index = _build_test_index(manifest)
+        assert len(index["model.pkg.orders"]) == 2
+
+    def test_skips_non_test_nodes(self):
+        manifest = {
+            "nodes": {
+                "model.pkg.orders": {
+                    "resource_type": "model",
+                    "name": "orders",
+                }
+            }
+        }
+        assert _build_test_index(manifest) == {}
+
+    def test_skips_singular_tests_without_test_metadata(self):
+        """Singular tests (data tests) lack test_metadata."""
+        manifest = {
+            "nodes": {
+                "test.pkg.assert_positive_revenue": {
+                    "resource_type": "test",
+                    # no test_metadata
+                }
+            }
+        }
+        assert _build_test_index(manifest) == {}
+
+    def test_skips_tests_without_attached_node(self):
+        manifest = {
+            "nodes": {
+                "test.pkg.orphan_test": {
+                    "resource_type": "test",
+                    "test_metadata": {
+                        "name": "unique",
+                        "namespace": "dbt",
+                        "kwargs": {},
+                    },
+                    # no attached_node
+                }
+            }
+        }
+        assert _build_test_index(manifest) == {}
+
+
+class TestClassifyModelType:
+    """Two-pass heuristic: prefix match first, then directory match."""
+
+    def test_staging_prefix(self):
+        assert (
+            _classify_model_type(
+                "stg_orders", "models/staging/orders/stg_orders.sql", DEFAULTS
+            )
+            == "staging"
+        )
+
+    def test_intermediate_prefix(self):
+        assert (
+            _classify_model_type(
+                "int_orders_pivoted",
+                "models/intermediate/int_orders_pivoted.sql",
+                DEFAULTS,
+            )
+            == "intermediate"
+        )
+
+    def test_marts_fct_prefix(self):
+        assert (
+            _classify_model_type("fct_orders", "models/marts/fct_orders.sql", DEFAULTS)
+            == "marts"
+        )
+
+    def test_marts_dim_prefix(self):
+        assert (
+            _classify_model_type(
+                "dim_customers", "models/marts/dim_customers.sql", DEFAULTS
+            )
+            == "marts"
+        )
+
+    def test_base_prefix(self):
+        assert (
+            _classify_model_type("base_orders", "models/base/base_orders.sql", DEFAULTS)
+            == "base"
+        )
+
+    def test_other_prefix(self):
+        assert (
+            _classify_model_type(
+                "rpt_weekly_sales", "models/reports/rpt_weekly_sales.sql", DEFAULTS
+            )
+            == "other"
+        )
+
+    def test_directory_fallback_staging(self):
+        """No prefix match, falls back to directory."""
+        assert (
+            _classify_model_type(
+                "orders", "models/staging/src_name/orders.sql", DEFAULTS
+            )
+            == "staging"
+        )
+
+    def test_directory_fallback_marts(self):
+        assert (
+            _classify_model_type("orders", "models/marts/orders.sql", DEFAULTS)
+            == "marts"
+        )
+
+    def test_directory_fallback_intermediate(self):
+        assert (
+            _classify_model_type("orders", "models/intermediate/orders.sql", DEFAULTS)
+            == "intermediate"
+        )
+
+    def test_prefix_takes_precedence_over_directory(self):
+        """Model named stg_ but in marts directory: prefix wins."""
+        assert (
+            _classify_model_type("stg_orders", "models/marts/stg_orders.sql", DEFAULTS)
+            == "staging"
+        )
+
+    def test_no_match_returns_other(self):
+        assert (
+            _classify_model_type("my_model", "models/custom/my_model.sql", DEFAULTS)
+            == "other"
+        )
+
+    def test_nested_directory_match(self):
+        """Directory match works with nested paths."""
+        assert (
+            _classify_model_type("orders", "models/staging/stripe/orders.sql", DEFAULTS)
+            == "staging"
+        )
+
+
+class TestHasHardCodedReferences:
+    def test_clean_sql_no_references(self):
+        sql = "SELECT * FROM {{ ref('stg_orders') }}"
+        assert _has_hard_coded_references(sql) is False
+
+    def test_source_macro_is_clean(self):
+        sql = "SELECT * FROM {{ source('stripe', 'payments') }}"
+        assert _has_hard_coded_references(sql) is False
+
+    def test_schema_dot_table_unquoted(self):
+        sql = "SELECT * FROM raw_data.orders"
+        assert _has_hard_coded_references(sql) is True
+
+    def test_schema_dot_table_after_join(self):
+        sql = "JOIN analytics.customers ON o.customer_id = c.id"
+        assert _has_hard_coded_references(sql) is True
+
+    def test_database_schema_table(self):
+        sql = "SELECT * FROM prod_db.raw_data.orders"
+        assert _has_hard_coded_references(sql) is True
+
+    def test_var_function_in_from(self):
+        sql = "SELECT * FROM {{ var('schema') }}.orders"
+        assert _has_hard_coded_references(sql) is True
+
+    def test_quoted_schema_table(self):
+        sql = 'SELECT * FROM "raw_data"."orders"'
+        assert _has_hard_coded_references(sql) is True
+
+    def test_backtick_quoted(self):
+        sql = "SELECT * FROM `raw_data`.`orders`"
+        assert _has_hard_coded_references(sql) is True
+
+    def test_empty_sql(self):
+        assert _has_hard_coded_references("") is False
+
+    def test_ref_and_hardcoded_mixed(self):
+        """If any hard-coded reference exists, flag it."""
+        sql = """
+        SELECT *
+        FROM {{ ref('stg_orders') }} o
+        JOIN raw_data.customers c ON o.id = c.id
+        """
+        assert _has_hard_coded_references(sql) is True
+
+    def test_jinja_comment_not_flagged(self):
+        """Jinja ref/source calls should not trigger."""
+        sql = """
+        {# This model loads from raw_data.orders #}
+        SELECT * FROM {{ ref('stg_orders') }}
+        """
+        assert _has_hard_coded_references(sql) is False
+
+
+class TestIsPrimaryKeyTested:
+    """Check test_metadata index against primary_key_test_macros config."""
+
+    @pytest.fixture
+    def default_macros(self):
+        return DEFAULTS["primary_key_test_macros"]
+
+    def test_unique_and_not_null_qualifies(self, default_macros):
+        tests = [
+            {"name": "unique", "namespace": "dbt", "kwargs": {}},
+            {"name": "not_null", "namespace": "dbt", "kwargs": {}},
+        ]
+        assert _is_primary_key_tested(tests, default_macros) is True
+
+    def test_unique_alone_does_not_qualify(self, default_macros):
+        tests = [{"name": "unique", "namespace": "dbt", "kwargs": {}}]
+        assert _is_primary_key_tested(tests, default_macros) is False
+
+    def test_not_null_alone_does_not_qualify(self, default_macros):
+        tests = [{"name": "not_null", "namespace": "dbt", "kwargs": {}}]
+        assert _is_primary_key_tested(tests, default_macros) is False
+
+    def test_unique_combination_of_columns_qualifies(self, default_macros):
+        tests = [
+            {
+                "name": "unique_combination_of_columns",
+                "namespace": "dbt_utils",
+                "kwargs": {},
+            },
+        ]
+        assert _is_primary_key_tested(tests, default_macros) is True
+
+    def test_no_tests_does_not_qualify(self, default_macros):
+        assert _is_primary_key_tested([], default_macros) is False
+
+    def test_unrelated_tests_do_not_qualify(self, default_macros):
+        tests = [
+            {"name": "accepted_values", "namespace": "dbt", "kwargs": {}},
+            {"name": "relationships", "namespace": "dbt", "kwargs": {}},
+        ]
+        assert _is_primary_key_tested(tests, default_macros) is False
+
+    def test_custom_macro_set(self):
+        """Custom primary_key_test_macros config."""
+        custom_macros = [["custom_pkg.test_pk"]]
+        tests = [{"name": "pk", "namespace": "custom_pkg", "kwargs": {}}]
+        assert _is_primary_key_tested(tests, custom_macros) is True
+
+
+class TestExtractSkipRules:
+    def test_no_meta(self):
+        assert _extract_skip_rules({}) == frozenset()
+
+    def test_no_dbt_linter_key(self):
+        assert _extract_skip_rules({"other": "value"}) == frozenset()
+
+    def test_skip_list(self):
+        meta = {
+            "dbt-linter": {
+                "skip": [
+                    "modeling/hard-coded-references",
+                    "structure/model-naming-conventions",
+                ]
+            }
+        }
+        assert _extract_skip_rules(meta) == frozenset(
+            {"modeling/hard-coded-references", "structure/model-naming-conventions"}
+        )
+
+    def test_empty_skip_list(self):
+        meta = {"dbt-linter": {"skip": []}}
+        assert _extract_skip_rules(meta) == frozenset()
+
+    def test_missing_skip_key(self):
+        meta = {"dbt-linter": {"other": True}}
+        assert _extract_skip_rules(meta) == frozenset()
+
+
+class TestModelToResource:
+    @pytest.fixture
+    def model_node(self):
+        return {
+            "unique_id": "model.pkg.stg_orders",
+            "name": "stg_orders",
+            "resource_type": "model",
+            "original_file_path": "models/staging/stripe/stg_orders.sql",
+            "fqn": ["pkg", "staging", "stripe", "stg_orders"],
+            "config": {
+                "materialized": "view",
+                "meta": {},
+                "tags": ["daily"],
+            },
+            "description": "Staged orders from Stripe",
+            "columns": {
+                "id": {"name": "id", "description": "Primary key"},
+                "amount": {"name": "amount", "description": ""},
+            },
+            "raw_code": "SELECT * FROM {{ source('stripe', 'orders') }}",
+            "access": "protected",
+            "contract": {"enforced": False},
+            "schema": "staging",
+            "database": "analytics",
+        }
+
+    @pytest.fixture
+    def test_index(self):
+        return {
+            "model.pkg.stg_orders": [
+                {"name": "unique", "namespace": "dbt", "kwargs": {}},
+                {"name": "not_null", "namespace": "dbt", "kwargs": {}},
+            ]
+        }
+
+    def test_basic_fields(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.resource_id == "model.pkg.stg_orders"
+        assert r.resource_name == "stg_orders"
+        assert r.resource_type == "model"
+        assert r.file_path == "models/staging/stripe/stg_orders.sql"
+        assert r.materialization == "view"
+        assert r.schema_name == "staging"
+        assert r.database == "analytics"
+
+    def test_model_type_classified(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.model_type == "staging"
+
+    def test_description_flag(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.is_described is True
+
+    def test_undescribed_model(self, model_node, test_index):
+        model_node["description"] = ""
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.is_described is False
+
+    def test_column_counts(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.number_of_columns == 2
+        assert r.number_of_documented_columns == 1  # only "id" has description
+
+    def test_hard_coded_references_false(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.hard_coded_references is False
+
+    def test_hard_coded_references_true(self, model_node, test_index):
+        model_node["raw_code"] = "SELECT * FROM raw.orders"
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.hard_coded_references is True
+
+    def test_primary_key_tested(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.is_primary_key_tested is True
+
+    def test_not_primary_key_tested(self, model_node):
+        r = _model_to_resource(model_node, {}, DEFAULTS)
+        assert r.is_primary_key_tested is False
+
+    def test_access_public(self, model_node, test_index):
+        model_node["access"] = "public"
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.is_public is True
+
+    def test_contract_enforced(self, model_node, test_index):
+        model_node["contract"]["enforced"] = True
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.is_contract_enforced is True
+
+    def test_tags(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.tags == ("daily",)
+
+    def test_skip_rules_from_meta(self, model_node, test_index):
+        model_node["config"]["meta"] = {
+            "dbt-linter": {"skip": ["modeling/hard-coded-references"]}
+        }
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.skip_rules == frozenset({"modeling/hard-coded-references"})
+
+
+class TestSourceToResource:
+    @pytest.fixture
+    def source_node(self):
+        return {
+            "unique_id": "source.pkg.stripe.payments",
+            "name": "payments",
+            "source_name": "stripe",
+            "source_description": "Stripe payment data",
+            "original_file_path": "models/staging/stripe/_stripe__sources.yml",
+            "description": "Raw payment events",
+            "freshness": {
+                "warn_after": {"count": 24, "period": "hour"},
+                "error_after": None,
+            },
+            "meta": {},
+            "database": "raw",
+            "schema": "stripe",
+            "identifier": "payments",
+        }
+
+    def test_basic_fields(self, source_node):
+        r = _source_to_resource(source_node)
+        assert r.resource_id == "source.pkg.stripe.payments"
+        assert r.resource_name == "payments"
+        assert r.resource_type == "source"
+        assert r.file_path == "models/staging/stripe/_stripe__sources.yml"
+
+    def test_source_described(self, source_node):
+        r = _source_to_resource(source_node)
+        assert r.is_described is True
+
+    def test_source_undescribed(self, source_node):
+        source_node["description"] = ""
+        r = _source_to_resource(source_node)
+        assert r.is_described is False
+
+    def test_freshness_enabled(self, source_node):
+        r = _source_to_resource(source_node)
+        assert r.is_freshness_enabled is True
+
+    def test_freshness_disabled(self, source_node):
+        source_node["freshness"] = {"warn_after": None, "error_after": None}
+        r = _source_to_resource(source_node)
+        assert r.is_freshness_enabled is False
+
+    def test_freshness_null(self, source_node):
+        source_node["freshness"] = None
+        r = _source_to_resource(source_node)
+        assert r.is_freshness_enabled is False
+
+    def test_model_type_empty_for_sources(self, source_node):
+        r = _source_to_resource(source_node)
+        assert r.model_type == ""
+
+    def test_source_meta_contains_source_description(self, source_node):
+        """source_description_populated tracks source-level description."""
+        r = _source_to_resource(source_node)
+        assert r.meta["source_description_populated"] is True
+
+    def test_source_meta_no_description(self, source_node):
+        source_node["source_description"] = ""
+        r = _source_to_resource(source_node)
+        assert r.meta["source_description_populated"] is False
+
+
+class TestExposureToResource:
+    @pytest.fixture
+    def exposure_node(self):
+        return {
+            "unique_id": "exposure.pkg.weekly_report",
+            "name": "weekly_report",
+            "original_file_path": "models/exposures/weekly_report.yml",
+            "depends_on": {
+                "nodes": ["model.pkg.fct_orders", "model.pkg.dim_customers"]
+            },
+        }
+
+    def test_basic_fields(self, exposure_node):
+        r = _exposure_to_resource(exposure_node)
+        assert r.resource_id == "exposure.pkg.weekly_report"
+        assert r.resource_name == "weekly_report"
+        assert r.resource_type == "exposure"
+        assert r.file_path == "models/exposures/weekly_report.yml"
+
+    def test_exposure_defaults(self, exposure_node):
+        r = _exposure_to_resource(exposure_node)
+        assert r.model_type == ""
+        assert r.materialization == ""
+        assert r.is_described is False
+        assert r.is_public is False
+        assert r.number_of_columns == 0
+
+
+class TestExtractEdges:
+    def test_empty_parent_map(self):
+        assert _extract_edges({}) == []
+
+    def test_single_edge(self):
+        parent_map = {"model.pkg.stg_orders": ["source.pkg.stripe.orders"]}
+        edges = _extract_edges(parent_map)
+        assert len(edges) == 1
+        assert edges[0] == DirectEdge(
+            parent="source.pkg.stripe.orders", child="model.pkg.stg_orders"
+        )
+
+    def test_multiple_parents(self):
+        parent_map = {
+            "model.pkg.fct_orders": [
+                "model.pkg.stg_orders",
+                "model.pkg.stg_customers",
+            ]
+        }
+        edges = _extract_edges(parent_map)
+        assert len(edges) == 2
+        parents = {e.parent for e in edges}
+        assert parents == {"model.pkg.stg_orders", "model.pkg.stg_customers"}
+
+    def test_multiple_children(self):
+        parent_map = {
+            "model.pkg.stg_orders": ["source.pkg.stripe.orders"],
+            "model.pkg.stg_payments": ["source.pkg.stripe.payments"],
+        }
+        edges = _extract_edges(parent_map)
+        assert len(edges) == 2
+
+
+class TestParseManifest:
+    """Integration test: full parse_manifest with minimal fixture."""
+
+    @pytest.fixture
+    def manifest_dict(self):
+        return {
+            "metadata": {
+                "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json"
+            },
+            "nodes": {
+                "model.pkg.stg_orders": {
+                    "unique_id": "model.pkg.stg_orders",
+                    "name": "stg_orders",
+                    "resource_type": "model",
+                    "original_file_path": "models/staging/stripe/stg_orders.sql",
+                    "fqn": ["pkg", "staging", "stripe", "stg_orders"],
+                    "config": {"materialized": "view", "meta": {}, "tags": []},
+                    "description": "Staged orders",
+                    "columns": {"id": {"name": "id", "description": "PK"}},
+                    "raw_code": "SELECT * FROM {{ source('stripe', 'orders') }}",
+                    "access": "protected",
+                    "contract": {"enforced": False},
+                    "schema": "staging",
+                    "database": "analytics",
+                },
+                "test.pkg.unique_stg_orders_id": {
+                    "resource_type": "test",
+                    "test_metadata": {
+                        "name": "unique",
+                        "namespace": "dbt",
+                        "kwargs": {},
+                    },
+                    "attached_node": "model.pkg.stg_orders",
+                },
+                "test.pkg.not_null_stg_orders_id": {
+                    "resource_type": "test",
+                    "test_metadata": {
+                        "name": "not_null",
+                        "namespace": "dbt",
+                        "kwargs": {},
+                    },
+                    "attached_node": "model.pkg.stg_orders",
+                },
+            },
+            "sources": {
+                "source.pkg.stripe.orders": {
+                    "unique_id": "source.pkg.stripe.orders",
+                    "name": "orders",
+                    "source_name": "stripe",
+                    "source_description": "Stripe data",
+                    "original_file_path": "models/staging/stripe/_stripe__sources.yml",
+                    "description": "Raw orders",
+                    "freshness": {
+                        "warn_after": {"count": 24, "period": "hour"},
+                        "error_after": None,
+                    },
+                    "meta": {},
+                    "database": "raw",
+                    "schema": "stripe",
+                    "identifier": "orders",
+                },
+            },
+            "exposures": {
+                "exposure.pkg.dashboard": {
+                    "unique_id": "exposure.pkg.dashboard",
+                    "name": "dashboard",
+                    "original_file_path": "models/exposures/dashboard.yml",
+                    "depends_on": {"nodes": ["model.pkg.stg_orders"]},
+                },
+            },
+            "parent_map": {
+                "model.pkg.stg_orders": ["source.pkg.stripe.orders"],
+                "exposure.pkg.dashboard": ["model.pkg.stg_orders"],
+            },
+        }
+
+    def test_parse_returns_resources_and_edges(self, manifest_dict, tmp_path):
+        manifest_path = tmp_path / "manifest.json"
+        import json
+
+        manifest_path.write_text(json.dumps(manifest_dict))
+
+        from dbt_linter.config import load_config
+
+        config = load_config(None)
+        resources, edges = parse_manifest(manifest_path, config)
+
+        assert len(resources) == 3  # 1 model + 1 source + 1 exposure
+        assert len(edges) == 2
+
+        resource_types = {r.resource_type for r in resources}
+        assert resource_types == {"model", "source", "exposure"}
+
+    def test_model_fields_correct(self, manifest_dict, tmp_path):
+        manifest_path = tmp_path / "manifest.json"
+        import json
+
+        manifest_path.write_text(json.dumps(manifest_dict))
+
+        from dbt_linter.config import load_config
+
+        config = load_config(None)
+        resources, _ = parse_manifest(manifest_path, config)
+
+        model = next(r for r in resources if r.resource_type == "model")
+        assert model.resource_name == "stg_orders"
+        assert model.model_type == "staging"
+        assert model.is_primary_key_tested is True
+        assert model.hard_coded_references is False
+
+    def test_version_guard_rejects_old_manifest(self, manifest_dict, tmp_path):
+        manifest_dict["metadata"]["dbt_schema_version"] = (
+            "https://schemas.getdbt.com/dbt/manifest/v9.json"
+        )
+        manifest_path = tmp_path / "manifest.json"
+        import json
+
+        manifest_path.write_text(json.dumps(manifest_dict))
+
+        from dbt_linter.config import load_config
+
+        config = load_config(None)
+        with pytest.raises(SystemExit, match="v11"):
+            parse_manifest(manifest_path, config)

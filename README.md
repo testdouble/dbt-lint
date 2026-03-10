@@ -135,10 +135,14 @@ intermediate_prefixes: [int_]
 marts_prefixes: [fct_, dim_]
 base_prefixes: [base_]
 
-# Expected directory names
+# Expected directory names (string or list)
 staging_folder_name: staging
 intermediate_folder_name: intermediate
 marts_folder_name: marts
+# For projects with multiple directories per model type:
+# intermediate_folder_name:
+#   - intermediate
+#   - transformed_intermediate
 
 # Materialization constraints
 staging_allowed_materializations: [view]

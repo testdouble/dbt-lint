@@ -3,6 +3,7 @@
 from dbt_linter.rules.testing import (
     check_test_coverage,
     missing_primary_key_tests,
+    missing_relationship_tests,
     sources_without_freshness,
 )
 
@@ -101,3 +102,81 @@ class TestTestCoverage:
             v for v in vs if v.resource_name == "staging"
         ]
         assert len(staging_vs) == 0
+
+
+class TestMissingRelationshipTests:
+    def test_flags_model_with_refs_but_no_relationship_tests(
+        self, make_resource, make_relationship, default_config
+    ):
+        """A model that refs other models but has no relationship tests."""
+        child = make_resource(
+            resource_id="model.pkg.orders",
+            resource_type="model",
+            model_type="marts",
+            has_relationship_tests=False,
+        )
+        rels = [
+            make_relationship(
+                parent="model.pkg.customers",
+                child="model.pkg.orders",
+                parent_resource_type="model",
+                child_resource_type="model",
+                distance=1,
+            ),
+        ]
+        vs = missing_relationship_tests([child], rels, default_config)
+        assert len(vs) == 1
+
+    def test_clean_model_with_relationship_tests(
+        self, make_resource, make_relationship, default_config
+    ):
+        child = make_resource(
+            resource_id="model.pkg.orders",
+            resource_type="model",
+            model_type="marts",
+            has_relationship_tests=True,
+        )
+        rels = [
+            make_relationship(
+                parent="model.pkg.customers",
+                child="model.pkg.orders",
+                parent_resource_type="model",
+                child_resource_type="model",
+                distance=1,
+            ),
+        ]
+        vs = missing_relationship_tests([child], rels, default_config)
+        assert vs == []
+
+    def test_ignores_staging_models(
+        self, make_resource, make_relationship, default_config
+    ):
+        child = make_resource(
+            resource_id="model.pkg.stg_orders",
+            resource_type="model",
+            model_type="staging",
+            has_relationship_tests=False,
+        )
+        rels = [
+            make_relationship(
+                parent="source.pkg.raw.orders",
+                child="model.pkg.stg_orders",
+                parent_resource_type="source",
+                child_resource_type="model",
+                distance=1,
+            ),
+        ]
+        vs = missing_relationship_tests([child], rels, default_config)
+        assert vs == []
+
+    def test_ignores_models_with_no_model_parents(
+        self, make_resource, default_config
+    ):
+        child = make_resource(
+            resource_id="model.pkg.stg_orders",
+            resource_type="model",
+            model_type="other",
+            has_relationship_tests=False,
+        )
+        vs = missing_relationship_tests([child], [], default_config)
+        assert vs == []

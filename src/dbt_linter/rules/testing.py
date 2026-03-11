@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dbt_linter.config import RuleConfig
 from dbt_linter.models import Relationship, Resource, Violation
-from dbt_linter.rules import filter_by_model_type, rule
+from dbt_linter.rules import direct_edges, filter_by_model_type, rule
 
 
 @rule(
@@ -56,6 +56,47 @@ def sources_without_freshness(
             file_path=resource.file_path,
         )
     return None
+
+
+@rule(
+    id="testing/missing-relationship-tests",
+    description="Models with model parents but no relationship tests.",
+)
+def missing_relationship_tests(
+    resources: list[Resource],
+    relationships: list[Relationship],
+    config: RuleConfig,
+) -> list[Violation]:
+    edges = direct_edges(relationships)
+    models_with_model_parents = {
+        e.child
+        for e in edges
+        if e.child_resource_type == "model"
+        and e.parent_resource_type == "model"
+    }
+
+    violations = []
+    for r in resources:
+        if (
+            r.resource_type == "model"
+            and r.model_type != "staging"
+            and r.resource_id in models_with_model_parents
+            and not r.has_relationship_tests
+        ):
+            violations.append(
+                Violation(
+                    rule_id="testing/missing-relationship-tests",
+                    resource_id=r.resource_id,
+                    resource_name=r.resource_name,
+                    message=(
+                        f"{r.resource_name}: has model dependencies"
+                        " but no relationship tests"
+                    ),
+                    severity=config.severity,
+                    file_path=r.file_path,
+                )
+            )
+    return violations
 
 
 @rule(

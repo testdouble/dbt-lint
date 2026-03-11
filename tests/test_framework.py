@@ -18,9 +18,7 @@ class TestRuleDecorator:
             id="testing/example-rule",
             description="An example rule.",
         )
-        def example_rule(
-            resource: Resource, config: RuleConfig
-        ) -> Violation | None:
+        def example_rule(resource: Resource, config: RuleConfig) -> Violation | None:
             return None
 
         assert hasattr(example_rule, "_rule_meta")
@@ -29,9 +27,7 @@ class TestRuleDecorator:
 
     def test_returns_function_unchanged(self):
         @rule(id="testing/noop", description="Noop.")
-        def noop(
-            resource: Resource, config: RuleConfig
-        ) -> Violation | None:
+        def noop(resource: Resource, config: RuleConfig) -> Violation | None:
             return None
 
         # Function is still callable
@@ -39,9 +35,7 @@ class TestRuleDecorator:
 
     def test_department_derived_from_id(self):
         @rule(id="modeling/some-rule", description="Test.")
-        def some_rule(
-            resource: Resource, config: RuleConfig
-        ) -> Violation | None:
+        def some_rule(resource: Resource, config: RuleConfig) -> Violation | None:
             return None
 
         assert some_rule._rule_meta.department == "modeling"
@@ -50,9 +44,7 @@ class TestRuleDecorator:
 class TestSignatureDetection:
     def test_per_resource_rule(self):
         @rule(id="test/per-resource", description="Test.")
-        def per_resource(
-            resource: Resource, config: RuleConfig
-        ) -> Violation | None:
+        def per_resource(resource: Resource, config: RuleConfig) -> Violation | None:
             return None
 
         rd = RuleDef.from_function(per_resource)
@@ -110,9 +102,9 @@ class TestDirectEdges:
 
 
 class TestGetAllRules:
-    def test_discovers_all_38_rules(self):
+    def test_discovers_all_39_rules(self):
         rules = get_all_rules()
-        assert len(rules) == 38
+        assert len(rules) == 39
 
     def test_all_rules_have_unique_ids(self):
         rules = get_all_rules()

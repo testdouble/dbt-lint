@@ -15,9 +15,7 @@ _SNAKE_CASE = re.compile(r"^[a-z][a-z0-9_]*$")
     id="structure/model-name-format",
     description="Model name is not valid snake_case.",
 )
-def model_name_format(
-    resource: Resource, config: RuleConfig
-) -> Violation | None:
+def model_name_format(resource: Resource, config: RuleConfig) -> Violation | None:
     if resource.resource_type != "model":
         return None
     if _SNAKE_CASE.match(resource.resource_name):
@@ -67,9 +65,7 @@ def model_naming_conventions(
     id="structure/model-directories",
     description="Model not in expected directory for its model type.",
 )
-def model_directories(
-    resource: Resource, config: RuleConfig
-) -> Violation | None:
+def model_directories(resource: Resource, config: RuleConfig) -> Violation | None:
     if resource.resource_type != "model" or not resource.model_type:
         return None
     folder_key = f"{resource.model_type}_folder_name"
@@ -85,10 +81,7 @@ def model_directories(
         rule_id="structure/model-directories",
         resource_id=resource.resource_id,
         resource_name=resource.resource_name,
-        message=(
-            f"{resource.resource_name}: expected in"
-            f" {display}/ directory"
-        ),
+        message=(f"{resource.resource_name}: expected in {display}/ directory"),
         severity=config.severity,
         file_path=resource.file_path,
     )
@@ -98,9 +91,7 @@ def model_directories(
     id="structure/source-directories",
     description="Source YAML not in staging directory.",
 )
-def source_directories(
-    resource: Resource, config: RuleConfig
-) -> Violation | None:
+def source_directories(resource: Resource, config: RuleConfig) -> Violation | None:
     if resource.resource_type != "source":
         return None
     staging_folder = config.params.get("staging_folder_name", "staging")
@@ -153,7 +144,7 @@ def staging_naming_convention(
             break
     if matched_prefix is None:
         return None
-    remainder = resource.resource_name[len(matched_prefix):]
+    remainder = resource.resource_name[len(matched_prefix) :]
     if "__" in remainder:
         return None
     return Violation(
@@ -175,10 +166,7 @@ def _check_materialization(
     model_type: str,
     rule_id: str,
 ) -> Violation | None:
-    if (
-        resource.resource_type != "model"
-        or resource.model_type != model_type
-    ):
+    if resource.resource_type != "model" or resource.model_type != model_type:
         return None
     allowed_key = f"{model_type}_allowed_materializations"
     allowed = config.params.get(allowed_key, [])
@@ -204,9 +192,7 @@ def _check_materialization(
     id="structure/staging-materialization",
     description="Staging model not in allowed materializations.",
 )
-def staging_materialization(
-    resource: Resource, config: RuleConfig
-) -> Violation | None:
+def staging_materialization(resource: Resource, config: RuleConfig) -> Violation | None:
     return _check_materialization(
         resource, config, "staging", "structure/staging-materialization"
     )
@@ -231,9 +217,43 @@ def intermediate_materialization(
     id="structure/marts-materialization",
     description="Marts model not in allowed materializations.",
 )
-def marts_materialization(
-    resource: Resource, config: RuleConfig
-) -> Violation | None:
+def marts_materialization(resource: Resource, config: RuleConfig) -> Violation | None:
     return _check_materialization(
         resource, config, "marts", "structure/marts-materialization"
+    )
+
+
+_YAML_NAMING_RE = re.compile(
+    r"_[a-z][a-z0-9_]*__(?:models|sources|docs)\.(?:yml|yaml|md)$"
+)
+
+
+@rule(
+    id="structure/yaml-file-naming",
+    description="YAML/doc file doesn't follow _<dir>__<type> naming convention.",
+)
+def yaml_file_naming(resource: Resource, config: RuleConfig) -> Violation | None:
+    if resource.resource_type == "source":
+        yaml_path = resource.file_path
+    elif resource.resource_type == "model" and resource.patch_path:
+        # patch_path format: "project://path/to/file.yml"
+        yaml_path = resource.patch_path.split("://", 1)[-1]
+    else:
+        return None
+
+    filename = yaml_path.rsplit("/", 1)[-1]
+    if not filename.endswith((".yml", ".yaml")):
+        return None
+    if _YAML_NAMING_RE.search(filename):
+        return None
+    return Violation(
+        rule_id="structure/yaml-file-naming",
+        resource_id=resource.resource_id,
+        resource_name=resource.resource_name,
+        message=(
+            f"{resource.resource_name}: YAML file '{filename}' should follow"
+            " _<directory>__<type>.yml naming convention"
+        ),
+        severity=config.severity,
+        file_path=yaml_path,
     )

@@ -5,6 +5,7 @@ from dbt_linter.rules.modeling import (
     downstream_depends_on_source,
     duplicate_sources,
     hard_coded_references,
+    intermediate_fanout,
     model_fanout,
     multiple_sources_joined,
     rejoining_upstream_concepts,
@@ -12,6 +13,7 @@ from dbt_linter.rules.modeling import (
     source_fanout,
     staging_depends_on_downstream,
     staging_depends_on_staging,
+    staging_model_too_many_parents,
     too_many_joins,
     unused_sources,
 )
@@ -411,3 +413,202 @@ class TestRejoiningUpstreamConcepts:
         assert rejoining_upstream_concepts(
             [], rels, default_config
         ) == []
+
+
+class TestStagingModelTooManyParents:
+    def test_flags_staging_with_two_parents(
+        self, make_resource, make_relationship, default_config
+    ):
+        stg = make_resource(
+            resource_id="model.pkg.stg_orders",
+            resource_type="model",
+            model_type="staging",
+        )
+        rels = [
+            make_relationship(
+                parent="source.pkg.raw.orders",
+                child="model.pkg.stg_orders",
+                parent_resource_type="source",
+                child_resource_type="model",
+                child_model_type="staging",
+            ),
+            make_relationship(
+                parent="source.pkg.raw.deletes",
+                child="model.pkg.stg_orders",
+                parent_resource_type="source",
+                child_resource_type="model",
+                child_model_type="staging",
+            ),
+        ]
+        vs = staging_model_too_many_parents(
+            [stg], rels, default_config
+        )
+        assert len(vs) == 1
+        assert "2 parents" in vs[0].message
+
+    def test_clean_staging_with_one_parent(
+        self, make_resource, make_relationship, default_config
+    ):
+        stg = make_resource(
+            resource_id="model.pkg.stg_orders",
+            resource_type="model",
+            model_type="staging",
+        )
+        rels = [
+            make_relationship(
+                parent="source.pkg.raw.orders",
+                child="model.pkg.stg_orders",
+                parent_resource_type="source",
+                child_resource_type="model",
+                child_model_type="staging",
+            ),
+        ]
+        assert staging_model_too_many_parents(
+            [stg], rels, default_config
+        ) == []
+
+    def test_ignores_non_staging_models(
+        self, make_resource, make_relationship, default_config
+    ):
+        mart = make_resource(
+            resource_id="model.pkg.fct_orders",
+            resource_type="model",
+            model_type="marts",
+        )
+        rels = [
+            make_relationship(
+                parent="model.pkg.a",
+                child="model.pkg.fct_orders",
+                child_resource_type="model",
+                child_model_type="marts",
+            ),
+            make_relationship(
+                parent="model.pkg.b",
+                child="model.pkg.fct_orders",
+                child_resource_type="model",
+                child_model_type="marts",
+            ),
+        ]
+        assert staging_model_too_many_parents(
+            [mart], rels, default_config
+        ) == []
+
+    def test_respects_custom_threshold(
+        self, make_resource, make_relationship, default_config
+    ):
+        """Base models may need joins (e.g., union + delete). Allow override."""
+        default_config.params["staging_max_parents"] = 2
+        stg = make_resource(
+            resource_id="model.pkg.stg_orders",
+            resource_type="model",
+            model_type="staging",
+        )
+        rels = [
+            make_relationship(
+                parent="source.pkg.raw.orders",
+                child="model.pkg.stg_orders",
+                parent_resource_type="source",
+                child_resource_type="model",
+                child_model_type="staging",
+            ),
+            make_relationship(
+                parent="source.pkg.raw.deletes",
+                child="model.pkg.stg_orders",
+                parent_resource_type="source",
+                child_resource_type="model",
+                child_model_type="staging",
+            ),
+        ]
+        assert staging_model_too_many_parents(
+            [stg], rels, default_config
+        ) == []
+
+
+class TestIntermediateFanout:
+    def test_flags_intermediate_with_multiple_children(
+        self, make_resource, make_relationship, default_config
+    ):
+        inter = make_resource(
+            resource_id="model.pkg.int_orders_pivoted",
+            resource_type="model",
+            model_type="intermediate",
+        )
+        rels = [
+            make_relationship(
+                parent="model.pkg.int_orders_pivoted",
+                child="model.pkg.fct_orders",
+                parent_resource_type="model",
+                parent_model_type="intermediate",
+            ),
+            make_relationship(
+                parent="model.pkg.int_orders_pivoted",
+                child="model.pkg.fct_revenue",
+                parent_resource_type="model",
+                parent_model_type="intermediate",
+            ),
+        ]
+        vs = intermediate_fanout([inter], rels, default_config)
+        assert len(vs) == 1
+        assert "2 dependents" in vs[0].message
+
+    def test_clean_intermediate_with_one_child(
+        self, make_resource, make_relationship, default_config
+    ):
+        inter = make_resource(
+            resource_id="model.pkg.int_orders_pivoted",
+            resource_type="model",
+            model_type="intermediate",
+        )
+        rels = [
+            make_relationship(
+                parent="model.pkg.int_orders_pivoted",
+                child="model.pkg.fct_orders",
+                parent_resource_type="model",
+                parent_model_type="intermediate",
+            ),
+        ]
+        assert intermediate_fanout([inter], rels, default_config) == []
+
+    def test_ignores_non_intermediate(
+        self, make_resource, make_relationship, default_config
+    ):
+        mart = make_resource(
+            resource_id="model.pkg.fct_orders",
+            resource_type="model",
+            model_type="marts",
+        )
+        rels = [
+            make_relationship(
+                parent="model.pkg.fct_orders",
+                child="model.pkg.rpt_a",
+                parent_resource_type="model",
+                parent_model_type="marts",
+            ),
+            make_relationship(
+                parent="model.pkg.fct_orders",
+                child="model.pkg.rpt_b",
+                parent_resource_type="model",
+                parent_model_type="marts",
+            ),
+        ]
+        assert intermediate_fanout([mart], rels, default_config) == []
+
+    def test_respects_custom_threshold(
+        self, make_resource, make_relationship, default_config
+    ):
+        default_config.params["intermediate_fanout_threshold"] = 3
+        inter = make_resource(
+            resource_id="model.pkg.int_x",
+            resource_type="model",
+            model_type="intermediate",
+        )
+        rels = [
+            make_relationship(
+                parent="model.pkg.int_x",
+                child=f"model.pkg.c_{i}",
+                parent_resource_type="model",
+                parent_model_type="intermediate",
+            )
+            for i in range(2)
+        ]
+        assert intermediate_fanout([inter], rels, default_config) == []

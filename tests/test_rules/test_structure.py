@@ -4,6 +4,7 @@ from dbt_linter.rules.structure import (
     intermediate_materialization,
     marts_materialization,
     model_directories,
+    model_name_format,
     model_naming_conventions,
     source_directories,
     staging_materialization,
@@ -208,3 +209,63 @@ class TestMartsMaterialization:
             materialization="table",
         )
         assert marts_materialization(r, default_config) is None
+
+
+class TestModelNameFormat:
+    def test_clean_snake_case(self, make_resource, default_config):
+        r = make_resource(
+            resource_type="model",
+            resource_name="stg_orders",
+        )
+        assert model_name_format(r, default_config) is None
+
+    def test_clean_with_numbers(self, make_resource, default_config):
+        r = make_resource(
+            resource_type="model",
+            resource_name="stg_orders_v2",
+        )
+        assert model_name_format(r, default_config) is None
+
+    def test_flags_uppercase(self, make_resource, default_config):
+        r = make_resource(
+            resource_type="model",
+            resource_name="Stg_Orders",
+        )
+        v = model_name_format(r, default_config)
+        assert v is not None
+        assert "snake_case" in v.message
+
+    def test_flags_dots(self, make_resource, default_config):
+        r = make_resource(
+            resource_type="model",
+            resource_name="stg.orders",
+        )
+        assert model_name_format(r, default_config) is not None
+
+    def test_flags_hyphens(self, make_resource, default_config):
+        r = make_resource(
+            resource_type="model",
+            resource_name="stg-orders",
+        )
+        assert model_name_format(r, default_config) is not None
+
+    def test_flags_leading_number(self, make_resource, default_config):
+        r = make_resource(
+            resource_type="model",
+            resource_name="1_orders",
+        )
+        assert model_name_format(r, default_config) is not None
+
+    def test_ignores_sources(self, make_resource, default_config):
+        r = make_resource(
+            resource_type="source",
+            resource_name="RawOrders",
+        )
+        assert model_name_format(r, default_config) is None
+
+    def test_ignores_exposures(self, make_resource, default_config):
+        r = make_resource(
+            resource_type="exposure",
+            resource_name="Weekly-Dashboard",
+        )
+        assert model_name_format(r, default_config) is None

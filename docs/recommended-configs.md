@@ -40,7 +40,28 @@ min_alias_length = 3
 [sqlfluff:rules:convention.select_trailing_comma]
 # Trailing commas in SELECT lists
 select_clause_trailing_comma = require
+
+[sqlfluff:rules:layout.long_lines]
+# dbt best practices recommend max 80 characters
+max_line_length = 80
+
+[sqlfluff:rules:ambiguous.join]
+# Require explicit join types: "inner join" not "join"
+fully_qualify_join_types = both
+
+[sqlfluff:rules:ambiguous.union]
+# Prefer union all / union distinct over bare union
+
+[sqlfluff:rules:jinja.padding]
+# Spaces inside Jinja delimiters: {{ this }} not {{this}}
 ```
+
+**Not enforceable via sqlfluff config:**
+- No right joins (restructure to select from the correct table)
+- Group by column index, not column name
+- Fields before aggregates/window functions in SELECT
+
+These require manual review or custom sqlfluff rules.
 
 ## yamllint
 

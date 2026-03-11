@@ -2,9 +2,37 @@
 
 from __future__ import annotations
 
+import re
+
 from dbt_linter.config import RuleConfig
 from dbt_linter.models import Relationship, Resource, Violation
 from dbt_linter.rules import rule
+
+_SNAKE_CASE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+@rule(
+    id="structure/model-name-format",
+    description="Model name is not valid snake_case.",
+)
+def model_name_format(
+    resource: Resource, config: RuleConfig
+) -> Violation | None:
+    if resource.resource_type != "model":
+        return None
+    if _SNAKE_CASE.match(resource.resource_name):
+        return None
+    return Violation(
+        rule_id="structure/model-name-format",
+        resource_id=resource.resource_id,
+        resource_name=resource.resource_name,
+        message=(
+            f"{resource.resource_name}: model name must be"
+            " snake_case (lowercase letters, numbers, underscores)"
+        ),
+        severity=config.severity,
+        file_path=resource.file_path,
+    )
 
 
 @rule(

@@ -440,6 +440,91 @@ def too_many_joins(
 
 
 @rule(
+    id="modeling/staging-model-too-many-parents",
+    description="Staging models with more than one parent (no joins in staging).",
+)
+def staging_model_too_many_parents(
+    resources: list[Resource],
+    relationships: list[Relationship],
+    config: RuleConfig,
+) -> list[Violation]:
+    threshold = config.params.get("staging_max_parents", 1)
+    edges = direct_edges(relationships)
+    staging_edges = [
+        e for e in edges if e.child_model_type == "staging"
+    ]
+    by_child = group_by(staging_edges, key=lambda e: e.child)
+
+    violations = []
+    resources_by_id = {r.resource_id: r for r in resources}
+    for child_id, parents in by_child.items():
+        unique_parents = {e.parent for e in parents}
+        if len(unique_parents) > threshold:
+            child = resources_by_id.get(child_id)
+            violations.append(
+                Violation(
+                    rule_id="modeling/staging-model-too-many-parents",
+                    resource_id=child_id,
+                    resource_name=(
+                        child.resource_name if child else child_id
+                    ),
+                    message=(
+                        f"{child_id}: staging model has"
+                        f" {len(unique_parents)} parents"
+                        f" (max: {threshold})"
+                    ),
+                    severity=config.severity,
+                    file_path=child.file_path if child else "",
+                )
+            )
+    return violations
+
+
+@rule(
+    id="modeling/intermediate-fanout",
+    description="Intermediate models with too many direct dependents.",
+)
+def intermediate_fanout(
+    resources: list[Resource],
+    relationships: list[Relationship],
+    config: RuleConfig,
+) -> list[Violation]:
+    threshold = config.params.get("intermediate_fanout_threshold", 1)
+    edges = direct_edges(relationships)
+    inter_edges = [
+        e
+        for e in edges
+        if e.parent_model_type == "intermediate"
+        and e.parent_resource_type == "model"
+    ]
+    by_parent = group_by(inter_edges, key=lambda e: e.parent)
+
+    violations = []
+    resources_by_id = {r.resource_id: r for r in resources}
+    for parent_id, children in by_parent.items():
+        unique_children = {e.child for e in children}
+        if len(unique_children) > threshold:
+            parent = resources_by_id.get(parent_id)
+            violations.append(
+                Violation(
+                    rule_id="modeling/intermediate-fanout",
+                    resource_id=parent_id,
+                    resource_name=(
+                        parent.resource_name if parent else parent_id
+                    ),
+                    message=(
+                        f"{parent_id}: intermediate model fans out to"
+                        f" {len(unique_children)} dependents"
+                        f" (max: {threshold})"
+                    ),
+                    severity=config.severity,
+                    file_path=parent.file_path if parent else "",
+                )
+            )
+    return violations
+
+
+@rule(
     id="modeling/rejoining-upstream-concepts",
     description="Models that rejoin a previously consumed concept.",
 )

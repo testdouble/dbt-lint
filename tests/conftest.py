@@ -1,5 +1,7 @@
 """Shared test fixtures: Resource and Relationship builders."""
 
+from typing import Any
+
 import pytest
 
 from dbt_linter.models import Relationship, Resource
@@ -11,10 +13,10 @@ def make_resource():
 
     _counter = 0
 
-    def _make(**overrides) -> Resource:
+    def _make(**overrides: Any) -> Resource:
         nonlocal _counter
         _counter += 1
-        defaults = {
+        defaults: dict[str, Any] = {
             "resource_id": f"model.pkg.model_{_counter}",
             "resource_name": f"model_{_counter}",
             "resource_type": "model",
@@ -47,10 +49,10 @@ def make_relationship():
 
     _counter = 0
 
-    def _make(**overrides) -> Relationship:
+    def _make(**overrides: Any) -> Relationship:
         nonlocal _counter
         _counter += 1
-        defaults = {
+        defaults: dict[str, Any] = {
             "parent": f"model.pkg.parent_{_counter}",
             "child": f"model.pkg.child_{_counter}",
             "parent_resource_type": "model",

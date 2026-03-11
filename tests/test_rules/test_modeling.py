@@ -42,9 +42,7 @@ class TestDirectJoinToSource:
                 child_resource_type="model",
             ),
         ]
-        vs = direct_join_to_source(
-            [child], rels, default_config
-        )
+        vs = direct_join_to_source([child], rels, default_config)
         assert len(vs) == 1
 
     def test_clean_when_only_model_parents(
@@ -59,9 +57,7 @@ class TestDirectJoinToSource:
                 child_resource_type="model",
             ),
         ]
-        assert direct_join_to_source(
-            [child], rels, default_config
-        ) == []
+        assert direct_join_to_source([child], rels, default_config) == []
 
 
 class TestDownstreamDependsOnSource:
@@ -78,14 +74,10 @@ class TestDownstreamDependsOnSource:
                 child_model_type="marts",
             ),
         ]
-        vs = downstream_depends_on_source(
-            [m], rels, default_config
-        )
+        vs = downstream_depends_on_source([m], rels, default_config)
         assert len(vs) == 1
 
-    def test_clean_for_staging(
-        self, make_resource, make_relationship, default_config
-    ):
+    def test_clean_for_staging(self, make_resource, make_relationship, default_config):
         m = make_resource(resource_id="model.pkg.stg")
         rels = [
             make_relationship(
@@ -96,9 +88,7 @@ class TestDownstreamDependsOnSource:
                 child_model_type="staging",
             ),
         ]
-        assert downstream_depends_on_source(
-            [m], rels, default_config
-        ) == []
+        assert downstream_depends_on_source([m], rels, default_config) == []
 
 
 class TestStagingDependsOnStaging:
@@ -129,9 +119,7 @@ class TestStagingDependsOnDownstream:
                 child_model_type="staging",
             ),
         ]
-        vs = staging_depends_on_downstream(
-            [], rels, default_config
-        )
+        vs = staging_depends_on_downstream([], rels, default_config)
         assert len(vs) == 1
 
 
@@ -149,9 +137,7 @@ class TestRootModels:
     def test_clean_when_model_has_parent(
         self, make_resource, make_relationship, default_config
     ):
-        m = make_resource(
-            resource_id="model.pkg.m", resource_type="model"
-        )
+        m = make_resource(resource_id="model.pkg.m", resource_type="model")
         rels = [
             make_relationship(
                 parent="source.pkg.s",
@@ -164,33 +150,21 @@ class TestRootModels:
 
 
 class TestHardCodedReferences:
-    def test_flags_hard_coded(
-        self, make_resource, default_config
-    ):
-        r = make_resource(
-            resource_type="model", hard_coded_references=True
-        )
+    def test_flags_hard_coded(self, make_resource, default_config):
+        r = make_resource(resource_type="model", hard_coded_references=True)
         assert hard_coded_references(r, default_config) is not None
 
     def test_clean(self, make_resource, default_config):
-        r = make_resource(
-            resource_type="model", hard_coded_references=False
-        )
+        r = make_resource(resource_type="model", hard_coded_references=False)
         assert hard_coded_references(r, default_config) is None
 
-    def test_ignores_non_models(
-        self, make_resource, default_config
-    ):
-        r = make_resource(
-            resource_type="source", hard_coded_references=True
-        )
+    def test_ignores_non_models(self, make_resource, default_config):
+        r = make_resource(resource_type="source", hard_coded_references=True)
         assert hard_coded_references(r, default_config) is None
 
 
 class TestDuplicateSources:
-    def test_flags_duplicates(
-        self, make_resource, default_config
-    ):
+    def test_flags_duplicates(self, make_resource, default_config):
         s1 = make_resource(
             resource_id="source.a.raw.orders",
             resource_type="source",
@@ -208,9 +182,7 @@ class TestDuplicateSources:
         vs = duplicate_sources([s1, s2], [], default_config)
         assert len(vs) == 1
 
-    def test_clean_when_different_tables(
-        self, make_resource, default_config
-    ):
+    def test_clean_when_different_tables(self, make_resource, default_config):
         s1 = make_resource(
             resource_type="source",
             resource_name="orders",
@@ -227,9 +199,7 @@ class TestDuplicateSources:
 
 
 class TestUnusedSources:
-    def test_flags_source_with_no_children(
-        self, make_resource, default_config
-    ):
+    def test_flags_source_with_no_children(self, make_resource, default_config):
         s = make_resource(
             resource_id="source.pkg.raw.t",
             resource_type="source",
@@ -367,9 +337,7 @@ class TestTooManyJoins:
 
 
 class TestRejoiningUpstreamConcepts:
-    def test_flags_triad(
-        self, make_resource, make_relationship, default_config
-    ):
+    def test_flags_triad(self, make_resource, make_relationship, default_config):
         """A -> B -> C and A -> C: C rejoins A."""
         rels = [
             make_relationship(
@@ -392,15 +360,11 @@ class TestRejoiningUpstreamConcepts:
             ),
         ]
         c = make_resource(resource_id="model.pkg.c")
-        vs = rejoining_upstream_concepts(
-            [c], rels, default_config
-        )
+        vs = rejoining_upstream_concepts([c], rels, default_config)
         assert len(vs) == 1
         assert "rejoins" in vs[0].message
 
-    def test_clean_no_triad(
-        self, make_resource, make_relationship, default_config
-    ):
+    def test_clean_no_triad(self, make_resource, make_relationship, default_config):
         rels = [
             make_relationship(
                 parent="model.pkg.a",
@@ -411,9 +375,7 @@ class TestRejoiningUpstreamConcepts:
                 child="model.pkg.c",
             ),
         ]
-        assert rejoining_upstream_concepts(
-            [], rels, default_config
-        ) == []
+        assert rejoining_upstream_concepts([], rels, default_config) == []
 
 
 class TestStagingModelTooManyParents:
@@ -441,9 +403,7 @@ class TestStagingModelTooManyParents:
                 child_model_type="staging",
             ),
         ]
-        vs = staging_model_too_many_parents(
-            [stg], rels, default_config
-        )
+        vs = staging_model_too_many_parents([stg], rels, default_config)
         assert len(vs) == 1
         assert "2 parents" in vs[0].message
 
@@ -464,9 +424,7 @@ class TestStagingModelTooManyParents:
                 child_model_type="staging",
             ),
         ]
-        assert staging_model_too_many_parents(
-            [stg], rels, default_config
-        ) == []
+        assert staging_model_too_many_parents([stg], rels, default_config) == []
 
     def test_ignores_non_staging_models(
         self, make_resource, make_relationship, default_config
@@ -490,9 +448,7 @@ class TestStagingModelTooManyParents:
                 child_model_type="marts",
             ),
         ]
-        assert staging_model_too_many_parents(
-            [mart], rels, default_config
-        ) == []
+        assert staging_model_too_many_parents([mart], rels, default_config) == []
 
     def test_respects_custom_threshold(
         self, make_resource, make_relationship, default_config
@@ -520,9 +476,7 @@ class TestStagingModelTooManyParents:
                 child_model_type="staging",
             ),
         ]
-        assert staging_model_too_many_parents(
-            [stg], rels, default_config
-        ) == []
+        assert staging_model_too_many_parents([stg], rels, default_config) == []
 
 
 class TestIntermediateFanout:
@@ -616,9 +570,7 @@ class TestIntermediateFanout:
 
 
 class TestDuplicateMartConcepts:
-    def test_flags_same_entity_in_different_dirs(
-        self, make_resource, default_config
-    ):
+    def test_flags_same_entity_in_different_dirs(self, make_resource, default_config):
         """finance/fct_orders and marketing/fct_orders are duplicates."""
         resources = [
             make_resource(
@@ -639,9 +591,7 @@ class TestDuplicateMartConcepts:
         vs = duplicate_mart_concepts(resources, [], default_config)
         assert len(vs) == 1
 
-    def test_flags_same_entity_different_prefix(
-        self, make_resource, default_config
-    ):
+    def test_flags_same_entity_different_prefix(self, make_resource, default_config):
         """Plain name duplicates across dirs are flagged."""
         resources = [
             make_resource(

@@ -23,27 +23,19 @@ def evaluate(
 
         if rule_def.is_per_resource:
             for resource in resources:
-                if _is_excluded(
-                    resource, rule_def.id, rule_config, config
-                ):
+                if _is_excluded(resource, rule_def.id, rule_config, config):
                     continue
                 result = rule_def.fn(resource, rule_config)
                 if result:
-                    violations.append(
-                        _finalize(result, rule_def, rule_config)
-                    )
+                    violations.append(_finalize(result, rule_def, rule_config))
         else:
             filtered = [
                 r
                 for r in resources
-                if not _is_excluded(
-                    r, rule_def.id, rule_config, config
-                )
+                if not _is_excluded(r, rule_def.id, rule_config, config)
             ]
             results = rule_def.fn(filtered, relationships, rule_config)
-            violations.extend(
-                _finalize(v, rule_def, rule_config) for v in results
-            )
+            violations.extend(_finalize(v, rule_def, rule_config) for v in results)
 
     return violations
 
@@ -56,14 +48,9 @@ def _is_excluded(
 ) -> bool:
     if rule_id in resource.skip_rules:
         return True
-    if any(
-        fnmatch(resource.resource_id, pat)
-        for pat in rule_config.exclude_resources
-    ):
+    if any(fnmatch(resource.resource_id, pat) for pat in rule_config.exclude_resources):
         return True
-    return not matches_path_filter(
-        resource.file_path, config.include, config.exclude
-    )
+    return not matches_path_filter(resource.file_path, config.include, config.exclude)
 
 
 def _finalize(

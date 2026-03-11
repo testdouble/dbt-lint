@@ -23,16 +23,12 @@ class TestEvaluate:
         config = load_config(None)
         violations = evaluate(resources, [], config)
         doc_violations = [
-            v
-            for v in violations
-            if v.rule_id == "documentation/undocumented-models"
+            v for v in violations if v.rule_id == "documentation/undocumented-models"
         ]
         assert len(doc_violations) == 1
         assert "undocumented" in doc_violations[0].message
 
-    def test_runs_aggregate_rules(
-        self, make_resource, make_relationship
-    ):
+    def test_runs_aggregate_rules(self, make_resource, make_relationship):
         src = make_resource(
             resource_id="source.pkg.raw.orders",
             resource_type="source",
@@ -62,15 +58,10 @@ class TestEvaluate:
         ]
         config = load_config(None)
         violations = evaluate([src, m1, m2], rels, config)
-        fanout = [
-            v for v in violations
-            if v.rule_id == "modeling/source-fanout"
-        ]
+        fanout = [v for v in violations if v.rule_id == "modeling/source-fanout"]
         assert len(fanout) == 1
 
-    def test_disabled_rule_skipped(
-        self, tmp_path: Path, make_resource
-    ):
+    def test_disabled_rule_skipped(self, tmp_path: Path, make_resource):
         config_file = tmp_path / "dbt_linter.yml"
         config_file.write_text(
             textwrap.dedent("""\
@@ -80,16 +71,12 @@ class TestEvaluate:
         """)
         )
         resources = [
-            make_resource(
-                resource_type="model", is_described=False
-            ),
+            make_resource(resource_type="model", is_described=False),
         ]
         config = load_config(config_file)
         violations = evaluate(resources, [], config)
         doc_violations = [
-            v
-            for v in violations
-            if v.rule_id == "documentation/undocumented-models"
+            v for v in violations if v.rule_id == "documentation/undocumented-models"
         ]
         assert len(doc_violations) == 0
 
@@ -98,23 +85,17 @@ class TestEvaluate:
             make_resource(
                 resource_type="model",
                 is_described=False,
-                skip_rules=frozenset(
-                    ["documentation/undocumented-models"]
-                ),
+                skip_rules=frozenset(["documentation/undocumented-models"]),
             ),
         ]
         config = load_config(None)
         violations = evaluate(resources, [], config)
         doc_violations = [
-            v
-            for v in violations
-            if v.rule_id == "documentation/undocumented-models"
+            v for v in violations if v.rule_id == "documentation/undocumented-models"
         ]
         assert len(doc_violations) == 0
 
-    def test_exclude_resources_glob(
-        self, tmp_path: Path, make_resource
-    ):
+    def test_exclude_resources_glob(self, tmp_path: Path, make_resource):
         config_file = tmp_path / "dbt_linter.yml"
         config_file.write_text(
             textwrap.dedent("""\
@@ -139,17 +120,13 @@ class TestEvaluate:
         config = load_config(config_file)
         violations = evaluate(resources, [], config)
         doc_violations = [
-            v
-            for v in violations
-            if v.rule_id == "documentation/undocumented-models"
+            v for v in violations if v.rule_id == "documentation/undocumented-models"
         ]
         # legacy_orders excluded, stg_orders not
         assert len(doc_violations) == 1
         assert doc_violations[0].resource_id == "model.pkg.stg_orders"
 
-    def test_severity_override(
-        self, tmp_path: Path, make_resource
-    ):
+    def test_severity_override(self, tmp_path: Path, make_resource):
         config_file = tmp_path / "dbt_linter.yml"
         config_file.write_text(
             textwrap.dedent("""\
@@ -159,16 +136,12 @@ class TestEvaluate:
         """)
         )
         resources = [
-            make_resource(
-                resource_type="model", is_described=False
-            ),
+            make_resource(resource_type="model", is_described=False),
         ]
         config = load_config(config_file)
         violations = evaluate(resources, [], config)
         doc_violations = [
-            v
-            for v in violations
-            if v.rule_id == "documentation/undocumented-models"
+            v for v in violations if v.rule_id == "documentation/undocumented-models"
         ]
         assert len(doc_violations) == 1
         assert doc_violations[0].severity == "error"

@@ -17,9 +17,7 @@ def direct_join_to_source(
     config: RuleConfig,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
-    model_children = [
-        e for e in edges if e.child_resource_type == "model"
-    ]
+    model_children = [e for e in edges if e.child_resource_type == "model"]
     by_child = group_by(model_children, key=lambda e: e.child)
 
     violations = []
@@ -32,12 +30,9 @@ def direct_join_to_source(
                 Violation(
                     rule_id="modeling/direct-join-to-source",
                     resource_id=child_id,
-                    resource_name=(
-                        child.resource_name if child else child_id
-                    ),
+                    resource_name=(child.resource_name if child else child_id),
                     message=(
-                        f"{child_id}: joins both source"
-                        " and model parents directly"
+                        f"{child_id}: joins both source and model parents directly"
                     ),
                     severity=config.severity,
                     file_path=child.file_path if child else "",
@@ -70,9 +65,7 @@ def downstream_depends_on_source(
                 Violation(
                     rule_id="modeling/downstream-depends-on-source",
                     resource_id=edge.child,
-                    resource_name=(
-                        child.resource_name if child else edge.child
-                    ),
+                    resource_name=(child.resource_name if child else edge.child),
                     message=(
                         f"{edge.child}: {edge.child_model_type} model"
                         " depends directly on source"
@@ -98,18 +91,13 @@ def staging_depends_on_staging(
     resources_by_id = {r.resource_id: r for r in resources}
 
     for edge in edges:
-        if (
-            edge.parent_model_type == "staging"
-            and edge.child_model_type == "staging"
-        ):
+        if edge.parent_model_type == "staging" and edge.child_model_type == "staging":
             child = resources_by_id.get(edge.child)
             violations.append(
                 Violation(
                     rule_id="modeling/staging-depends-on-staging",
                     resource_id=edge.child,
-                    resource_name=(
-                        child.resource_name if child else edge.child
-                    ),
+                    resource_name=(child.resource_name if child else edge.child),
                     message=(
                         f"{edge.child}: staging model depends"
                         f" on staging model {edge.parent}"
@@ -135,18 +123,16 @@ def staging_depends_on_downstream(
     resources_by_id = {r.resource_id: r for r in resources}
 
     for edge in edges:
-        if (
-            edge.child_model_type == "staging"
-            and edge.parent_model_type in ("intermediate", "marts")
+        if edge.child_model_type == "staging" and edge.parent_model_type in (
+            "intermediate",
+            "marts",
         ):
             child = resources_by_id.get(edge.child)
             violations.append(
                 Violation(
                     rule_id="modeling/staging-depends-on-downstream",
                     resource_id=edge.child,
-                    resource_name=(
-                        child.resource_name if child else edge.child
-                    ),
+                    resource_name=(child.resource_name if child else edge.child),
                     message=(
                         f"{edge.child}: staging model depends on"
                         f" {edge.parent_model_type} model {edge.parent}"
@@ -168,9 +154,7 @@ def root_models(
     config: RuleConfig,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
-    models_with_parents = {
-        e.child for e in edges if e.child_resource_type == "model"
-    }
+    models_with_parents = {e.child for e in edges if e.child_resource_type == "model"}
 
     violations = []
     for r in resources:
@@ -192,18 +176,13 @@ def root_models(
     id="modeling/hard-coded-references",
     description="Models with hard-coded table references in SQL.",
 )
-def hard_coded_references(
-    resource: Resource, config: RuleConfig
-) -> Violation | None:
+def hard_coded_references(resource: Resource, config: RuleConfig) -> Violation | None:
     if resource.resource_type == "model" and resource.hard_coded_references:
         return Violation(
             rule_id="modeling/hard-coded-references",
             resource_id=resource.resource_id,
             resource_name=resource.resource_name,
-            message=(
-                f"{resource.resource_name}:"
-                " contains hard-coded table references"
-            ),
+            message=(f"{resource.resource_name}: contains hard-coded table references"),
             severity=config.severity,
             file_path=resource.file_path,
         )
@@ -261,18 +240,13 @@ def unused_sources(
 
     violations = []
     for r in resources:
-        if (
-            r.resource_type == "source"
-            and r.resource_id not in sources_with_children
-        ):
+        if r.resource_type == "source" and r.resource_id not in sources_with_children:
             violations.append(
                 Violation(
                     rule_id="modeling/unused-sources",
                     resource_id=r.resource_id,
                     resource_name=r.resource_name,
-                    message=(
-                        f"{r.resource_name}: source has no consumers"
-                    ),
+                    message=(f"{r.resource_name}: source has no consumers"),
                     severity=config.severity,
                     file_path=r.file_path,
                 )
@@ -291,9 +265,9 @@ def multiple_sources_joined(
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     source_edges = [
-        e for e in edges
-        if e.parent_resource_type == "source"
-        and e.child_resource_type == "model"
+        e
+        for e in edges
+        if e.parent_resource_type == "source" and e.child_resource_type == "model"
     ]
     by_child = group_by(source_edges, key=lambda e: e.child)
 
@@ -306,13 +280,8 @@ def multiple_sources_joined(
                 Violation(
                     rule_id="modeling/multiple-sources-joined",
                     resource_id=child_id,
-                    resource_name=(
-                        child.resource_name if child else child_id
-                    ),
-                    message=(
-                        f"{child_id}: joins {len(parents)}"
-                        " sources directly"
-                    ),
+                    resource_name=(child.resource_name if child else child_id),
+                    message=(f"{child_id}: joins {len(parents)} sources directly"),
                     severity=config.severity,
                     file_path=child.file_path if child else "",
                 )
@@ -330,9 +299,7 @@ def source_fanout(
     config: RuleConfig,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
-    source_edges = [
-        e for e in edges if e.parent_resource_type == "source"
-    ]
+    source_edges = [e for e in edges if e.parent_resource_type == "source"]
     by_parent = group_by(source_edges, key=lambda e: e.parent)
 
     violations = []
@@ -345,13 +312,8 @@ def source_fanout(
                 Violation(
                     rule_id="modeling/source-fanout",
                     resource_id=parent_id,
-                    resource_name=(
-                        parent.resource_name if parent else parent_id
-                    ),
-                    message=(
-                        f"{parent_id}: fans out to"
-                        f" {len(unique_children)} models"
-                    ),
+                    resource_name=(parent.resource_name if parent else parent_id),
+                    message=(f"{parent_id}: fans out to {len(unique_children)} models"),
                     severity=config.severity,
                     file_path=parent.file_path if parent else "",
                 )
@@ -370,9 +332,7 @@ def model_fanout(
 ) -> list[Violation]:
     threshold = config.params.get("models_fanout_threshold", 3)
     edges = direct_edges(relationships)
-    model_edges = [
-        e for e in edges if e.parent_resource_type == "model"
-    ]
+    model_edges = [e for e in edges if e.parent_resource_type == "model"]
     by_parent = group_by(model_edges, key=lambda e: e.parent)
 
     violations = []
@@ -385,9 +345,7 @@ def model_fanout(
                 Violation(
                     rule_id="modeling/model-fanout",
                     resource_id=parent_id,
-                    resource_name=(
-                        parent.resource_name if parent else parent_id
-                    ),
+                    resource_name=(parent.resource_name if parent else parent_id),
                     message=(
                         f"{parent_id}: fans out to"
                         f" {len(unique_children)} dependents"
@@ -411,9 +369,7 @@ def too_many_joins(
 ) -> list[Violation]:
     threshold = config.params.get("too_many_joins_threshold", 7)
     edges = direct_edges(relationships)
-    model_children = [
-        e for e in edges if e.child_resource_type == "model"
-    ]
+    model_children = [e for e in edges if e.child_resource_type == "model"]
     by_child = group_by(model_children, key=lambda e: e.child)
 
     violations = []
@@ -425,12 +381,9 @@ def too_many_joins(
                 Violation(
                     rule_id="modeling/too-many-joins",
                     resource_id=child_id,
-                    resource_name=(
-                        child.resource_name if child else child_id
-                    ),
+                    resource_name=(child.resource_name if child else child_id),
                     message=(
-                        f"{child_id}: {len(parents)} parents"
-                        f" (threshold: {threshold})"
+                        f"{child_id}: {len(parents)} parents (threshold: {threshold})"
                     ),
                     severity=config.severity,
                     file_path=child.file_path if child else "",
@@ -450,9 +403,7 @@ def staging_model_too_many_parents(
 ) -> list[Violation]:
     threshold = config.params.get("staging_max_parents", 1)
     edges = direct_edges(relationships)
-    staging_edges = [
-        e for e in edges if e.child_model_type == "staging"
-    ]
+    staging_edges = [e for e in edges if e.child_model_type == "staging"]
     by_child = group_by(staging_edges, key=lambda e: e.child)
 
     violations = []
@@ -465,9 +416,7 @@ def staging_model_too_many_parents(
                 Violation(
                     rule_id="modeling/staging-model-too-many-parents",
                     resource_id=child_id,
-                    resource_name=(
-                        child.resource_name if child else child_id
-                    ),
+                    resource_name=(child.resource_name if child else child_id),
                     message=(
                         f"{child_id}: staging model has"
                         f" {len(unique_parents)} parents"
@@ -494,8 +443,7 @@ def intermediate_fanout(
     inter_edges = [
         e
         for e in edges
-        if e.parent_model_type == "intermediate"
-        and e.parent_resource_type == "model"
+        if e.parent_model_type == "intermediate" and e.parent_resource_type == "model"
     ]
     by_parent = group_by(inter_edges, key=lambda e: e.parent)
 
@@ -509,9 +457,7 @@ def intermediate_fanout(
                 Violation(
                     rule_id="modeling/intermediate-fanout",
                     resource_id=parent_id,
-                    resource_name=(
-                        parent.resource_name if parent else parent_id
-                    ),
+                    resource_name=(parent.resource_name if parent else parent_id),
                     message=(
                         f"{parent_id}: intermediate model fans out to"
                         f" {len(unique_children)} dependents"
@@ -534,8 +480,7 @@ def duplicate_mart_concepts(
     config: RuleConfig,
 ) -> list[Violation]:
     marts = [
-        r for r in resources
-        if r.resource_type == "model" and r.model_type == "marts"
+        r for r in resources if r.resource_type == "model" and r.model_type == "marts"
     ]
     by_name = group_by(marts, key=lambda r: r.resource_name)
 
@@ -593,9 +538,7 @@ def rejoining_upstream_concepts(
         parent_parents = {}
         for pid in parent_ids:
             if pid in by_child:
-                parent_parents[pid] = {
-                    e.parent for e in by_child[pid]
-                }
+                parent_parents[pid] = {e.parent for e in by_child[pid]}
 
         for mid_id, mid_parents in parent_parents.items():
             shared = parent_ids & mid_parents
@@ -605,19 +548,13 @@ def rejoining_upstream_concepts(
                     Violation(
                         rule_id="modeling/rejoining-upstream-concepts",
                         resource_id=child_id,
-                        resource_name=(
-                            child.resource_name
-                            if child
-                            else child_id
-                        ),
+                        resource_name=(child.resource_name if child else child_id),
                         message=(
                             f"{child_id}: rejoins {ancestor_id}"
                             f" (already consumed via {mid_id})"
                         ),
                         severity=config.severity,
-                        file_path=(
-                            child.file_path if child else ""
-                        ),
+                        file_path=(child.file_path if child else ""),
                     )
                 )
     return violations

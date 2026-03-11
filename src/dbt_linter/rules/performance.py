@@ -33,9 +33,7 @@ def chained_views(
                 Violation(
                     rule_id="performance/chained-views",
                     resource_id=rel.child,
-                    resource_name=(
-                        child.resource_name if child else rel.child
-                    ),
+                    resource_name=(child.resource_name if child else rel.child),
                     message=(
                         f"{rel.child}: view chain depth {rel.distance}"
                         f" exceeds threshold {threshold}"
@@ -58,9 +56,7 @@ def exposure_parent_materializations(
 ) -> list[Violation]:
     resources_by_id = {r.resource_id: r for r in resources}
     edges = direct_edges(relationships)
-    exposure_edges = [
-        e for e in edges if e.child_resource_type == "exposure"
-    ]
+    exposure_edges = [e for e in edges if e.child_resource_type == "exposure"]
 
     violations = []
     for edge in exposure_edges:
@@ -68,30 +64,21 @@ def exposure_parent_materializations(
         if not parent:
             continue
         bad_mats = ("view", "ephemeral")
-        is_bad = (
-            parent.resource_type == "source"
-            or parent.materialization in bad_mats
-        )
+        is_bad = parent.resource_type == "source" or parent.materialization in bad_mats
         if is_bad:
             exposure = resources_by_id.get(edge.child)
             violations.append(
                 Violation(
                     rule_id="performance/exposure-parent-materializations",
                     resource_id=edge.child,
-                    resource_name=(
-                        exposure.resource_name
-                        if exposure
-                        else edge.child
-                    ),
+                    resource_name=(exposure.resource_name if exposure else edge.child),
                     message=(
                         f"{edge.child}: exposure depends on"
                         f" {parent.resource_name}"
                         f" ({parent.materialization or parent.resource_type})"
                     ),
                     severity=config.severity,
-                    file_path=(
-                        exposure.file_path if exposure else ""
-                    ),
+                    file_path=(exposure.file_path if exposure else ""),
                 )
             )
     return violations

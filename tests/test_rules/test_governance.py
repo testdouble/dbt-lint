@@ -8,9 +8,7 @@ from dbt_linter.rules.governance import (
 
 
 class TestPublicModelsWithoutContract:
-    def test_flags_public_without_contract(
-        self, make_resource, default_config
-    ):
+    def test_flags_public_without_contract(self, make_resource, default_config):
         r = make_resource(
             resource_type="model",
             is_public=True,
@@ -19,35 +17,25 @@ class TestPublicModelsWithoutContract:
         v = public_models_without_contract(r, default_config)
         assert v is not None
 
-    def test_clean_public_with_contract(
-        self, make_resource, default_config
-    ):
+    def test_clean_public_with_contract(self, make_resource, default_config):
         r = make_resource(
             resource_type="model",
             is_public=True,
             is_contract_enforced=True,
         )
-        assert (
-            public_models_without_contract(r, default_config) is None
-        )
+        assert public_models_without_contract(r, default_config) is None
 
-    def test_clean_private_model(
-        self, make_resource, default_config
-    ):
+    def test_clean_private_model(self, make_resource, default_config):
         r = make_resource(
             resource_type="model",
             is_public=False,
             is_contract_enforced=False,
         )
-        assert (
-            public_models_without_contract(r, default_config) is None
-        )
+        assert public_models_without_contract(r, default_config) is None
 
 
 class TestUndocumentedPublicModels:
-    def test_flags_public_missing_description(
-        self, make_resource, default_config
-    ):
+    def test_flags_public_missing_description(self, make_resource, default_config):
         r = make_resource(
             resource_type="model",
             is_public=True,
@@ -57,9 +45,7 @@ class TestUndocumentedPublicModels:
         assert v is not None
         assert "missing description" in v.message
 
-    def test_flags_public_missing_column_docs(
-        self, make_resource, default_config
-    ):
+    def test_flags_public_missing_column_docs(self, make_resource, default_config):
         r = make_resource(
             resource_type="model",
             is_public=True,
@@ -71,9 +57,7 @@ class TestUndocumentedPublicModels:
         assert v is not None
         assert "3/5" in v.message
 
-    def test_clean_fully_documented(
-        self, make_resource, default_config
-    ):
+    def test_clean_fully_documented(self, make_resource, default_config):
         r = make_resource(
             resource_type="model",
             is_public=True,
@@ -81,9 +65,7 @@ class TestUndocumentedPublicModels:
             number_of_columns=5,
             number_of_documented_columns=5,
         )
-        assert (
-            undocumented_public_models(r, default_config) is None
-        )
+        assert undocumented_public_models(r, default_config) is None
 
 
 class TestExposuresDependOnPrivateModels:

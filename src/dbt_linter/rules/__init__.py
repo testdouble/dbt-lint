@@ -92,9 +92,7 @@ def group_by(items, key) -> dict:
     return dict(result)
 
 
-def filter_by_model_type(
-    resources: list[Resource], model_type: str
-) -> list[Resource]:
+def filter_by_model_type(resources: list[Resource], model_type: str) -> list[Resource]:
     """Filter resources to a specific model type."""
     return [r for r in resources if r.model_type == model_type]
 

@@ -56,14 +56,23 @@ class TestTextReport:
 
     def test_groups_by_rule_within_department(self):
         violations = [
-            _v(rule_id="documentation/undocumented-models", resource_name="m1",
-               message="m1: missing description"),
-            _v(rule_id="documentation/documentation-coverage", resource_name="m2",
-               message="m2: below coverage target",
-               resource_id="model.pkg.m2"),
-            _v(rule_id="documentation/undocumented-models", resource_name="m3",
-               message="m3: missing description",
-               resource_id="model.pkg.m3"),
+            _v(
+                rule_id="documentation/undocumented-models",
+                resource_name="m1",
+                message="m1: missing description",
+            ),
+            _v(
+                rule_id="documentation/documentation-coverage",
+                resource_name="m2",
+                message="m2: below coverage target",
+                resource_id="model.pkg.m2",
+            ),
+            _v(
+                rule_id="documentation/undocumented-models",
+                resource_name="m3",
+                message="m3: missing description",
+                resource_id="model.pkg.m3",
+            ),
         ]
         result = report(violations, format="text")
         lines = result.split("\n")
@@ -79,8 +88,12 @@ class TestTextReport:
     def test_summary_line_with_counts(self):
         violations = [
             _v(severity="warn"),
-            _v(severity="error", resource_name="m2", resource_id="model.pkg.m2",
-               message="m2: missing description"),
+            _v(
+                severity="error",
+                resource_name="m2",
+                resource_id="model.pkg.m2",
+                message="m2: missing description",
+            ),
         ]
         result = report(violations, format="text")
         # Should have a summary with total count
@@ -89,8 +102,11 @@ class TestTextReport:
     def test_multiple_violations_same_rule(self):
         violations = [
             _v(resource_name="m1", message="m1: missing description"),
-            _v(resource_name="m2", resource_id="model.pkg.m2",
-               message="m2: missing description"),
+            _v(
+                resource_name="m2",
+                resource_id="model.pkg.m2",
+                message="m2: missing description",
+            ),
         ]
         result = report(violations, format="text")
         assert "m1" in result
@@ -151,8 +167,12 @@ class TestGitHubAnnotations:
     def test_multiple_annotations(self):
         violations = [
             _v(severity="warn", resource_name="m1", message="m1: issue"),
-            _v(severity="error", resource_name="m2", resource_id="model.pkg.m2",
-               message="m2: issue"),
+            _v(
+                severity="error",
+                resource_name="m2",
+                resource_id="model.pkg.m2",
+                message="m2: issue",
+            ),
         ]
         result = report(violations, format="text", github_annotations=True)
         assert result.count("::warning") == 1
@@ -167,8 +187,9 @@ class TestGitHubAnnotations:
         )
         # Text header comes after annotations
         text_idx = next(
-            i for i, line in enumerate(lines) if "documentation" in line.lower()
-            and not line.startswith("::")
+            i
+            for i, line in enumerate(lines)
+            if "documentation" in line.lower() and not line.startswith("::")
         )
         assert annotation_idx < text_idx
 

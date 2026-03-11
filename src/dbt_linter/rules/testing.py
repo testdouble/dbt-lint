@@ -14,20 +14,13 @@ from dbt_linter.rules import direct_edges, filter_by_model_type, rule
 def missing_primary_key_tests(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
-    enforced_types = config.params.get(
-        "enforced_primary_key_node_types", ["model"]
-    )
-    if (
-        resource.resource_type in enforced_types
-        and not resource.is_primary_key_tested
-    ):
+    enforced_types = config.params.get("enforced_primary_key_node_types", ["model"])
+    if resource.resource_type in enforced_types and not resource.is_primary_key_tested:
         return Violation(
             rule_id="testing/missing-primary-key-tests",
             resource_id=resource.resource_id,
             resource_name=resource.resource_name,
-            message=(
-                f"{resource.resource_name}: missing primary key test"
-            ),
+            message=(f"{resource.resource_name}: missing primary key test"),
             severity=config.severity,
             file_path=resource.file_path,
         )
@@ -41,17 +34,12 @@ def missing_primary_key_tests(
 def sources_without_freshness(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
-    if (
-        resource.resource_type == "source"
-        and not resource.is_freshness_enabled
-    ):
+    if resource.resource_type == "source" and not resource.is_freshness_enabled:
         return Violation(
             rule_id="testing/sources-without-freshness",
             resource_id=resource.resource_id,
             resource_name=resource.resource_name,
-            message=(
-                f"{resource.resource_name}: no freshness check configured"
-            ),
+            message=(f"{resource.resource_name}: no freshness check configured"),
             severity=config.severity,
             file_path=resource.file_path,
         )
@@ -71,8 +59,7 @@ def missing_relationship_tests(
     models_with_model_parents = {
         e.child
         for e in edges
-        if e.child_resource_type == "model"
-        and e.parent_resource_type == "model"
+        if e.child_resource_type == "model" and e.parent_resource_type == "model"
     }
 
     violations = []
@@ -126,10 +113,7 @@ def check_test_coverage(
                     rule_id="testing/test-coverage",
                     resource_id=f"model_type:{mt}",
                     resource_name=mt,
-                    message=(
-                        f"{mt}: {pct:.0f}% test coverage"
-                        f" (target: {target}%)"
-                    ),
+                    message=(f"{mt}: {pct:.0f}% test coverage (target: {target}%)"),
                     severity=config.severity,
                     file_path="",
                 )

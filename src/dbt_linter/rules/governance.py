@@ -24,8 +24,7 @@ def public_models_without_contract(
             resource_id=resource.resource_id,
             resource_name=resource.resource_name,
             message=(
-                f"{resource.resource_name}: public model"
-                " without contract enforcement"
+                f"{resource.resource_name}: public model without contract enforcement"
             ),
             severity=config.severity,
             file_path=resource.file_path,
@@ -58,9 +57,7 @@ def undocumented_public_models(
             rule_id="governance/undocumented-public-models",
             resource_id=resource.resource_id,
             resource_name=resource.resource_name,
-            message=(
-                f"{resource.resource_name}: {', '.join(issues)}"
-            ),
+            message=(f"{resource.resource_name}: {', '.join(issues)}"),
             severity=config.severity,
             file_path=resource.file_path,
         )
@@ -78,9 +75,7 @@ def exposures_depend_on_private_models(
 ) -> list[Violation]:
     resources_by_id = {r.resource_id: r for r in resources}
     edges = direct_edges(relationships)
-    exposure_edges = [
-        e for e in edges if e.child_resource_type == "exposure"
-    ]
+    exposure_edges = [e for e in edges if e.child_resource_type == "exposure"]
 
     violations = []
     by_exposure = group_by(exposure_edges, key=lambda e: e.child)
@@ -90,17 +85,10 @@ def exposures_depend_on_private_models(
             continue
         for edge in parents:
             parent = resources_by_id.get(edge.parent)
-            if (
-                parent
-                and parent.resource_type == "model"
-                and not parent.is_public
-            ):
+            if parent and parent.resource_type == "model" and not parent.is_public:
                 violations.append(
                     Violation(
-                        rule_id=(
-                            "governance/"
-                            "exposures-depend-on-private-models"
-                        ),
+                        rule_id=("governance/exposures-depend-on-private-models"),
                         resource_id=exposure_id,
                         resource_name=exposure.resource_name,
                         message=(

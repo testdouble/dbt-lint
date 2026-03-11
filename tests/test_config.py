@@ -45,10 +45,12 @@ class TestLoadConfig:
 
     def test_load_from_yaml(self, tmp_path: Path):
         config_file = tmp_path / "dbt_linter.yml"
-        config_file.write_text(textwrap.dedent("""\
+        config_file.write_text(
+            textwrap.dedent("""\
             models_fanout_threshold: 5
             too_many_joins_threshold: 10
-        """))
+        """)
+        )
         config = load_config(config_file)
         assert config.params["models_fanout_threshold"] == 5
         assert config.params["too_many_joins_threshold"] == 10
@@ -57,13 +59,15 @@ class TestLoadConfig:
 
     def test_load_with_rule_overrides(self, tmp_path: Path):
         config_file = tmp_path / "dbt_linter.yml"
-        config_file.write_text(textwrap.dedent("""\
+        config_file.write_text(
+            textwrap.dedent("""\
             rules:
               modeling/too-many-joins:
                 severity: error
               structure/intermediate-materialization:
                 enabled: false
-        """))
+        """)
+        )
         config = load_config(config_file)
         rc = config.rule_config("modeling/too-many-joins")
         assert rc.severity == "error"
@@ -74,12 +78,14 @@ class TestLoadConfig:
 
     def test_load_with_exclude_resources(self, tmp_path: Path):
         config_file = tmp_path / "dbt_linter.yml"
-        config_file.write_text(textwrap.dedent("""\
+        config_file.write_text(
+            textwrap.dedent("""\
             rules:
               testing/sources-without-freshness:
                 exclude_resources:
                   - source.pkg.raw.legacy_*
-        """))
+        """)
+        )
         config = load_config(config_file)
         rc = config.rule_config("testing/sources-without-freshness")
         assert "source.pkg.raw.legacy_*" in rc.exclude_resources
@@ -102,11 +108,13 @@ class TestRuleConfig:
 
     def test_severity_override(self, tmp_path: Path):
         config_file = tmp_path / "dbt_linter.yml"
-        config_file.write_text(textwrap.dedent("""\
+        config_file.write_text(
+            textwrap.dedent("""\
             rules:
               modeling/source-fanout:
                 severity: error
-        """))
+        """)
+        )
         config = load_config(config_file)
         rc = config.rule_config("modeling/source-fanout")
         assert rc.severity == "error"
@@ -158,9 +166,9 @@ class TestMatchesPathFilter:
 
     def test_regex_pattern(self):
         pattern = r"models/staging/stg_\w+\.sql"
-        assert matches_path_filter(
-            "models/staging/stg_orders.sql", pattern, None
-        ) is True
-        assert matches_path_filter(
-            "models/staging/raw_orders.sql", pattern, None
-        ) is False
+        assert (
+            matches_path_filter("models/staging/stg_orders.sql", pattern, None) is True
+        )
+        assert (
+            matches_path_filter("models/staging/raw_orders.sql", pattern, None) is False
+        )

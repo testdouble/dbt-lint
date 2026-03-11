@@ -164,18 +164,14 @@ class TestCliExitCodes:
         """With --fail-on error, warnings-only should exit 0."""
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(
-            main, [str(manifest_path), "--fail-on", "error"]
-        )
+        result = runner.invoke(main, [str(manifest_path), "--fail-on", "error"])
         # Default severity is warn, so all violations are warnings
         assert result.exit_code == 0
 
     def test_fail_on_warn_exits_1(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(
-            main, [str(manifest_path), "--fail-on", "warn"]
-        )
+        result = runner.invoke(main, [str(manifest_path), "--fail-on", "warn"])
         assert result.exit_code == 1
 
 
@@ -203,15 +199,11 @@ class TestCliConfig:
         manifest_path = _write_manifest(tmp_path)
         config_path = tmp_path / "custom.yml"
         config_yaml = (
-            "rules:\n"
-            "  documentation/undocumented-models:\n"
-            "    enabled: false\n"
+            "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
         )
         config_path.write_text(config_yaml)
         runner = CliRunner()
-        result = runner.invoke(
-            main, [str(manifest_path), "--config", str(config_path)]
-        )
+        result = runner.invoke(main, [str(manifest_path), "--config", str(config_path)])
         # undocumented-models disabled, so fewer violations
         if result.exit_code == 0:
             assert "no violations" in result.output.lower()
@@ -226,8 +218,13 @@ class TestCliSelectExclude:
         runner = CliRunner()
         result = runner.invoke(
             main,
-            [str(manifest_path), "--format", "json",
-             "--select", "documentation/undocumented-models"],
+            [
+                str(manifest_path),
+                "--format",
+                "json",
+                "--select",
+                "documentation/undocumented-models",
+            ],
         )
         if result.exit_code == 1:
             parsed = json.loads(result.output)
@@ -239,8 +236,13 @@ class TestCliSelectExclude:
         runner = CliRunner()
         result = runner.invoke(
             main,
-            [str(manifest_path), "--format", "json",
-             "--exclude", "documentation/undocumented-models"],
+            [
+                str(manifest_path),
+                "--format",
+                "json",
+                "--exclude",
+                "documentation/undocumented-models",
+            ],
         )
         if result.exit_code == 1:
             parsed = json.loads(result.output)

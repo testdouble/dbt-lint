@@ -9,28 +9,16 @@ from dbt_linter.rules.documentation import (
 
 
 class TestUndocumentedModels:
-    def test_flags_undocumented_model(
-        self, make_resource, default_config
-    ):
-        r = make_resource(
-            resource_type="model", is_described=False
-        )
+    def test_flags_undocumented_model(self, make_resource, default_config):
+        r = make_resource(resource_type="model", is_described=False)
         assert undocumented_models(r, default_config) is not None
 
-    def test_clean_documented_model(
-        self, make_resource, default_config
-    ):
-        r = make_resource(
-            resource_type="model", is_described=True
-        )
+    def test_clean_documented_model(self, make_resource, default_config):
+        r = make_resource(resource_type="model", is_described=True)
         assert undocumented_models(r, default_config) is None
 
-    def test_ignores_sources(
-        self, make_resource, default_config
-    ):
-        r = make_resource(
-            resource_type="source", is_described=False
-        )
+    def test_ignores_sources(self, make_resource, default_config):
+        r = make_resource(resource_type="source", is_described=False)
         assert undocumented_models(r, default_config) is None
 
 
@@ -44,18 +32,14 @@ class TestUndocumentedSources:
         )
         assert undocumented_sources(r, default_config) is not None
 
-    def test_clean_source_with_description(
-        self, make_resource, default_config
-    ):
+    def test_clean_source_with_description(self, make_resource, default_config):
         r = make_resource(
             resource_type="source",
             meta={"source_description_populated": True},
         )
         assert undocumented_sources(r, default_config) is None
 
-    def test_ignores_models(
-        self, make_resource, default_config
-    ):
+    def test_ignores_models(self, make_resource, default_config):
         r = make_resource(resource_type="model")
         assert undocumented_sources(r, default_config) is None
 
@@ -64,25 +48,17 @@ class TestUndocumentedSourceTables:
     def test_flags_source_table_without_description(
         self, make_resource, default_config
     ):
-        r = make_resource(
-            resource_type="source", is_described=False
-        )
+        r = make_resource(resource_type="source", is_described=False)
         v = undocumented_source_tables(r, default_config)
         assert v is not None
 
-    def test_clean_source_table_with_description(
-        self, make_resource, default_config
-    ):
-        r = make_resource(
-            resource_type="source", is_described=True
-        )
+    def test_clean_source_table_with_description(self, make_resource, default_config):
+        r = make_resource(resource_type="source", is_described=True)
         assert undocumented_source_tables(r, default_config) is None
 
 
 class TestDocumentationCoverage:
-    def test_flags_below_target(
-        self, make_resource, default_config
-    ):
+    def test_flags_below_target(self, make_resource, default_config):
         resources = [
             make_resource(
                 resource_type="model",
@@ -95,18 +71,12 @@ class TestDocumentationCoverage:
                 is_described=False,
             ),
         ]
-        vs = documentation_coverage(
-            resources, [], default_config
-        )
-        staging_vs = [
-            v for v in vs if v.resource_name == "staging"
-        ]
+        vs = documentation_coverage(resources, [], default_config)
+        staging_vs = [v for v in vs if v.resource_name == "staging"]
         assert len(staging_vs) == 1
         assert "50%" in staging_vs[0].message
 
-    def test_clean_at_target(
-        self, make_resource, default_config
-    ):
+    def test_clean_at_target(self, make_resource, default_config):
         resources = [
             make_resource(
                 resource_type="model",
@@ -114,10 +84,6 @@ class TestDocumentationCoverage:
                 is_described=True,
             ),
         ]
-        vs = documentation_coverage(
-            resources, [], default_config
-        )
-        staging_vs = [
-            v for v in vs if v.resource_name == "staging"
-        ]
+        vs = documentation_coverage(resources, [], default_config)
+        staging_vs = [v for v in vs if v.resource_name == "staging"]
         assert len(staging_vs) == 0

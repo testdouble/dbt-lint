@@ -11,9 +11,7 @@ from dbt_linter.rules import filter_by_model_type, rule
     id="documentation/undocumented-models",
     description="Models without a description.",
 )
-def undocumented_models(
-    resource: Resource, config: RuleConfig
-) -> Violation | None:
+def undocumented_models(resource: Resource, config: RuleConfig) -> Violation | None:
     if resource.resource_type == "model" and not resource.is_described:
         return Violation(
             rule_id="documentation/undocumented-models",
@@ -30,17 +28,13 @@ def undocumented_models(
     id="documentation/undocumented-sources",
     description="Sources without a source-level description.",
 )
-def undocumented_sources(
-    resource: Resource, config: RuleConfig
-) -> Violation | None:
+def undocumented_sources(resource: Resource, config: RuleConfig) -> Violation | None:
     if resource.resource_type != "source":
         return None
     # source_description is stored in meta under our convention
     # For sources, is_described tracks the table-level description.
     # Source-level description is tracked via meta["source_description_populated"]
-    source_described = resource.meta.get(
-        "source_description_populated", True
-    )
+    source_described = resource.meta.get("source_description_populated", True)
     if not source_described:
         return Violation(
             rule_id="documentation/undocumented-sources",
@@ -58,16 +52,15 @@ def undocumented_sources(
     description="Source tables without a table-level description.",
 )
 def undocumented_source_tables(
-    resource: Resource, config: RuleConfig,
+    resource: Resource,
+    config: RuleConfig,
 ) -> Violation | None:
     if resource.resource_type == "source" and not resource.is_described:
         return Violation(
             rule_id="documentation/undocumented-source-tables",
             resource_id=resource.resource_id,
             resource_name=resource.resource_name,
-            message=(
-                f"{resource.resource_name}: source table missing description"
-            ),
+            message=(f"{resource.resource_name}: source table missing description"),
             severity=config.severity,
             file_path=resource.file_path,
         )
@@ -101,10 +94,7 @@ def documentation_coverage(
                     rule_id="documentation/documentation-coverage",
                     resource_id=f"model_type:{mt}",
                     resource_name=mt,
-                    message=(
-                        f"{mt}: {pct:.0f}% documented"
-                        f" (target: {target}%)"
-                    ),
+                    message=(f"{mt}: {pct:.0f}% documented (target: {target}%)"),
                     severity=config.severity,
                     file_path="",
                 )

@@ -69,9 +69,7 @@ class TestExposureParentMaterializations:
                 child_resource_type="exposure",
             ),
         ]
-        vs = exposure_parent_materializations(
-            [exposure, parent], rels, default_config
-        )
+        vs = exposure_parent_materializations([exposure, parent], rels, default_config)
         assert len(vs) == 1
 
     def test_flags_exposure_depending_on_source(
@@ -96,9 +94,7 @@ class TestExposureParentMaterializations:
                 child_resource_type="exposure",
             ),
         ]
-        vs = exposure_parent_materializations(
-            [exposure, src], rels, default_config
-        )
+        vs = exposure_parent_materializations([exposure, src], rels, default_config)
         assert len(vs) == 1
 
     def test_clean_exposure_depending_on_table(
@@ -122,7 +118,5 @@ class TestExposureParentMaterializations:
                 child_resource_type="exposure",
             ),
         ]
-        vs = exposure_parent_materializations(
-            [exposure, parent], rels, default_config
-        )
+        vs = exposure_parent_materializations([exposure, parent], rels, default_config)
         assert len(vs) == 0

@@ -2,24 +2,34 @@
 
 Manifest-only semantic linter for dbt projects. Analyzes `manifest.json` to enforce DAG structure, naming conventions, test coverage, documentation standards, and governance rules. No dbt runtime or warehouse connection required.
 
-## Install
+## Contents
 
-```bash
-# Add to a project
-uv add git+https://github.com/yourusername/dbt-linter.git
+- [Prerequisites](#prerequisites)
+- [Quick start](#quick-start)
+- [Usage](#usage)
+- [Rules](#rules)
+- [Configuration](#configuration)
+- [Development](#development)
+- [Scope](#scope)
 
-# Or install directly
-uv pip install git+https://github.com/yourusername/dbt-linter.git
+## Prerequisites
 
-# From a local clone
-uv pip install -e .
-```
-
-Requires Python 3.11+. Two runtime dependencies: `pyyaml`, `click`.
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- Python 3.11+
+- dbt manifest v11+ (dbt 1.6+)
 
 ## Quick start
 
 ```bash
+# Install uv
+brew install uv
+
+# Add to a dbt project
+uv add git+https://github.com/yourusername/dbt-linter.git
+
+# Or install from a local clone
+uv pip install -e .
+
 # Generate manifest (requires dbt)
 dbt parse  # or dbt compile / dbt run
 
@@ -53,9 +63,9 @@ When `GITHUB_ACTIONS=true` is set, dbt-linter emits `::error`/`::warning` workfl
 
 ## Rules
 
-32 rules across 6 departments.
+39 rules across 6 departments.
 
-### Modeling (13)
+### Modeling (16)
 
 | Rule | Description |
 |---|---|
@@ -71,13 +81,17 @@ When `GITHUB_ACTIONS=true` is set, dbt-linter emits `::error`/`::warning` workfl
 | `modeling/source-fanout` | Sources with multiple direct child models |
 | `modeling/model-fanout` | Models exceeding the fanout threshold |
 | `modeling/too-many-joins` | Models with too many direct parents |
+| `modeling/staging-model-too-many-parents` | Staging models with more than one parent |
+| `modeling/intermediate-fanout` | Intermediate models with too many direct dependents |
 | `modeling/rejoining-upstream-concepts` | Models that rejoin a previously consumed concept |
+| `modeling/duplicate-mart-concepts` | Same entity modeled in multiple mart subdirectories |
 
-### Testing (3)
+### Testing (4)
 
 | Rule | Description |
 |---|---|
 | `testing/missing-primary-key-tests` | Models without primary key uniqueness/not-null tests |
+| `testing/missing-relationship-tests` | Models with model parents but no relationship tests |
 | `testing/sources-without-freshness` | Sources without freshness checks |
 | `testing/test-coverage` | Test coverage below target by model type |
 
@@ -90,14 +104,17 @@ When `GITHUB_ACTIONS=true` is set, dbt-linter emits `::error`/`::warning` workfl
 | `documentation/undocumented-source-tables` | Source tables without a table-level description |
 | `documentation/documentation-coverage` | Documentation coverage below target by model type |
 
-### Structure (7)
+### Structure (10)
 
 | Rule | Description |
 |---|---|
+| `structure/model-name-format` | Model name is not valid snake_case |
 | `structure/model-naming-conventions` | Model name doesn't match prefix for its type |
 | `structure/model-directories` | Model not in expected directory for its type |
 | `structure/source-directories` | Source YAML not in staging directory |
 | `structure/test-directories` | Test YAML in different directory than model |
+| `structure/staging-naming-convention` | Staging model doesn't follow `stg_<source>__<entity>` pattern |
+| `structure/yaml-file-naming` | YAML schema file doesn't follow `_<dir>__<type>.yml` convention |
 | `structure/staging-materialization` | Staging model with disallowed materialization |
 | `structure/intermediate-materialization` | Intermediate model with disallowed materialization |
 | `structure/marts-materialization` | Marts model with disallowed materialization |
@@ -126,14 +143,17 @@ Create `dbt_linter.yml` to override defaults. All settings are optional.
 documentation_coverage_target: 100
 test_coverage_target: 100
 models_fanout_threshold: 3
-too_many_joins_threshold: 7
+too_many_joins_threshold: 5
 chained_views_threshold: 5
 
 # Naming prefixes per model type
 staging_prefixes: [stg_]
 intermediate_prefixes: [int_]
-marts_prefixes: [fct_, dim_]
 base_prefixes: [base_]
+
+# Marts use plain entity names by default (customers.sql, orders.sql).
+# Uncomment to enforce fct_/dim_ prefixes:
+# marts_prefixes: [fct_, dim_]
 
 # Expected directory names (string or list)
 staging_folder_name: staging
@@ -184,6 +204,27 @@ models:
           - structure/model-naming-conventions
 ```
 
+## Development
+
+```bash
+# Install dependencies
+uv sync
+
+# Lint
+uv run ruff check .              # check
+uv run ruff check --fix .        # auto-fix
+
+# Format
+uv run ruff format --check .     # check
+uv run ruff format .             # apply
+
+# Type check
+uv run ty check .
+
+# Test
+uv run pytest
+```
+
 ## Scope
 
 dbt-linter analyzes the compiled manifest. It does not lint SQL syntax or YAML formatting. For those layers:
@@ -192,8 +233,3 @@ dbt-linter analyzes the compiled manifest. It does not lint SQL syntax or YAML f
 - YAML: [yamllint](https://yamllint.readthedocs.io/)
 
 See [docs/recommended-configs.md](docs/recommended-configs.md) for suggested companion configurations.
-
-## Requirements
-
-- Python 3.11+
-- dbt manifest v11+ (dbt 1.6+)

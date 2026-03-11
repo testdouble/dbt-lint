@@ -525,6 +525,44 @@ def intermediate_fanout(
 
 
 @rule(
+    id="modeling/duplicate-mart-concepts",
+    description="Same entity modeled in multiple mart subdirectories.",
+)
+def duplicate_mart_concepts(
+    resources: list[Resource],
+    relationships: list[Relationship],
+    config: RuleConfig,
+) -> list[Violation]:
+    marts = [
+        r for r in resources
+        if r.resource_type == "model" and r.model_type == "marts"
+    ]
+    by_name = group_by(marts, key=lambda r: r.resource_name)
+
+    violations = []
+    for name, group in by_name.items():
+        if len(group) < 2:
+            continue
+        dirs = {r.file_path.rsplit("/", 1)[0] for r in group}
+        if len(dirs) > 1:
+            violations.append(
+                Violation(
+                    rule_id="modeling/duplicate-mart-concepts",
+                    resource_id=group[0].resource_id,
+                    resource_name=name,
+                    message=(
+                        f"{name}: same mart entity appears in"
+                        f" {len(dirs)} directories"
+                        f" ({', '.join(sorted(dirs))})"
+                    ),
+                    severity=config.severity,
+                    file_path=group[0].file_path,
+                )
+            )
+    return violations
+
+
+@rule(
     id="modeling/rejoining-upstream-concepts",
     description="Models that rejoin a previously consumed concept.",
 )

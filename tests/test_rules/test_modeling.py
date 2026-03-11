@@ -3,6 +3,7 @@
 from dbt_linter.rules.modeling import (
     direct_join_to_source,
     downstream_depends_on_source,
+    duplicate_mart_concepts,
     duplicate_sources,
     hard_coded_references,
     intermediate_fanout,
@@ -612,3 +613,101 @@ class TestIntermediateFanout:
             for i in range(2)
         ]
         assert intermediate_fanout([inter], rels, default_config) == []
+
+
+class TestDuplicateMartConcepts:
+    def test_flags_same_entity_in_different_dirs(
+        self, make_resource, default_config
+    ):
+        """finance/fct_orders and marketing/fct_orders are duplicates."""
+        resources = [
+            make_resource(
+                resource_id="model.pkg.finance_orders",
+                resource_type="model",
+                model_type="marts",
+                resource_name="fct_orders",
+                file_path="models/marts/finance/fct_orders.sql",
+            ),
+            make_resource(
+                resource_id="model.pkg.marketing_orders",
+                resource_type="model",
+                model_type="marts",
+                resource_name="fct_orders",
+                file_path="models/marts/marketing/fct_orders.sql",
+            ),
+        ]
+        vs = duplicate_mart_concepts(resources, [], default_config)
+        assert len(vs) == 1
+
+    def test_flags_same_entity_different_prefix(
+        self, make_resource, default_config
+    ):
+        """Plain name duplicates across dirs are flagged."""
+        resources = [
+            make_resource(
+                resource_id="model.pkg.fin_orders",
+                resource_type="model",
+                model_type="marts",
+                resource_name="orders",
+                file_path="models/marts/finance/orders.sql",
+            ),
+            make_resource(
+                resource_id="model.pkg.mkt_orders",
+                resource_type="model",
+                model_type="marts",
+                resource_name="orders",
+                file_path="models/marts/marketing/orders.sql",
+            ),
+        ]
+        vs = duplicate_mart_concepts(resources, [], default_config)
+        assert len(vs) == 1
+
+    def test_clean_single_instance(self, make_resource, default_config):
+        """A single model is not a duplicate."""
+        resources = [
+            make_resource(
+                resource_type="model",
+                model_type="marts",
+                resource_name="orders",
+                file_path="models/marts/finance/orders.sql",
+            ),
+        ]
+        vs = duplicate_mart_concepts(resources, [], default_config)
+        assert vs == []
+
+    def test_clean_different_entities(self, make_resource, default_config):
+        """Different entities in different dirs are not duplicates."""
+        resources = [
+            make_resource(
+                resource_type="model",
+                model_type="marts",
+                resource_name="orders",
+                file_path="models/marts/finance/orders.sql",
+            ),
+            make_resource(
+                resource_type="model",
+                model_type="marts",
+                resource_name="customers",
+                file_path="models/marts/marketing/customers.sql",
+            ),
+        ]
+        vs = duplicate_mart_concepts(resources, [], default_config)
+        assert vs == []
+
+    def test_ignores_non_marts(self, make_resource, default_config):
+        resources = [
+            make_resource(
+                resource_type="model",
+                model_type="staging",
+                resource_name="stg_stripe__orders",
+                file_path="models/staging/stripe/stg_stripe__orders.sql",
+            ),
+            make_resource(
+                resource_type="model",
+                model_type="staging",
+                resource_name="stg_stripe__orders",
+                file_path="models/staging/shopify/stg_stripe__orders.sql",
+            ),
+        ]
+        vs = duplicate_mart_concepts(resources, [], default_config)
+        assert vs == []

@@ -8,6 +8,7 @@ from dbt_linter.rules.structure import (
     model_naming_conventions,
     source_directories,
     staging_materialization,
+    staging_naming_convention,
 )
 
 
@@ -292,3 +293,64 @@ class TestModelNameFormat:
             resource_name="Weekly-Dashboard",
         )
         assert model_name_format(r, default_config) is None
+
+
+class TestStagingNamingConvention:
+    def test_flags_staging_without_double_underscore(
+        self, make_resource, default_config
+    ):
+        """stg_orders is missing the source__entity pattern."""
+        r = make_resource(
+            resource_type="model",
+            model_type="staging",
+            resource_name="stg_orders",
+        )
+        v = staging_naming_convention(r, default_config)
+        assert v is not None
+        assert "__" in v.message
+
+    def test_clean_staging_with_double_underscore(
+        self, make_resource, default_config
+    ):
+        """stg_stripe__orders follows the convention."""
+        r = make_resource(
+            resource_type="model",
+            model_type="staging",
+            resource_name="stg_stripe__orders",
+        )
+        assert staging_naming_convention(r, default_config) is None
+
+    def test_clean_staging_with_nested_underscores(
+        self, make_resource, default_config
+    ):
+        """stg_google_analytics__page_views is valid."""
+        r = make_resource(
+            resource_type="model",
+            model_type="staging",
+            resource_name="stg_google_analytics__page_views",
+        )
+        assert staging_naming_convention(r, default_config) is None
+
+    def test_ignores_non_staging(self, make_resource, default_config):
+        r = make_resource(
+            resource_type="model",
+            model_type="marts",
+            resource_name="orders",
+        )
+        assert staging_naming_convention(r, default_config) is None
+
+    def test_ignores_sources(self, make_resource, default_config):
+        r = make_resource(resource_type="source")
+        assert staging_naming_convention(r, default_config) is None
+
+    def test_ignores_when_no_staging_prefix_matched(
+        self, make_resource, default_config
+    ):
+        """If name doesn't start with any staging prefix, skip
+        (model-naming-conventions handles that)."""
+        r = make_resource(
+            resource_type="model",
+            model_type="staging",
+            resource_name="orders",
+        )
+        assert staging_naming_convention(r, default_config) is None

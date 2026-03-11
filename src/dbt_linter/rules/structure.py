@@ -136,6 +136,39 @@ def test_directories(
     return []
 
 
+@rule(
+    id="structure/staging-naming-convention",
+    description="Staging model name doesn't follow stg_<source>__<entity> pattern.",
+)
+def staging_naming_convention(
+    resource: Resource, config: RuleConfig
+) -> Violation | None:
+    if resource.resource_type != "model" or resource.model_type != "staging":
+        return None
+    prefixes = config.params.get("staging_prefixes", [])
+    matched_prefix = None
+    for p in prefixes:
+        if resource.resource_name.startswith(p):
+            matched_prefix = p
+            break
+    if matched_prefix is None:
+        return None
+    remainder = resource.resource_name[len(matched_prefix):]
+    if "__" in remainder:
+        return None
+    return Violation(
+        rule_id="structure/staging-naming-convention",
+        resource_id=resource.resource_id,
+        resource_name=resource.resource_name,
+        message=(
+            f"{resource.resource_name}: staging model should follow"
+            " stg_<source>__<entity> pattern (missing __ separator)"
+        ),
+        severity=config.severity,
+        file_path=resource.file_path,
+    )
+
+
 def _check_materialization(
     resource: Resource,
     config: RuleConfig,

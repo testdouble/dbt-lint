@@ -13,6 +13,7 @@ from dbt_linter.manifest import (
     _extract_edges,
     _extract_skip_rules,
     _has_hard_coded_references,
+    _has_relationship_tests,
     _is_primary_key_tested,
     _model_to_resource,
     _source_to_resource,
@@ -347,6 +348,25 @@ class TestIsPrimaryKeyTested:
         custom_macros = [["custom_pkg.test_pk"]]
         tests = [{"name": "pk", "namespace": "custom_pkg", "kwargs": {}}]
         assert _is_primary_key_tested(tests, custom_macros) is True
+
+
+class TestHasRelationshipTests:
+    def test_true_when_relationships_test_present(self):
+        tests = [
+            {"namespace": "dbt", "name": "relationships"},
+            {"namespace": "dbt", "name": "not_null"},
+        ]
+        assert _has_relationship_tests(tests) is True
+
+    def test_false_when_no_relationships_test(self):
+        tests = [
+            {"namespace": "dbt", "name": "unique"},
+            {"namespace": "dbt", "name": "not_null"},
+        ]
+        assert _has_relationship_tests(tests) is False
+
+    def test_false_when_empty(self):
+        assert _has_relationship_tests([]) is False
 
 
 class TestExtractSkipRules:

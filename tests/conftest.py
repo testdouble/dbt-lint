@@ -33,6 +33,7 @@ def make_resource():
             "number_of_documented_columns": 5,
             "is_freshness_enabled": False,
             "is_primary_key_tested": True,
+            "has_relationship_tests": False,
             "tags": (),
             "meta": {},
             "skip_rules": frozenset(),

@@ -23,6 +23,7 @@ class Resource:
     number_of_documented_columns: int
     is_freshness_enabled: bool
     is_primary_key_tested: bool
+    has_relationship_tests: bool
     tags: tuple[str, ...]
     meta: dict
     skip_rules: frozenset[str]

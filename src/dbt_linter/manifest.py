@@ -123,6 +123,11 @@ def _is_primary_key_tested(
     )
 
 
+def _has_relationship_tests(tests: list[dict]) -> bool:
+    """Check if any relationship/referential integrity tests are present."""
+    return any(t.get("name") == "relationships" for t in tests)
+
+
 def _extract_skip_rules(meta: dict) -> frozenset[str]:
     """Extract skip rules from meta.dbt-linter.skip list."""
     linter_meta = meta.get("dbt-linter", {})
@@ -163,6 +168,7 @@ def _model_to_resource(
         is_primary_key_tested=_is_primary_key_tested(
             tests, params["primary_key_test_macros"]
         ),
+        has_relationship_tests=_has_relationship_tests(tests),
         tags=tuple(config.get("tags", [])),
         meta=meta,
         skip_rules=_extract_skip_rules(meta),
@@ -197,6 +203,7 @@ def _source_to_resource(source: dict) -> Resource:
         number_of_documented_columns=0,
         is_freshness_enabled=is_fresh,
         is_primary_key_tested=False,
+        has_relationship_tests=False,
         tags=(),
         meta=enriched_meta,
         skip_rules=_extract_skip_rules(meta),
@@ -222,6 +229,7 @@ def _exposure_to_resource(exposure: dict) -> Resource:
         number_of_documented_columns=0,
         is_freshness_enabled=False,
         is_primary_key_tested=False,
+        has_relationship_tests=False,
         tags=(),
         meta={},
         skip_rules=frozenset(),

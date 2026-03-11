@@ -169,6 +169,7 @@ def _model_to_resource(
             tests, params["primary_key_test_macros"]
         ),
         has_relationship_tests=_has_relationship_tests(tests),
+        patch_path=node.get("patch_path", ""),
         tags=tuple(config.get("tags", [])),
         meta=meta,
         skip_rules=_extract_skip_rules(meta),
@@ -204,6 +205,7 @@ def _source_to_resource(source: dict) -> Resource:
         is_freshness_enabled=is_fresh,
         is_primary_key_tested=False,
         has_relationship_tests=False,
+        patch_path="",
         tags=(),
         meta=enriched_meta,
         skip_rules=_extract_skip_rules(meta),
@@ -230,6 +232,7 @@ def _exposure_to_resource(exposure: dict) -> Resource:
         is_freshness_enabled=False,
         is_primary_key_tested=False,
         has_relationship_tests=False,
+        patch_path="",
         tags=(),
         meta={},
         skip_rules=frozenset(),

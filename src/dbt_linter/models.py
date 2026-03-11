@@ -24,6 +24,7 @@ class Resource:
     is_freshness_enabled: bool
     is_primary_key_tested: bool
     has_relationship_tests: bool
+    patch_path: str
     tags: tuple[str, ...]
     meta: dict
     skip_rules: frozenset[str]

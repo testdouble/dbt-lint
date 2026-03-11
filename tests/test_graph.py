@@ -32,6 +32,7 @@ def _resource(
         is_freshness_enabled=False,
         is_primary_key_tested=True,
         has_relationship_tests=False,
+        patch_path="",
         tags=(),
         meta={},
         skip_rules=frozenset(),

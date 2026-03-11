@@ -60,6 +60,29 @@ class TestModelNamingConventions:
         r = make_resource(resource_type="source", model_type="")
         assert model_naming_conventions(r, default_config) is None
 
+    def test_clean_marts_plain_name_with_empty_default(
+        self, make_resource, default_config
+    ):
+        """With empty marts_prefixes (default), any name passes."""
+        r = make_resource(
+            resource_type="model",
+            model_type="marts",
+            resource_name="orders",
+        )
+        assert model_naming_conventions(r, default_config) is None
+
+    def test_flags_marts_without_prefix_when_overridden(
+        self, make_resource, default_config
+    ):
+        """With explicit marts_prefixes, plain name is flagged."""
+        default_config.params["marts_prefixes"] = ["fct_", "dim_"]
+        r = make_resource(
+            resource_type="model",
+            model_type="marts",
+            resource_name="orders",
+        )
+        assert model_naming_conventions(r, default_config) is not None
+
 
 class TestModelDirectories:
     def test_flags_staging_model_in_wrong_dir(

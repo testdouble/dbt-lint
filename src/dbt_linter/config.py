@@ -21,7 +21,7 @@ DEFAULTS: dict[str, Any] = {
     "model_types": ["base", "staging", "intermediate", "marts", "other"],
     "staging_prefixes": ["stg_"],
     "intermediate_prefixes": ["int_"],
-    "marts_prefixes": ["fct_", "dim_"],
+    "marts_prefixes": [],
     "base_prefixes": ["base_"],
     "other_prefixes": ["rpt_"],
     # Directories

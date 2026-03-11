@@ -20,7 +20,7 @@ class TestDefaults:
 
     def test_defaults_has_prefixes(self):
         assert DEFAULTS["staging_prefixes"] == ["stg_"]
-        assert DEFAULTS["marts_prefixes"] == ["fct_", "dim_"]
+        assert DEFAULTS["marts_prefixes"] == []
 
     def test_defaults_has_materializations(self):
         assert DEFAULTS["staging_allowed_materializations"] == ["view"]

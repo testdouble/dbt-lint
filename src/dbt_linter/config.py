@@ -15,7 +15,7 @@ DEFAULTS: dict[str, Any] = {
     "documentation_coverage_target": 100,
     "test_coverage_target": 100,
     "models_fanout_threshold": 3,
-    "too_many_joins_threshold": 7,
+    "too_many_joins_threshold": 5,
     "chained_views_threshold": 5,
     # Model types and prefixes
     "model_types": ["base", "staging", "intermediate", "marts", "other"],

@@ -346,7 +346,7 @@ class TestTooManyJoins:
                 child="model.pkg.wide",
                 child_resource_type="model",
             )
-            for i in range(7)  # default threshold is 7
+            for i in range(5)  # default threshold is 5
         ]
         vs = too_many_joins([child], rels, default_config)
         assert len(vs) == 1

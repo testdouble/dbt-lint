@@ -13,7 +13,7 @@ from dbt_linter.config import (
 class TestDefaults:
     def test_defaults_has_thresholds(self):
         assert DEFAULTS["models_fanout_threshold"] == 3
-        assert DEFAULTS["too_many_joins_threshold"] == 7
+        assert DEFAULTS["too_many_joins_threshold"] == 5
         assert DEFAULTS["chained_views_threshold"] == 5
         assert DEFAULTS["documentation_coverage_target"] == 100
         assert DEFAULTS["test_coverage_target"] == 100

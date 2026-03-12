@@ -1,10 +1,26 @@
 # Recommended companion configs
 
-dbt-linter handles manifest-level semantic analysis: DAG structure, naming conventions, test coverage, documentation, governance. It does not lint SQL or YAML syntax. Use these tools for the layers dbt-linter delegates.
+dbt-linter handles manifest-level semantic analysis: DAG structure, naming conventions, test coverage, documentation, governance. It does not lint SQL syntax or YAML formatting. The tools below cover those layers.
 
-## sqlfluff
+Each tool owns a distinct scope with no overlap.
+
+| Concern | Tool |
+|---|---|
+| DAG structure, layer boundaries | dbt-linter |
+| Model/column naming conventions | dbt-linter |
+| Test coverage, primary keys, freshness | dbt-linter |
+| Documentation coverage | dbt-linter |
+| Governance, contracts | dbt-linter |
+| Project-specific patterns | dbt-linter (custom rules) |
+| SQL formatting and style | SQLFluff |
+| SQL quality (SELECT *, subqueries, dead CTEs) | SQLFluff |
+| YAML formatting | yamllint |
+
+## SQLFluff
 
 SQL formatting and quality. Install: `pip install sqlfluff sqlfluff-templater-dbt`
+
+The config below follows dbt best practices defaults. Adjust dialect, capitalization, and line length to match your project conventions, then use dbt-linter's config overrides for any structural deviations.
 
 `.sqlfluff`:
 
@@ -12,23 +28,39 @@ SQL formatting and quality. Install: `pip install sqlfluff sqlfluff-templater-db
 [sqlfluff]
 templater = dbt
 dialect = bigquery
-# Adjust dialect to match your warehouse
+# Adjust dialect to match your warehouse (postgres, snowflake, etc.)
+
+# --- Capitalization ---
 
 [sqlfluff:rules]
-# Consistent capitalisation
+# dbt best practices: lowercase keywords and function names (CP01, CP02)
 capitalisation_policy = lower
 extended_capitalisation_policy = lower
+
+# --- Indentation ---
 
 [sqlfluff:indentation]
 indent_unit = space
 tab_space_size = 4
 
+# --- Formatting ---
+
+[sqlfluff:rules:layout.long_lines]
+# dbt best practices: max 80 characters
+max_line_length = 80
+
+[sqlfluff:rules:convention.select_trailing_comma]
+select_clause_trailing_comma = require
+
 [sqlfluff:rules:convention.terminator]
-# Require trailing semicolons
 multiline_newline = true
 
+[sqlfluff:rules:jinja.padding]
+# Spaces inside Jinja delimiters: {{ this }} not {{this}}
+
+# --- Aliasing ---
+
 [sqlfluff:rules:aliasing.table]
-# Require explicit aliases
 aliasing = explicit
 
 [sqlfluff:rules:aliasing.column]
@@ -37,31 +69,37 @@ aliasing = explicit
 [sqlfluff:rules:aliasing.length]
 min_alias_length = 3
 
-[sqlfluff:rules:convention.select_trailing_comma]
-# Trailing commas in SELECT lists
-select_clause_trailing_comma = require
-
-[sqlfluff:rules:layout.long_lines]
-# dbt best practices recommend max 80 characters
-max_line_length = 80
+# --- Join quality ---
 
 [sqlfluff:rules:ambiguous.join]
-# Require explicit join types: "inner join" not "join"
+# Require explicit join types: INNER JOIN not JOIN
 fully_qualify_join_types = both
 
 [sqlfluff:rules:ambiguous.union]
-# Prefer union all / union distinct over bare union
+# Prefer UNION ALL / UNION DISTINCT over bare UNION
 
-[sqlfluff:rules:jinja.padding]
-# Spaces inside Jinja delimiters: {{ this }} not {{this}}
+# --- SQL quality (patterns dbt-linter delegates to SQLFluff) ---
+
+# AM04: No SELECT * (expand column lists explicitly)
+# Enabled by default, no config needed.
+
+# ST06: Prefer CTEs over subqueries
+# Enabled by default, no config needed.
+
+# LT12: Unused CTEs (dead code that should be removed)
+# Enabled by default, no config needed.
 ```
 
-**Not enforceable via sqlfluff config:**
-- No right joins (restructure to select from the correct table)
-- Group by column index, not column name
-- Fields before aggregates/window functions in SELECT
+### Patterns requiring manual review
 
-These require manual review or custom sqlfluff rules.
+These are not reliably enforceable via config. Document them in PR review guidelines or `CONTRIBUTING.md`:
+
+- No right joins (restructure to select from the correct table)
+- GROUP BY column index, not column name
+- Fields before aggregates/window functions in SELECT
+- No ORDER BY in non-final models (AM05 is not a built-in rule)
+- Logic reimplementation (same metric calculated differently in two models)
+- Commented-out SQL (LT01 catches some cases, but high false positive rate)
 
 ## yamllint
 
@@ -87,7 +125,7 @@ rules:
 
 ## CI integration
 
-Run all three together in CI:
+Run all three tools in CI. They operate on different artifacts with no overlapping rules.
 
 ```yaml
 - name: Lint YAML
@@ -100,4 +138,4 @@ Run all three together in CI:
   run: dbt-lint target/manifest.json --config dbt_linter.yml
 ```
 
-sqlfluff and yamllint operate on source files. dbt-linter operates on the compiled manifest. The three tools have no overlapping rules.
+sqlfluff and yamllint operate on source files. dbt-linter operates on the compiled manifest.

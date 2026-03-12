@@ -9,6 +9,7 @@ Manifest-only semantic linter for dbt projects. Analyzes `manifest.json` to enfo
 - [Usage](#usage)
 - [Rules](#rules)
 - [Configuration](#configuration)
+- [Custom rules](#custom-rules)
 - [Development](#development)
 - [Scope](#scope)
 
@@ -63,7 +64,7 @@ When `GITHUB_ACTIONS=true` is set, dbt-linter emits `::error`/`::warning` workfl
 
 ## Rules
 
-39 rules across 6 departments.
+41 built-in rules across 6 departments.
 
 ### Modeling (16)
 
@@ -95,7 +96,7 @@ When `GITHUB_ACTIONS=true` is set, dbt-linter emits `::error`/`::warning` workfl
 | `testing/sources-without-freshness` | Sources without freshness checks |
 | `testing/test-coverage` | Test coverage below target by model type |
 
-### Documentation (4)
+### Documentation (5)
 
 | Rule | Description |
 |---|---|
@@ -103,13 +104,15 @@ When `GITHUB_ACTIONS=true` is set, dbt-linter emits `::error`/`::warning` workfl
 | `documentation/undocumented-sources` | Sources without a source-level description |
 | `documentation/undocumented-source-tables` | Source tables without a table-level description |
 | `documentation/documentation-coverage` | Documentation coverage below target by model type |
+| `documentation/column-documentation-coverage` | Column documentation coverage below target (disabled by default) |
 
-### Structure (10)
+### Structure (11)
 
 | Rule | Description |
 |---|---|
 | `structure/model-name-format` | Model name is not valid snake_case |
 | `structure/model-naming-conventions` | Model name doesn't match prefix for its type |
+| `structure/column-naming-conventions` | Column name violates naming conventions (disabled by default) |
 | `structure/model-directories` | Model not in expected directory for its type |
 | `structure/source-directories` | Source YAML not in staging directory |
 | `structure/test-directories` | Test YAML in different directory than model |
@@ -178,6 +181,20 @@ primary_key_test_macros:
   - [dbt.test_unique, dbt.test_not_null]
   - [dbt_utils.test_unique_combination_of_columns]
 
+# Column naming conventions (null = disabled)
+# column_naming_conventions:
+#   forbidden_suffixes: [_type, _status]
+#   boolean_prefixes: [is_, has_, was_]
+#   type_suffixes:
+#     _at: [timestamp]
+#     _date: [date]
+#     _id: [integer, bigint]
+#     _amt: [numeric, decimal]
+#     _cnt: [integer, bigint]
+
+# Column documentation coverage target (null = disabled)
+# column_documentation_coverage_target: 80
+
 # Per-rule overrides
 rules:
   modeling/too-many-joins:
@@ -203,6 +220,74 @@ models:
           - modeling/hard-coded-references
           - structure/model-naming-conventions
 ```
+
+## Custom rules
+
+Write project-specific rules in Python using the same `@rule` decorator as built-in rules. Custom rules are loaded dynamically via the `source:` directive in config.
+
+### Writing a rule
+
+Import from `dbt_linter.extend` and decorate a function with `@rule`:
+
+```python
+# custom_rules/avoid_select_distinct.py
+import re
+from dbt_linter.extend import Resource, RuleConfig, Violation, rule
+
+_SELECT_DISTINCT = re.compile(r"\bSELECT\s+DISTINCT\b", re.IGNORECASE | re.DOTALL)
+
+@rule(
+    id="custom/avoid-select-distinct",
+    description="Model uses SELECT DISTINCT instead of GROUP BY.",
+)
+def avoid_select_distinct(resource: Resource, config: RuleConfig) -> Violation | None:
+    if resource.resource_type != "model":
+        return None
+    if _SELECT_DISTINCT.search(resource.raw_code or ""):
+        return Violation.from_resource(resource, f"{resource.resource_name}: uses SELECT DISTINCT")
+    return None
+```
+
+Two signatures are supported:
+
+- Per-resource: `(resource: Resource, config: RuleConfig) -> Violation | None`
+- Aggregate: `(resources: list[Resource], relationships: list[Relationship], config: RuleConfig) -> list[Violation]`
+
+The decorator validates the signature at import time.
+
+### Public API (`dbt_linter.extend`)
+
+| Export | Purpose |
+|---|---|
+| `Resource` | Frozen dataclass with 24 fields (resource_id, resource_name, resource_type, raw_code, meta, config, tags, columns, ...) |
+| `Relationship` | Dependency edge between resources (parent, child, distance, ...) |
+| `Violation` | Rule violation. Use `Violation.from_resource(resource, message)` to create. |
+| `RuleConfig` | Per-rule config (enabled, severity, params dict) |
+| `ColumnInfo` | Column metadata (name, data_type, is_described) |
+| `rule` | Decorator: `@rule(id="custom/my-rule", description="...")` |
+| `direct_edges` | Filter relationships to distance=1 |
+| `filter_by_model_type` | Filter resources by model type |
+| `group_by` | Group items by key function |
+
+### Registering in config
+
+Add a `source:` key to the rule entry in `dbt_linter.yml`. The path is relative to the config file.
+
+```yaml
+rules:
+  custom/avoid-select-distinct:
+    source: custom_rules/avoid_select_distinct.py
+    severity: warn
+  custom/source-missing-index-meta:
+    source: custom_rules/source_missing_index_meta.py
+    severity: error
+```
+
+Custom rule IDs must not collide with built-in rule IDs. Multiple rules can live in the same file; the loader matches by `id`.
+
+### Examples
+
+See `examples/` for 5 working custom rules with tests, covering `raw_code` regex, `meta` dict checks, `config` dict access, `tags` validation, and `materialization` scoping.
 
 ## Development
 

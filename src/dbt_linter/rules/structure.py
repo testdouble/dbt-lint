@@ -1,8 +1,9 @@
-"""Structure rules: naming, directories, materializations."""
+"""Structure rules: naming, directories, materializations, column conventions."""
 
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from dbt_linter.config import RuleConfig
 from dbt_linter.models import Relationship, Resource, Violation
@@ -257,3 +258,74 @@ def yaml_file_naming(resource: Resource, config: RuleConfig) -> Violation | None
         severity=config.severity,
         file_path=yaml_path,
     )
+
+
+def _check_column_naming(
+    resource: Resource,
+    cnc: dict[str, Any],
+) -> list[str]:
+    """Check a resource's columns against naming convention config.
+
+    Returns a list of violation messages (empty if all columns pass).
+    """
+    messages: list[str] = []
+    forbidden: dict[str, str] = cnc.get("forbidden_suffixes", {})
+    bool_prefixes: list[str] = cnc.get("boolean_prefixes", [])
+    type_suffixes: dict[str, str] = cnc.get("type_suffixes", {})
+
+    for col in resource.columns:
+        name = col.name.lower()
+
+        for suffix, suggestion in forbidden.items():
+            if name.endswith(suffix):
+                messages.append(
+                    f"{resource.resource_name}.{col.name}:"
+                    f" suffix '{suffix}' should be"
+                    f" '{suggestion}'"
+                )
+
+        if (
+            bool_prefixes
+            and col.data_type.lower() == "boolean"
+            and not any(name.startswith(p) for p in bool_prefixes)
+        ):
+            messages.append(
+                f"{resource.resource_name}.{col.name}:"
+                f" boolean column should start with"
+                f" one of {bool_prefixes}"
+            )
+
+        if type_suffixes and col.data_type:
+            dt = col.data_type.lower()
+            if dt in type_suffixes:
+                expected = type_suffixes[dt]
+                if not name.endswith(expected):
+                    messages.append(
+                        f"{resource.resource_name}.{col.name}:"
+                        f" {dt} column should end with"
+                        f" '{expected}'"
+                    )
+
+    return messages
+
+
+@rule(
+    id="structure/column-naming-conventions",
+    description="Column name violates naming conventions.",
+)
+def column_naming_conventions(
+    resources: list[Resource],
+    relationships: list[Relationship],
+    config: RuleConfig,
+) -> list[Violation]:
+    cnc = config.params.get("column_naming_conventions")
+    if not cnc:
+        return []
+
+    violations: list[Violation] = []
+    for resource in resources:
+        if resource.resource_type != "model":
+            continue
+        for msg in _check_column_naming(resource, cnc):
+            violations.append(Violation.from_resource(resource, msg))
+    return violations

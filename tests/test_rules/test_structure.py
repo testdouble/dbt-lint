@@ -1,6 +1,8 @@
 """Tests for structure rules."""
 
+from dbt_linter.models import ColumnInfo
 from dbt_linter.rules.structure import (
+    column_naming_conventions,
     intermediate_materialization,
     marts_materialization,
     model_directories,
@@ -351,3 +353,190 @@ class TestYamlFileNaming:
     def test_ignores_exposures(self, make_resource, default_config):
         r = make_resource(resource_type="exposure")
         assert yaml_file_naming(r, default_config) is None
+
+
+class TestColumnNamingConventions:
+    """Column naming conventions: disabled by default, config-driven."""
+
+    def test_null_config_returns_empty(self, make_resource, default_config):
+        """No column_naming_conventions config -> no violations."""
+        r = make_resource(
+            columns=(
+                ColumnInfo(name="order_count", data_type="integer", is_described=True),
+            ),
+        )
+        result = column_naming_conventions([r], [], default_config)
+        assert result == []
+
+    def test_forbidden_suffix_flagged(self, make_resource, default_config):
+        default_config.params["column_naming_conventions"] = {
+            "forbidden_suffixes": {"_count": "_cnt"},
+        }
+        r = make_resource(
+            columns=(
+                ColumnInfo(
+                    name="order_count",
+                    data_type="integer",
+                    is_described=True,
+                ),
+            ),
+        )
+        result = column_naming_conventions([r], [], default_config)
+        assert len(result) == 1
+        assert "_count" in result[0].message
+        assert "_cnt" in result[0].message
+
+    def test_forbidden_suffix_clean(self, make_resource, default_config):
+        default_config.params["column_naming_conventions"] = {
+            "forbidden_suffixes": {"_count": "_cnt"},
+        }
+        r = make_resource(
+            columns=(
+                ColumnInfo(
+                    name="order_cnt",
+                    data_type="integer",
+                    is_described=True,
+                ),
+            ),
+        )
+        result = column_naming_conventions([r], [], default_config)
+        assert result == []
+
+    def test_boolean_prefix_flagged(self, make_resource, default_config):
+        default_config.params["column_naming_conventions"] = {
+            "boolean_prefixes": ["is_", "has_"],
+        }
+        r = make_resource(
+            columns=(
+                ColumnInfo(
+                    name="active",
+                    data_type="boolean",
+                    is_described=True,
+                ),
+            ),
+        )
+        result = column_naming_conventions([r], [], default_config)
+        assert len(result) == 1
+        assert "boolean" in result[0].message
+
+    def test_boolean_prefix_clean(self, make_resource, default_config):
+        default_config.params["column_naming_conventions"] = {
+            "boolean_prefixes": ["is_", "has_"],
+        }
+        r = make_resource(
+            columns=(
+                ColumnInfo(
+                    name="is_active",
+                    data_type="boolean",
+                    is_described=True,
+                ),
+            ),
+        )
+        result = column_naming_conventions([r], [], default_config)
+        assert result == []
+
+    def test_boolean_prefix_ignores_non_boolean(self, make_resource, default_config):
+        default_config.params["column_naming_conventions"] = {
+            "boolean_prefixes": ["is_", "has_"],
+        }
+        r = make_resource(
+            columns=(
+                ColumnInfo(
+                    name="amount",
+                    data_type="numeric",
+                    is_described=True,
+                ),
+            ),
+        )
+        result = column_naming_conventions([r], [], default_config)
+        assert result == []
+
+    def test_type_suffix_flagged(self, make_resource, default_config):
+        default_config.params["column_naming_conventions"] = {
+            "type_suffixes": {"timestamp": "_at"},
+        }
+        r = make_resource(
+            columns=(
+                ColumnInfo(
+                    name="created",
+                    data_type="timestamp",
+                    is_described=True,
+                ),
+            ),
+        )
+        result = column_naming_conventions([r], [], default_config)
+        assert len(result) == 1
+        assert "_at" in result[0].message
+
+    def test_type_suffix_clean(self, make_resource, default_config):
+        default_config.params["column_naming_conventions"] = {
+            "type_suffixes": {"timestamp": "_at"},
+        }
+        r = make_resource(
+            columns=(
+                ColumnInfo(
+                    name="created_at",
+                    data_type="timestamp",
+                    is_described=True,
+                ),
+            ),
+        )
+        result = column_naming_conventions([r], [], default_config)
+        assert result == []
+
+    def test_multiple_violations_same_resource(self, make_resource, default_config):
+        default_config.params["column_naming_conventions"] = {
+            "forbidden_suffixes": {"_count": "_cnt"},
+            "type_suffixes": {"timestamp": "_at"},
+        }
+        r = make_resource(
+            columns=(
+                ColumnInfo(
+                    name="order_count",
+                    data_type="integer",
+                    is_described=True,
+                ),
+                ColumnInfo(
+                    name="created",
+                    data_type="timestamp",
+                    is_described=True,
+                ),
+            ),
+        )
+        result = column_naming_conventions([r], [], default_config)
+        assert len(result) == 2
+
+    def test_ignores_sources(self, make_resource, default_config):
+        default_config.params["column_naming_conventions"] = {
+            "forbidden_suffixes": {"_count": "_cnt"},
+        }
+        r = make_resource(
+            resource_type="source",
+            columns=(
+                ColumnInfo(
+                    name="order_count",
+                    data_type="integer",
+                    is_described=True,
+                ),
+            ),
+        )
+        result = column_naming_conventions([r], [], default_config)
+        assert result == []
+
+    def test_violation_uses_from_resource(self, make_resource, default_config):
+        """Violations use Violation.from_resource (rule_id/severity empty)."""
+        default_config.params["column_naming_conventions"] = {
+            "forbidden_suffixes": {"_count": "_cnt"},
+        }
+        r = make_resource(
+            columns=(
+                ColumnInfo(
+                    name="order_count",
+                    data_type="integer",
+                    is_described=True,
+                ),
+            ),
+        )
+        result = column_naming_conventions([r], [], default_config)
+        assert result[0].rule_id == ""
+        assert result[0].severity == ""

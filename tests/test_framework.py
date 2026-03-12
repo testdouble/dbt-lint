@@ -102,9 +102,9 @@ class TestDirectEdges:
 
 
 class TestGetAllRules:
-    def test_discovers_all_39_rules(self):
+    def test_discovers_all_40_rules(self):
         rules = get_all_rules()
-        assert len(rules) == 39
+        assert len(rules) == 40
 
     def test_all_rules_have_unique_ids(self):
         rules = get_all_rules()

@@ -43,6 +43,8 @@ DEFAULTS: dict[str, Any] = {
         ["dbt_utils.test_unique_combination_of_columns"],
     ],
     "enforced_primary_key_node_types": ["model"],
+    # Column naming conventions (null = disabled)
+    "column_naming_conventions": None,
     # Rule overrides
     "rules": {},
 }

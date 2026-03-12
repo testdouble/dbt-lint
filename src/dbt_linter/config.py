@@ -45,6 +45,8 @@ DEFAULTS: dict[str, Any] = {
     "enforced_primary_key_node_types": ["model"],
     # Column naming conventions (null = disabled)
     "column_naming_conventions": None,
+    # Column documentation coverage target (null = disabled)
+    "column_documentation_coverage_target": None,
     # Rule overrides
     "rules": {},
 }

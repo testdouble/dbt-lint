@@ -100,3 +100,35 @@ def documentation_coverage(
                 )
             )
     return violations
+
+
+@rule(
+    id="documentation/column-documentation-coverage",
+    description="Column documentation coverage below target.",
+)
+def column_documentation_coverage(
+    resources: list[Resource],
+    relationships: list[Relationship],
+    config: RuleConfig,
+) -> list[Violation]:
+    target = config.params.get("column_documentation_coverage_target")
+    if target is None:
+        return []
+
+    violations = []
+    for resource in resources:
+        if resource.resource_type != "model":
+            continue
+        if not resource.columns:
+            continue
+        described = sum(1 for c in resource.columns if c.is_described)
+        pct = (described / len(resource.columns)) * 100
+        if pct < target:
+            violations.append(
+                Violation.from_resource(
+                    resource,
+                    f"{resource.resource_name}: {pct:.0f}% columns"
+                    f" documented (target: {target}%)",
+                )
+            )
+    return violations

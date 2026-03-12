@@ -55,7 +55,7 @@ Exit codes: `0` clean, `1` violations found, `2` tool error.
 
 ### GitHub Actions
 
-When `GITHUB_ACTIONS=true` is set, dbt-linter emits `::error`/`::warning` workflow commands that appear as inline annotations on PR diffs.
+In GitHub Actions runs, dbt-linter automatically emits inline annotations on PR diffs.
 
 ```yaml
 - name: Lint dbt project

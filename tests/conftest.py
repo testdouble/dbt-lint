@@ -38,6 +38,9 @@ def make_resource():
             "tags": (),
             "meta": {},
             "skip_rules": frozenset(),
+            "raw_code": "",
+            "config": {},
+            "columns": (),
         }
         defaults.update(overrides)
         return Resource(**defaults)

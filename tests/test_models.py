@@ -1,6 +1,6 @@
 """Tests for Resource, Relationship, Violation, and DirectEdge dataclasses."""
 
-from dbt_linter.models import DirectEdge, Relationship, Resource, Violation
+from dbt_linter.models import ColumnInfo, DirectEdge, Relationship, Resource, Violation
 
 
 class TestResource:
@@ -27,12 +27,17 @@ class TestResource:
             tags=("daily",),
             meta={},
             skip_rules=frozenset(),
+            raw_code="SELECT * FROM {{ ref('raw_orders') }}",
+            config={"materialized": "view"},
+            columns=(),
         )
         assert r.resource_id == "model.pkg.stg_orders"
         assert r.resource_type == "model"
         assert r.model_type == "staging"
         assert r.tags == ("daily",)
         assert r.skip_rules == frozenset()
+        assert r.raw_code == "SELECT * FROM {{ ref('raw_orders') }}"
+        assert r.config == {"materialized": "view"}
 
     def test_frozen(self):
         r = Resource(
@@ -57,6 +62,9 @@ class TestResource:
             tags=(),
             meta={},
             skip_rules=frozenset(),
+            raw_code="",
+            config={},
+            columns=(),
         )
         try:
             r.resource_id = "other"  # type: ignore[misc]
@@ -87,6 +95,9 @@ class TestResource:
             tags=(),
             meta={"dbt-linter": {"skip": ["modeling/hard-coded-references"]}},
             skip_rules=frozenset(["modeling/hard-coded-references"]),
+            raw_code="",
+            config={},
+            columns=(),
         )
         assert "modeling/hard-coded-references" in r.skip_rules
         assert "modeling/root-models" not in r.skip_rules
@@ -115,6 +126,9 @@ class TestResource:
             tags=(),
             meta={},
             skip_rules=frozenset(),
+            raw_code="",
+            config={},
+            columns=(),
         )
         assert r.model_type == ""
         assert r.materialization == ""
@@ -159,6 +173,22 @@ class TestRelationship:
             pass
 
 
+class TestColumnInfo:
+    def test_construction(self):
+        c = ColumnInfo(name="order_id", data_type="integer", is_described=True)
+        assert c.name == "order_id"
+        assert c.data_type == "integer"
+        assert c.is_described is True
+
+    def test_frozen(self):
+        c = ColumnInfo(name="id", data_type="", is_described=False)
+        try:
+            c.name = "other"  # type: ignore[misc]
+            raise AssertionError("Should not allow mutation")
+        except AttributeError:
+            pass
+
+
 class TestViolation:
     def test_construction(self):
         v = Violation(
@@ -172,6 +202,41 @@ class TestViolation:
         assert v.rule_id == "modeling/root-models"
         assert v.severity == "warn"
         assert v.file_path == "models/orphan.sql"
+
+    def test_from_resource(self):
+        r = Resource(
+            resource_id="model.pkg.stg_orders",
+            resource_name="stg_orders",
+            resource_type="model",
+            file_path="models/staging/stg_orders.sql",
+            model_type="staging",
+            materialization="view",
+            schema_name="staging",
+            database="analytics",
+            is_described=True,
+            is_public=False,
+            is_contract_enforced=False,
+            hard_coded_references=False,
+            number_of_columns=0,
+            number_of_documented_columns=0,
+            is_freshness_enabled=False,
+            is_primary_key_tested=False,
+            has_relationship_tests=False,
+            patch_path="",
+            tags=(),
+            meta={},
+            skip_rules=frozenset(),
+            raw_code="",
+            config={},
+            columns=(),
+        )
+        v = Violation.from_resource(r, "stg_orders: uses SELECT DISTINCT")
+        assert v.resource_id == "model.pkg.stg_orders"
+        assert v.resource_name == "stg_orders"
+        assert v.file_path == "models/staging/stg_orders.sql"
+        assert v.message == "stg_orders: uses SELECT DISTINCT"
+        assert v.rule_id == ""
+        assert v.severity == ""
 
 
 class TestDirectEdge:

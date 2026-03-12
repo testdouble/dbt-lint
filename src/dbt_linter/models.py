@@ -1,6 +1,17 @@
-"""Core dataclasses: Resource, Relationship, Violation, DirectEdge."""
+"""Core dataclasses: Resource, Relationship, Violation, DirectEdge, ColumnInfo."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class ColumnInfo:
+    """A column within a dbt resource, extracted from manifest columns dict."""
+
+    name: str
+    data_type: str
+    is_described: bool
 
 
 @dataclass(frozen=True)
@@ -28,6 +39,9 @@ class Resource:
     tags: tuple[str, ...]
     meta: dict
     skip_rules: frozenset[str]
+    raw_code: str
+    config: dict
+    columns: tuple[ColumnInfo, ...]
 
 
 @dataclass(frozen=True)
@@ -56,6 +70,21 @@ class Violation:
     message: str
     severity: str
     file_path: str
+
+    @classmethod
+    def from_resource(cls, resource: Resource, message: str) -> Violation:
+        """Create a Violation from a Resource.
+
+        Leaves rule_id and severity empty for the engine to fill.
+        """
+        return cls(
+            rule_id="",
+            resource_id=resource.resource_id,
+            resource_name=resource.resource_name,
+            message=message,
+            severity="",
+            file_path=resource.file_path,
+        )
 
 
 @dataclass(frozen=True)

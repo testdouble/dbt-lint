@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from dbt_linter.config import Config
-from dbt_linter.models import DirectEdge, Resource
+from dbt_linter.models import ColumnInfo, DirectEdge, Resource
 
 
 def _check_schema_version(manifest: dict) -> None:
@@ -135,6 +135,18 @@ def _extract_skip_rules(meta: dict) -> frozenset[str]:
     return frozenset(skip_list) if skip_list else frozenset()
 
 
+def _columns_to_tuple(columns_dict: dict) -> tuple[ColumnInfo, ...]:
+    """Convert manifest columns dict to a tuple of ColumnInfo."""
+    return tuple(
+        ColumnInfo(
+            name=col.get("name", key),
+            data_type=col.get("data_type", ""),
+            is_described=bool(col.get("description", "")),
+        )
+        for key, col in columns_dict.items()
+    )
+
+
 def _model_to_resource(
     node: dict, test_index: dict[str, list[dict]], params: dict[str, Any]
 ) -> Resource:
@@ -142,10 +154,11 @@ def _model_to_resource(
     unique_id = node["unique_id"]
     name = node["name"]
     file_path = node["original_file_path"]
-    config = node.get("config", {})
-    meta = config.get("meta", {})
-    columns = node.get("columns", {})
+    node_config = node.get("config", {})
+    meta = node_config.get("meta", {})
+    columns_dict = node.get("columns", {})
     tests = test_index.get(unique_id, [])
+    raw_code = node.get("raw_code", "")
 
     return Resource(
         resource_id=unique_id,
@@ -153,16 +166,16 @@ def _model_to_resource(
         resource_type="model",
         file_path=file_path,
         model_type=_classify_model_type(name, file_path, params),
-        materialization=config.get("materialized", ""),
+        materialization=node_config.get("materialized", ""),
         schema_name=node.get("schema", ""),
         database=node.get("database", ""),
         is_described=bool(node.get("description", "")),
         is_public=node.get("access") == "public",
         is_contract_enforced=bool(node.get("contract", {}).get("enforced")),
-        hard_coded_references=_has_hard_coded_references(node.get("raw_code", "")),
-        number_of_columns=len(columns),
+        hard_coded_references=_has_hard_coded_references(raw_code),
+        number_of_columns=len(columns_dict),
         number_of_documented_columns=sum(
-            1 for c in columns.values() if c.get("description", "")
+            1 for c in columns_dict.values() if c.get("description", "")
         ),
         is_freshness_enabled=False,
         is_primary_key_tested=_is_primary_key_tested(
@@ -170,9 +183,12 @@ def _model_to_resource(
         ),
         has_relationship_tests=_has_relationship_tests(tests),
         patch_path=node.get("patch_path", ""),
-        tags=tuple(config.get("tags", [])),
+        tags=tuple(node_config.get("tags", [])),
         meta=meta,
         skip_rules=_extract_skip_rules(meta),
+        raw_code=raw_code,
+        config=node_config,
+        columns=_columns_to_tuple(columns_dict),
     )
 
 
@@ -186,6 +202,8 @@ def _source_to_resource(source: dict) -> Resource:
 
     source_desc_populated = bool(source.get("source_description", ""))
     enriched_meta = {**meta, "source_description_populated": source_desc_populated}
+
+    columns_dict = source.get("columns", {})
 
     return Resource(
         resource_id=source["unique_id"],
@@ -209,6 +227,9 @@ def _source_to_resource(source: dict) -> Resource:
         tags=(),
         meta=enriched_meta,
         skip_rules=_extract_skip_rules(meta),
+        raw_code="",
+        config={},
+        columns=_columns_to_tuple(columns_dict),
     )
 
 
@@ -236,6 +257,9 @@ def _exposure_to_resource(exposure: dict) -> Resource:
         tags=(),
         meta={},
         skip_rules=frozenset(),
+        raw_code="",
+        config={},
+        columns=(),
     )
 
 

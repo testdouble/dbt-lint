@@ -36,6 +36,9 @@ def _resource(
         tags=(),
         meta={},
         skip_rules=frozenset(),
+        raw_code="",
+        config={},
+        columns=(),
     )
 
 

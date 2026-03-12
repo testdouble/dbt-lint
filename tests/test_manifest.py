@@ -9,6 +9,7 @@ from dbt_linter.manifest import (
     _build_test_index,
     _check_schema_version,
     _classify_model_type,
+    _columns_to_tuple,
     _exposure_to_resource,
     _extract_edges,
     _extract_skip_rules,
@@ -19,7 +20,7 @@ from dbt_linter.manifest import (
     _source_to_resource,
     parse_manifest,
 )
-from dbt_linter.models import DirectEdge
+from dbt_linter.models import ColumnInfo, DirectEdge
 
 
 class TestCheckSchemaVersion:
@@ -398,6 +399,48 @@ class TestExtractSkipRules:
         assert _extract_skip_rules(meta) == frozenset()
 
 
+class TestColumnsToTuple:
+    def test_empty_dict(self):
+        assert _columns_to_tuple({}) == ()
+
+    def test_single_column(self):
+        cols = {
+            "id": {
+                "name": "id",
+                "description": "Primary key",
+                "data_type": "integer",
+            }
+        }
+        result = _columns_to_tuple(cols)
+        assert len(result) == 1
+        assert result[0] == ColumnInfo(
+            name="id", data_type="integer", is_described=True
+        )
+
+    def test_undescribed_column(self):
+        cols = {"id": {"name": "id", "description": "", "data_type": "integer"}}
+        result = _columns_to_tuple(cols)
+        assert result[0].is_described is False
+
+    def test_missing_data_type(self):
+        cols = {"id": {"name": "id", "description": "PK"}}
+        result = _columns_to_tuple(cols)
+        assert result[0].data_type == ""
+
+    def test_multiple_columns(self):
+        cols = {
+            "id": {"name": "id", "description": "PK", "data_type": "integer"},
+            "amount": {"name": "amount", "description": "", "data_type": "numeric"},
+        }
+        result = _columns_to_tuple(cols)
+        assert len(result) == 2
+
+    def test_name_falls_back_to_key(self):
+        cols = {"order_id": {"description": "PK"}}
+        result = _columns_to_tuple(cols)
+        assert result[0].name == "order_id"
+
+
 class TestModelToResource:
     @pytest.fixture
     def model_node(self):
@@ -499,6 +542,37 @@ class TestModelToResource:
         r = _model_to_resource(model_node, test_index, DEFAULTS)
         assert r.skip_rules == frozenset({"modeling/hard-coded-references"})
 
+    def test_raw_code(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.raw_code == "SELECT * FROM {{ source('stripe', 'orders') }}"
+
+    def test_config_dict(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.config["materialized"] == "view"
+        assert r.config["tags"] == ["daily"]
+
+    def test_columns_tuple(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert len(r.columns) == 2
+        names = {c.name for c in r.columns}
+        assert names == {"id", "amount"}
+
+    def test_columns_described_flag(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        by_name = {c.name: c for c in r.columns}
+        assert by_name["id"].is_described is True
+        assert by_name["amount"].is_described is False
+
+    def test_empty_raw_code(self, model_node, test_index):
+        model_node["raw_code"] = ""
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.raw_code == ""
+
+    def test_missing_raw_code(self, model_node, test_index):
+        del model_node["raw_code"]
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert r.raw_code == ""
+
 
 class TestSourceToResource:
     @pytest.fixture
@@ -564,6 +638,26 @@ class TestSourceToResource:
         r = _source_to_resource(source_node)
         assert r.meta["source_description_populated"] is False
 
+    def test_source_empty_raw_code(self, source_node):
+        r = _source_to_resource(source_node)
+        assert r.raw_code == ""
+
+    def test_source_empty_config(self, source_node):
+        r = _source_to_resource(source_node)
+        assert r.config == {}
+
+    def test_source_columns(self, source_node):
+        source_node["columns"] = {
+            "id": {"name": "id", "description": "PK", "data_type": "integer"}
+        }
+        r = _source_to_resource(source_node)
+        assert len(r.columns) == 1
+        assert r.columns[0].name == "id"
+
+    def test_source_no_columns(self, source_node):
+        r = _source_to_resource(source_node)
+        assert r.columns == ()
+
 
 class TestExposureToResource:
     @pytest.fixture
@@ -591,6 +685,9 @@ class TestExposureToResource:
         assert r.is_described is False
         assert r.is_public is False
         assert r.number_of_columns == 0
+        assert r.raw_code == ""
+        assert r.config == {}
+        assert r.columns == ()
 
 
 class TestExtractEdges:

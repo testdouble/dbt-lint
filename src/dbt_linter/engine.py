@@ -5,6 +5,7 @@ from __future__ import annotations
 from fnmatch import fnmatch
 
 from dbt_linter.config import Config, RuleConfig, matches_path_filter
+from dbt_linter.loader import load_custom_rules
 from dbt_linter.models import Relationship, Resource, Violation
 from dbt_linter.rules import RuleDef, get_all_rules
 
@@ -15,8 +16,9 @@ def evaluate(
     config: Config,
 ) -> list[Violation]:
     """Run all enabled rules and collect violations."""
+    all_rules = get_all_rules() + load_custom_rules(config)
     violations = []
-    for rule_def in get_all_rules():
+    for rule_def in all_rules:
         rule_config = config.rule_config(rule_def.id)
         if not rule_config.enabled:
             continue

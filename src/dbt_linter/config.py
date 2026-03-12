@@ -61,13 +61,24 @@ class RuleConfig:
 
 
 @dataclass
+class CustomRuleEntry:
+    """A custom rule entry from config: rule_id + source path + overrides."""
+
+    rule_id: str
+    source: str
+    overrides: dict[str, Any]
+
+
+@dataclass
 class Config:
     """Top-level configuration with merged params and rule overrides."""
 
     params: dict[str, Any]
     include: str | None
     exclude: str | None
+    config_dir: Path | None
     _rule_overrides: dict[str, dict[str, Any]]
+    _custom_rule_entries: list[CustomRuleEntry]
 
     def rule_config(self, rule_id: str) -> RuleConfig:
         """Build a RuleConfig for a specific rule, merging defaults with overrides."""
@@ -88,11 +99,36 @@ def load_config(path: Path | None) -> Config:
     rule_overrides = merged.pop("rules", {})
     merged["rules"] = {}  # Keep rules key empty in params
 
+    # Separate custom rule entries (those with source:) from built-in overrides.
+    # Both types get their overrides stored in all_overrides for rule_config().
+    all_overrides: dict[str, dict[str, Any]] = {}
+    custom_entries: list[CustomRuleEntry] = []
+
+    for rule_id, rule_cfg in rule_overrides.items():
+        if not isinstance(rule_cfg, dict):
+            continue
+        if "source" in rule_cfg:
+            entry_cfg = {k: v for k, v in rule_cfg.items() if k != "source"}
+            custom_entries.append(
+                CustomRuleEntry(
+                    rule_id=rule_id,
+                    source=rule_cfg["source"],
+                    overrides=entry_cfg,
+                )
+            )
+            all_overrides[rule_id] = entry_cfg
+        else:
+            all_overrides[rule_id] = rule_cfg
+
+    config_dir = path.parent if path is not None else None
+
     return Config(
         params=merged,
         include=merged.get("include"),
         exclude=merged.get("exclude"),
-        _rule_overrides=rule_overrides,
+        config_dir=config_dir,
+        _rule_overrides=all_overrides,
+        _custom_rule_entries=custom_entries,
     )
 
 

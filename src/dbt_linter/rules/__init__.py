@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import inspect
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, get_type_hints
 
 from dbt_linter.models import Relationship, Resource
+
+# Valid per-resource params (resource, config) and aggregate (resources,
+# relationships, config). We check type hints to distinguish them.
+_PER_RESOURCE_PARAMS = {"resource", "config"}
+_AGGREGATE_PARAMS = {"resources", "relationships", "config"}
 
 
 @dataclass(frozen=True)
@@ -21,10 +27,23 @@ class RuleMeta:
         return self.id.split("/")[0]
 
 
+def _validate_rule_signature(fn, rule_id: str) -> None:
+    """Validate that a rule function has a supported signature."""
+    params = set(inspect.signature(fn).parameters.keys())
+    if params in (_PER_RESOURCE_PARAMS, _AGGREGATE_PARAMS):
+        return
+    raise TypeError(
+        f"@rule error in {rule_id}: expected (resource, config)"
+        f" or (resources, relationships, config),"
+        f" got ({', '.join(params)})"
+    )
+
+
 def rule(id: str, description: str):
     """Decorator that attaches RuleMeta to a rule function."""
 
     def decorator(fn):
+        _validate_rule_signature(fn, id)
         fn._rule_meta = RuleMeta(id=id, description=description)
         return fn
 

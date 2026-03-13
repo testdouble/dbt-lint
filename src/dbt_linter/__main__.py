@@ -12,7 +12,30 @@ from dbt_linter.config import load_config
 from dbt_linter.engine import evaluate
 from dbt_linter.graph import build_relationships
 from dbt_linter.manifest import parse_manifest
+from dbt_linter.models import Violation
 from dbt_linter.reporter import report
+
+
+def _apply_filters(
+    violations: list[Violation],
+    select: tuple[str, ...],
+    exclude: tuple[str, ...],
+) -> list[Violation]:
+    """Filter violations by --select and --exclude rule IDs."""
+    if select:
+        violations = [v for v in violations if v.rule_id in select]
+    if exclude:
+        violations = [v for v in violations if v.rule_id not in exclude]
+    return violations
+
+
+def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
+    """Return 1 if any violation meets the fail_on threshold, else 0."""
+    if fail_on == "error":
+        has_blocking = any(v.severity == "error" for v in violations)
+    else:
+        has_blocking = len(violations) > 0
+    return 1 if has_blocking else 0
 
 
 @click.command()
@@ -65,11 +88,7 @@ def main(
         click.echo(f"Error: {exc}", err=True)
         sys.exit(2)
 
-    # Apply --select / --exclude filters
-    if select:
-        violations = [v for v in violations if v.rule_id in select]
-    if exclude:
-        violations = [v for v in violations if v.rule_id not in exclude]
+    violations = _apply_filters(violations, select, exclude)
 
     github_annotations = os.environ.get("GITHUB_ACTIONS") == "true"
     output = report(
@@ -79,13 +98,7 @@ def main(
     )
     click.echo(output)
 
-    # Determine exit code
-    if fail_on == "error":
-        has_blocking = any(v.severity == "error" for v in violations)
-    else:
-        has_blocking = len(violations) > 0
-
-    sys.exit(1 if has_blocking else 0)
+    sys.exit(_determine_exit_code(violations, fail_on))
 
 
 if __name__ == "__main__":

@@ -31,9 +31,7 @@ def undocumented_models(resource: Resource, config: RuleConfig) -> Violation | N
 def undocumented_sources(resource: Resource, config: RuleConfig) -> Violation | None:
     if resource.resource_type != "source":
         return None
-    # source_description is stored in meta under our convention
-    # For sources, is_described tracks the table-level description.
-    # Source-level description is tracked via meta["source_description_populated"]
+    # is_described tracks table-level; source-level is in meta
     source_described = resource.meta.get("source_description_populated", True)
     if not source_described:
         return Violation(

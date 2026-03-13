@@ -65,37 +65,27 @@ def load_custom_rules(config: Config) -> list[RuleDef]:
         raise ValueError(msg)
 
     builtin_ids = {r.id for r in get_all_rules()}
-    imported_modules: dict[str, object] = {}
     rules: list[RuleDef] = []
 
     for entry in entries:
-        # Validate: no collision with built-in rules
         if entry.rule_id in builtin_ids:
             msg = f"Custom rule {entry.rule_id}: conflicts with built-in rule"
             raise ValueError(msg)
 
-        # Resolve source path relative to config dir
         source_path = (config_dir / entry.source).resolve()
         if not source_path.is_file():
             msg = f"Custom rule {entry.rule_id}: file not found: {entry.source}"
             raise FileNotFoundError(msg)
 
-        # Import module (idempotent per file)
         module_name = _synthetic_module_name(source_path, config_dir)
-        if module_name not in imported_modules:
-            try:
-                module = _import_module(source_path, module_name)
-            except Exception as exc:
-                msg = (
-                    f"Failed to load custom rule {entry.rule_id}"
-                    f" from {entry.source}: {exc}"
-                )
-                raise ImportError(msg) from exc
-            imported_modules[module_name] = module
-        else:
-            module = imported_modules[module_name]
+        try:
+            module = _import_module(source_path, module_name)
+        except Exception as exc:
+            msg = (
+                f"Failed to load custom rule {entry.rule_id} from {entry.source}: {exc}"
+            )
+            raise ImportError(msg) from exc
 
-        # Find @rule functions and match by id
         rule_fns = _find_rules_in_module(module)
         if not rule_fns:
             msg = (

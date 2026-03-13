@@ -100,9 +100,6 @@ def get_all_rules() -> list[RuleDef]:
     return rules
 
 
-# --- Helpers ---
-
-
 def group_by(items, key) -> dict:
     """Group items by key function, return dict of key -> list."""
     result = defaultdict(list)

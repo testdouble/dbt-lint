@@ -30,7 +30,6 @@ def build_relationships(
         if source_id not in children:
             continue
 
-        # visited maps node_id -> (distance, parent_in_bfs_tree)
         visited: dict[str, tuple[int, str | None]] = {source_id: (0, None)}
         queue: deque[str] = deque([source_id])
 

@@ -120,11 +120,7 @@ def test_directories(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
-    # This rule checks that tests are colocated with their models.
-    # In manifest, test nodes have file_path pointing to the YAML file.
-    # We compare directory of test YAML vs directory of the tested model.
-    # For now, this is a placeholder that requires manifest parsing context.
-    # The actual check will match test resources to their attached models.
+    # Unimplemented: checks test YAML colocation with tested models.
     return []
 
 

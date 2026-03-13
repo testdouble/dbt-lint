@@ -30,7 +30,6 @@ dev = [
 testpaths = ["tests"]
 
 [tool.ruff]
-target-version = "py314"
 src = ["src", "tests"]
 
 [tool.ruff.lint]

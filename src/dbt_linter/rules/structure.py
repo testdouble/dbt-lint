@@ -258,16 +258,16 @@ def yaml_file_naming(resource: Resource, config: RuleConfig) -> Violation | None
 
 def _check_column_naming(
     resource: Resource,
-    cnc: dict[str, Any],
+    conventions: dict[str, Any],
 ) -> list[str]:
     """Check a resource's columns against naming convention config.
 
     Returns a list of violation messages (empty if all columns pass).
     """
     messages: list[str] = []
-    forbidden: dict[str, str] = cnc.get("forbidden_suffixes", {})
-    bool_prefixes: list[str] = cnc.get("boolean_prefixes", [])
-    type_suffixes: dict[str, str] = cnc.get("type_suffixes", {})
+    forbidden: dict[str, str] = conventions.get("forbidden_suffixes", {})
+    bool_prefixes: list[str] = conventions.get("boolean_prefixes", [])
+    type_suffixes: dict[str, str] = conventions.get("type_suffixes", {})
 
     for col in resource.columns:
         name = col.name.lower()
@@ -314,14 +314,14 @@ def column_naming_conventions(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
-    cnc = config.params.get("column_naming_conventions")
-    if not cnc:
+    conventions = config.params.get("column_naming_conventions")
+    if not conventions:
         return []
 
     violations: list[Violation] = []
     for resource in resources:
         if resource.resource_type != "model":
             continue
-        for msg in _check_column_naming(resource, cnc):
+        for msg in _check_column_naming(resource, conventions):
             violations.append(Violation.from_resource(resource, msg))
     return violations

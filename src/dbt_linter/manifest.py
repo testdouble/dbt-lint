@@ -116,10 +116,11 @@ def _is_primary_key_tested(
         return False
 
     # Build set of fully-qualified test names from test_metadata entries
-    present = {f"{t['namespace']}.test_{t['name']}" for t in tests}
+    test_macros = {f"{t['namespace']}.test_{t['name']}" for t in tests}
 
     return any(
-        all(macro in present for macro in combo) for combo in primary_key_test_macros
+        all(macro in test_macros for macro in combo)
+        for combo in primary_key_test_macros
     )
 
 

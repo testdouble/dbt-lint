@@ -26,12 +26,12 @@ def build_relationships(
     children = _build_adjacency_list(edges, lookup)
     relationships: list[Relationship] = []
 
-    for source_id, source in lookup.items():
-        if source_id not in children:
+    for origin_id, origin in lookup.items():
+        if origin_id not in children:
             continue
 
-        visited: dict[str, tuple[int, str | None]] = {source_id: (0, None)}
-        queue: deque[str] = deque([source_id])
+        visited: dict[str, tuple[int, str | None]] = {origin_id: (0, None)}
+        queue: deque[str] = deque([origin_id])
 
         while queue:
             current = queue.popleft()
@@ -43,7 +43,7 @@ def build_relationships(
                     queue.append(child_id)
 
         relationships.extend(
-            _relationships_from_bfs(visited, source_id, source, lookup)
+            _relationships_from_bfs(visited, origin_id, origin, lookup)
         )
 
     return relationships
@@ -63,29 +63,29 @@ def _build_adjacency_list(
 
 def _relationships_from_bfs(
     visited: dict[str, tuple[int, str | None]],
-    source_id: str,
-    source: Resource,
+    origin_id: str,
+    origin: Resource,
     lookup: dict[str, Resource],
 ) -> list[Relationship]:
     """Convert BFS visited map into Relationship objects for all descendants."""
     relationships: list[Relationship] = []
     for dest_id, (dist, _) in visited.items():
-        if dest_id == source_id:
+        if dest_id == origin_id:
             continue
 
         dest = lookup[dest_id]
-        chain_of_views = _is_chain_of_views(visited, lookup, source_id, dest_id)
+        chain_of_views = _is_chain_of_views(visited, lookup, origin_id, dest_id)
 
         relationships.append(
             Relationship(
-                parent=source_id,
+                parent=origin_id,
                 child=dest_id,
-                parent_resource_type=source.resource_type,
+                parent_resource_type=origin.resource_type,
                 child_resource_type=dest.resource_type,
-                parent_model_type=source.model_type,
+                parent_model_type=origin.model_type,
                 child_model_type=dest.model_type,
-                parent_materialization=source.materialization,
-                parent_is_public=source.is_public,
+                parent_materialization=origin.materialization,
+                parent_is_public=origin.is_public,
                 distance=dist,
                 is_dependent_on_chain_of_views=chain_of_views,
             )
@@ -96,23 +96,23 @@ def _relationships_from_bfs(
 def _is_chain_of_views(
     visited: dict[str, tuple[int, str | None]],
     lookup: dict[str, Resource],
-    source_id: str,
+    origin_id: str,
     dest_id: str,
 ) -> bool:
     """Check if every intermediate node on the shortest path is a view.
 
-    Intermediate nodes exclude source and destination. For distance=1,
+    Intermediate nodes exclude origin and destination. For distance=1,
     there are no intermediates, so the result is always False.
     """
     dist = visited[dest_id][0]
     if dist <= 1:
         return False
 
-    # Walk backwards from dest to source via BFS parent pointers.
+    # Walk backwards from dest to origin via BFS parent pointers.
     current = dest_id
     while True:
         parent_id = visited[current][1]
-        if parent_id is None or parent_id == source_id:
+        if parent_id is None or parent_id == origin_id:
             break
         if lookup[parent_id].materialization != "view":
             return False

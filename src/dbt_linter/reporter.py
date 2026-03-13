@@ -39,20 +39,19 @@ def _format_text(violations: list[Violation]) -> str:
     if not violations:
         return "No violations found."
 
-    # Group by department, then by rule
-    by_dept: dict[str, dict[str, list[Violation]]] = defaultdict(
+    by_category: dict[str, dict[str, list[Violation]]] = defaultdict(
         lambda: defaultdict(list)
     )
     for v in violations:
-        dept = v.rule_id.split("/")[0] if "/" in v.rule_id else v.rule_id
-        by_dept[dept][v.rule_id].append(v)
+        category = v.rule_id.split("/")[0] if "/" in v.rule_id else v.rule_id
+        by_category[category][v.rule_id].append(v)
 
     lines: list[str] = []
-    for dept in sorted(by_dept):
-        lines.append(f"\n{dept}")
-        lines.append("=" * len(dept))
-        for rule_id in sorted(by_dept[dept]):
-            rule_violations = by_dept[dept][rule_id]
+    for category in sorted(by_category):
+        lines.append(f"\n{category}")
+        lines.append("=" * len(category))
+        for rule_id in sorted(by_category[category]):
+            rule_violations = by_category[category][rule_id]
             rule_name = rule_id.split("/")[1] if "/" in rule_id else rule_id
             lines.append(f"\n  {rule_name} ({len(rule_violations)})")
             separator_len = len(rule_name) + len(str(len(rule_violations))) + 3

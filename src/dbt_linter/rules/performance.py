@@ -17,6 +17,7 @@ def chained_views(
     config: RuleConfig,
 ) -> list[Violation]:
     threshold = config.params.get("chained_views_threshold", 5)
+    resources_by_id = {r.resource_id: r for r in resources}
     violations = []
     seen = set()
 
@@ -27,7 +28,6 @@ def chained_views(
             and rel.child not in seen
         ):
             seen.add(rel.child)
-            resources_by_id = {r.resource_id: r for r in resources}
             child = resources_by_id.get(rel.child)
             violations.append(
                 Violation(

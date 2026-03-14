@@ -99,6 +99,25 @@ class TestTextReport:
         # Should have a summary with total count
         assert "2" in result
 
+    def test_summary_includes_category_breakdown(self):
+        violations = [
+            _v(rule_id="documentation/undocumented-models", resource_name="m1"),
+            _v(
+                rule_id="governance/public-models-without-contract",
+                resource_name="m2",
+                message="m2: public without contract",
+            ),
+            _v(
+                rule_id="documentation/documentation-coverage",
+                resource_name="m3",
+                message="m3: below coverage target",
+                resource_id="model.pkg.m3",
+            ),
+        ]
+        result = report(violations, format="text")
+        assert "documentation (2)" in result
+        assert "governance (1)" in result
+
     def test_multiple_violations_same_rule(self):
         violations = [
             _v(resource_name="m1", message="m1: missing description"),

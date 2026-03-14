@@ -70,6 +70,12 @@ def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
     default="warn",
     help="Minimum severity that causes exit code 1.",
 )
+@click.option(
+    "--fail-fast",
+    is_flag=True,
+    default=False,
+    help="Stop after the first violation.",
+)
 def main(
     manifest: Path,
     config: Path | None,
@@ -77,13 +83,14 @@ def main(
     select: tuple[str, ...],
     exclude: tuple[str, ...],
     fail_on: str,
+    fail_fast: bool,
 ) -> None:
     """Lint a dbt project by analyzing its manifest.json."""
     try:
         cfg = load_config(config)
         resources, edges = parse_manifest(manifest, cfg)
         relationships = build_relationships(resources, edges)
-        violations = evaluate(resources, relationships, cfg)
+        violations = evaluate(resources, relationships, cfg, fail_fast=fail_fast)
     except Exception as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(2)

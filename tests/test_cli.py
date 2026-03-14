@@ -210,6 +210,29 @@ class TestCliConfig:
         # May still exit 1 from other rules, that's fine
 
 
+class TestCliFailFast:
+    """--fail-fast flag for early exit."""
+
+    def test_fail_fast_flag_accepted(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, [str(manifest_path), "--fail-fast"])
+        assert result.exit_code == 1
+        assert "Found" in result.output
+
+    def test_fail_fast_fewer_violations(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        normal = runner.invoke(main, [str(manifest_path), "--format", "json"])
+        fast = runner.invoke(
+            main, [str(manifest_path), "--format", "json", "--fail-fast"]
+        )
+        normal_count = len(json.loads(normal.output))
+        fast_count = len(json.loads(fast.output))
+        assert fast_count <= normal_count
+        assert fast_count >= 1
+
+
 class TestCliSelectExclude:
     """--select and --exclude filter rules."""
 

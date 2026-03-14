@@ -14,6 +14,8 @@ def evaluate(
     resources: list[Resource],
     relationships: list[Relationship],
     config: Config,
+    *,
+    fail_fast: bool = False,
 ) -> list[Violation]:
     """Run all enabled rules and collect violations."""
     all_rules = get_all_rules() + load_custom_rules(config)
@@ -30,6 +32,8 @@ def evaluate(
                 result = rule_def.fn(resource, rule_config)
                 if result:
                     violations.append(_finalize(result, rule_def, rule_config))
+                    if fail_fast:
+                        return violations
         else:
             filtered = [
                 r
@@ -38,6 +42,8 @@ def evaluate(
             ]
             results = rule_def.fn(filtered, relationships, rule_config)
             violations.extend(_finalize(v, rule_def, rule_config) for v in results)
+            if fail_fast and violations:
+                return violations
 
     return violations
 

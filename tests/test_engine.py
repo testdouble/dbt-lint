@@ -126,6 +126,50 @@ class TestEvaluate:
         assert len(doc_violations) == 1
         assert doc_violations[0].resource_id == "model.pkg.stg_orders"
 
+    def test_fail_fast_stops_after_first_violation(self, make_resource):
+        resources = [
+            make_resource(
+                resource_type="model",
+                is_described=False,
+                resource_name="undoc_a",
+                resource_id="model.pkg.undoc_a",
+            ),
+            make_resource(
+                resource_type="model",
+                is_described=False,
+                resource_name="undoc_b",
+                resource_id="model.pkg.undoc_b",
+            ),
+        ]
+        config = load_config(None)
+        all_violations = evaluate(resources, [], config)
+        fast_violations = evaluate(resources, [], config, fail_fast=True)
+        assert len(fast_violations) < len(all_violations)
+        assert len(fast_violations) >= 1
+
+    def test_fail_fast_false_returns_all(self, make_resource):
+        resources = [
+            make_resource(
+                resource_type="model",
+                is_described=False,
+                resource_name="undoc_a",
+                resource_id="model.pkg.undoc_a",
+            ),
+            make_resource(
+                resource_type="model",
+                is_described=False,
+                resource_name="undoc_b",
+                resource_id="model.pkg.undoc_b",
+            ),
+        ]
+        config = load_config(None)
+        violations = evaluate(resources, [], config, fail_fast=False)
+        # Should find violations for both undescribed models
+        doc_violations = [
+            v for v in violations if v.rule_id == "documentation/undocumented-models"
+        ]
+        assert len(doc_violations) == 2
+
     def test_severity_override(self, tmp_path: Path, make_resource):
         config_file = tmp_path / "dbt_linter.yml"
         config_file.write_text(

@@ -129,7 +129,7 @@ class TestCliFormats:
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
         result = runner.invoke(main, [str(manifest_path)])
-        # Text output has department headers
+        # Text output has category headers
         assert result.exit_code == 1  # violations found
         out = result.output.lower()
         assert "documentation" in out or "governance" in out

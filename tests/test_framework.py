@@ -33,12 +33,12 @@ class TestRuleDecorator:
         # Function is still callable
         assert callable(noop)
 
-    def test_department_derived_from_id(self):
+    def test_category_derived_from_id(self):
         @rule(id="modeling/some-rule", description="Test.")
         def some_rule(resource: Resource, config: RuleConfig) -> Violation | None:
             return None
 
-        assert some_rule._rule_meta.department == "modeling"
+        assert some_rule._rule_meta.category == "modeling"
 
 
 class TestSignatureDetection:
@@ -111,10 +111,10 @@ class TestGetAllRules:
         ids = [r.id for r in rules]
         assert len(ids) == len(set(ids))
 
-    def test_all_departments_present(self):
+    def test_all_categories_present(self):
         rules = get_all_rules()
-        departments = {r.department for r in rules}
-        assert departments == {
+        categories = {r.category for r in rules}
+        assert categories == {
             "modeling",
             "testing",
             "documentation",

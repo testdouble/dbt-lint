@@ -27,7 +27,7 @@ def _v(
 
 
 class TestTextReport:
-    """Text output: grouped by department, then rule."""
+    """Text output: grouped by category, then rule."""
 
     def test_empty_violations_returns_clean_message(self):
         result = report([], format="text")
@@ -40,7 +40,7 @@ class TestTextReport:
         assert "undocumented-models" in result
         assert "stg_users" in result
 
-    def test_groups_by_department(self):
+    def test_groups_by_category(self):
         violations = [
             _v(rule_id="documentation/undocumented-models", resource_name="m1"),
             _v(
@@ -50,11 +50,11 @@ class TestTextReport:
             ),
         ]
         result = report(violations, format="text")
-        # Both departments should appear as section headers
+        # Both categories should appear as section headers
         assert "documentation" in result.lower()
         assert "governance" in result.lower()
 
-    def test_groups_by_rule_within_department(self):
+    def test_groups_by_rule_within_category(self):
         violations = [
             _v(
                 rule_id="documentation/undocumented-models",
@@ -76,7 +76,7 @@ class TestTextReport:
         ]
         result = report(violations, format="text")
         lines = result.split("\n")
-        # Both rule IDs from documentation dept should appear
+        # Both rule IDs from documentation category should appear
         assert any("undocumented-models" in line for line in lines)
         assert any("documentation-coverage" in line for line in lines)
 

@@ -64,7 +64,7 @@ In GitHub Actions runs, dbt-linter automatically emits inline annotations on PR 
 
 ## Rules
 
-41 built-in rules across 6 departments.
+41 built-in rules across 6 categories.
 
 ### Modeling (16)
 

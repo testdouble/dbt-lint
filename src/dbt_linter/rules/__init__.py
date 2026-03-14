@@ -23,7 +23,7 @@ class RuleMeta:
     description: str
 
     @property
-    def department(self) -> str:
+    def category(self) -> str:
         return self.id.split("/")[0]
 
 
@@ -55,7 +55,7 @@ class RuleDef:
     """A resolved rule definition with metadata and dispatch info."""
 
     id: str
-    department: str
+    category: str
     description: str
     fn: Any
     is_per_resource: bool
@@ -67,7 +67,7 @@ class RuleDef:
         per_resource = "resource" in hints and hints["resource"] is Resource
         return cls(
             id=meta.id,
-            department=meta.department,
+            category=meta.category,
             description=meta.description,
             fn=fn,
             is_per_resource=per_resource,

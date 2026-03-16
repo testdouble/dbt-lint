@@ -9,7 +9,12 @@ from pathlib import Path
 import click
 
 from dbt_linter.baseline import generate_baseline
-from dbt_linter.config import load_config
+from dbt_linter.config import (
+    BASELINE_FILENAME,
+    load_baseline,
+    load_config,
+    merge_baseline,
+)
 from dbt_linter.engine import evaluate
 from dbt_linter.graph import build_relationships
 from dbt_linter.manifest import parse_manifest
@@ -28,6 +33,18 @@ def _apply_filters(
     if exclude:
         violations = [v for v in violations if v.rule_id not in exclude]
     return violations
+
+
+def _resolve_baseline(
+    explicit: Path | None,
+    config_path: Path | None,
+) -> Path | None:
+    """Find the baseline file: explicit path, or auto-discover by convention."""
+    if explicit is not None:
+        return explicit
+    search_dir = config_path.parent if config_path is not None else Path.cwd()
+    candidate = search_dir / BASELINE_FILENAME
+    return candidate if candidate.exists() else None
 
 
 def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
@@ -78,6 +95,13 @@ def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
     help="Stop after the first violation.",
 )
 @click.option(
+    "--baseline",
+    "baseline_path",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Path to dbt-lint-baseline.yml suppressions file.",
+)
+@click.option(
     "--generate-baseline",
     "generate_baseline_flag",
     is_flag=True,
@@ -99,12 +123,17 @@ def main(
     exclude: tuple[str, ...],
     fail_on: str,
     fail_fast: bool,
+    baseline_path: Path | None,
     generate_baseline_flag: bool,
     output_path: Path | None,
 ) -> None:
     """Lint a dbt project by analyzing its manifest.json."""
     try:
         cfg = load_config(config)
+        if not generate_baseline_flag:
+            resolved = _resolve_baseline(baseline_path, config)
+            if resolved is not None:
+                cfg = merge_baseline(cfg, load_baseline(resolved))
         resources, edges = parse_manifest(manifest, cfg)
         relationships = build_relationships(resources, edges)
         result = evaluate(resources, relationships, cfg, fail_fast=fail_fast)

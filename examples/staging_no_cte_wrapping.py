@@ -1,10 +1,8 @@
-"""Enforce bare SELECT in staging models (no CTE wrapping).
+"""Example custom rule: bare SELECT in staging models.
 
-Project standard 9: staging models use bare SELECT from source() without
-import CTEs. Consistent across all 32 sources. Simplifies staging models
-since they do minimal transformation.
-
-Detects WITH as the first SQL keyword (ignoring Jinja blocks and whitespace).
+Demonstrates optional structured metadata kwargs (rationale, remediation,
+examples) on the @rule decorator. These populate --list-rules output when
+provided.
 """
 
 from __future__ import annotations
@@ -24,6 +22,19 @@ _LEADING_WITH = re.compile(
 @rule(
     id="custom/staging-no-cte-wrapping",
     description="Staging model uses CTE wrapping instead of bare SELECT.",
+    rationale=(
+        "Staging models use bare SELECT from source() without import CTEs. "
+        "This simplifies staging models since they do minimal transformation "
+        "(renaming, casting)."
+    ),
+    remediation=(
+        "Remove the CTE and SELECT directly from the source() call. "
+        "Move complex logic to an intermediate model."
+    ),
+    examples=(
+        "Violation: WITH src AS (SELECT * FROM {{ source(...) }}) SELECT * FROM src",
+        "Pass: SELECT col_a, col_b FROM {{ source('raw', 'users') }}",
+    ),
 )
 def staging_no_cte_wrapping(resource: Resource, config: RuleConfig) -> Violation | None:
     if resource.resource_type != "model":

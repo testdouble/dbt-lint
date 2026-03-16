@@ -1,8 +1,8 @@
-"""Require models to have at least one scheduling tag.
+"""Example custom rule: scheduling tag requirement.
 
-Project standard 7: tags drive orchestration (scheduled_update,
-frequent_update, transformed_hourly, etc.). Every model should
-declare which schedule it belongs to.
+Demonstrates optional structured metadata kwargs (rationale, remediation,
+examples) on the @rule decorator. These populate --list-rules output when
+provided.
 """
 
 from __future__ import annotations
@@ -23,6 +23,19 @@ _SCHEDULING_PREFIXES = (
 @rule(
     id="custom/model-requires-scheduling-tag",
     description="Model missing a scheduling tag.",
+    rationale=(
+        "Tags drive orchestration (scheduled_update, "
+        "frequent_update, transformed_hourly, etc.). Every model "
+        "should declare which schedule it belongs to."
+    ),
+    remediation=(
+        "Add a scheduling tag to the model's config in dbt_project.yml "
+        "or the model's YAML properties."
+    ),
+    examples=(
+        "Violation: fct_orders has tags: [] (no scheduling tag)",
+        "Pass: fct_orders has tags: [scheduled_update]",
+    ),
 )
 def model_requires_scheduling_tag(
     resource: Resource, config: RuleConfig

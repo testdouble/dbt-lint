@@ -1,10 +1,7 @@
-"""Flag models using SELECT DISTINCT (prefer GROUP BY or QUALIFY).
+"""Example custom rule: SELECT DISTINCT detection.
 
-Deviation report pattern 5: litwak's reviews consistently flag SELECT DISTINCT
-as a code smell. GROUP BY is more explicit about intent, and QUALIFY with
-ROW_NUMBER() handles deduplication more precisely.
-
-Ignores COUNT(DISTINCT ...) which is a legitimate aggregate.
+Demonstrates optional structured metadata kwargs (rationale, remediation)
+on the @rule decorator. These populate --list-rules output when provided.
 """
 
 from __future__ import annotations
@@ -22,6 +19,17 @@ _FUNC_DISTINCT = re.compile(r"\w+\s*\(\s*DISTINCT\b", re.IGNORECASE)
 @rule(
     id="custom/avoid-select-distinct",
     description="Model uses SELECT DISTINCT instead of GROUP BY.",
+    rationale=(
+        "SELECT DISTINCT is a code smell. GROUP BY is more explicit about "
+        "intent, and QUALIFY with ROW_NUMBER() handles deduplication more "
+        "precisely. COUNT(DISTINCT ...) is a legitimate aggregate and is "
+        "not flagged."
+    ),
+    remediation=(
+        "Replace SELECT DISTINCT with GROUP BY on the deduplication "
+        "columns, or use QUALIFY with ROW_NUMBER() for row-level "
+        "deduplication."
+    ),
 )
 def avoid_select_distinct(resource: Resource, config: RuleConfig) -> Violation | None:
     if resource.resource_type != "model":

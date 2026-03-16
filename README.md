@@ -239,6 +239,9 @@ _SELECT_DISTINCT = re.compile(r"\bSELECT\s+DISTINCT\b", re.IGNORECASE | re.DOTAL
 @rule(
     id="custom/avoid-select-distinct",
     description="Model uses SELECT DISTINCT instead of GROUP BY.",
+    # Optional: structured metadata shown in --list-rules output
+    rationale="SELECT DISTINCT is a code smell; prefer GROUP BY or QUALIFY.",
+    remediation="Replace SELECT DISTINCT with GROUP BY or QUALIFY ROW_NUMBER().",
 )
 def avoid_select_distinct(resource: Resource, config: RuleConfig) -> Violation | None:
     if resource.resource_type != "model":
@@ -264,7 +267,7 @@ The decorator validates the signature at import time.
 | `Violation` | Rule violation. Use `Violation.from_resource(resource, message)` to create. |
 | `RuleConfig` | Per-rule config (enabled, severity, params dict) |
 | `ColumnInfo` | Column metadata (name, data_type, is_described) |
-| `rule` | Decorator: `@rule(id="custom/my-rule", description="...")` |
+| `rule` | Decorator: `@rule(id, description, *, rationale, remediation, exceptions, examples)`. Only `id` and `description` are required; the rest are optional and populate `--list-rules` output. |
 | `direct_edges` | Filter relationships to distance=1 |
 | `filter_by_model_type` | Filter resources by model type |
 | `group_by` | Group items by key function |

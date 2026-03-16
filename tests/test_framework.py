@@ -5,6 +5,7 @@ from dbt_linter.models import Relationship, Resource, Violation
 from dbt_linter.rules import (
     RuleDef,
     RuleInfo,
+    RuleMeta,
     _parse_docstring_sections,
     direct_edges,
     filter_by_model_type,
@@ -42,6 +43,35 @@ class TestRuleDecorator:
             return None
 
         assert some_rule._rule_meta.category == "modeling"
+
+    def test_structured_metadata_kwargs(self):
+        @rule(
+            id="testing/structured",
+            description="Structured.",
+            rationale="Because reasons.",
+            remediation="Fix it.",
+            exceptions="When X.",
+            examples=["Violation: bad", "Pass: good"],
+        )
+        def structured(resource: Resource, config: RuleConfig) -> Violation | None:
+            return None
+
+        meta: RuleMeta = structured._rule_meta
+        assert meta.rationale == "Because reasons."
+        assert meta.remediation == "Fix it."
+        assert meta.exceptions == "When X."
+        assert meta.examples == ("Violation: bad", "Pass: good")
+
+    def test_structured_metadata_defaults(self):
+        @rule(id="testing/defaults", description="Defaults.")
+        def defaults(resource: Resource, config: RuleConfig) -> Violation | None:
+            return None
+
+        meta: RuleMeta = defaults._rule_meta
+        assert meta.rationale == ""
+        assert meta.remediation == ""
+        assert meta.exceptions == ""
+        assert meta.examples == ()
 
 
 class TestSignatureDetection:

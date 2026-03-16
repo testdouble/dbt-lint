@@ -6,6 +6,7 @@ import inspect
 import re
 import textwrap
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, get_type_hints
 
@@ -23,6 +24,10 @@ class RuleMeta:
 
     id: str
     description: str
+    rationale: str = ""
+    remediation: str = ""
+    exceptions: str = ""
+    examples: tuple[str, ...] = ()
 
     @property
     def category(self) -> str:
@@ -41,12 +46,27 @@ def _validate_rule_signature(fn, rule_id: str) -> None:
     )
 
 
-def rule(id: str, description: str):
+def rule(
+    id: str,
+    description: str,
+    *,
+    rationale: str = "",
+    remediation: str = "",
+    exceptions: str = "",
+    examples: Sequence[str] = (),
+):
     """Decorator that attaches RuleMeta to a rule function."""
 
     def decorator(fn):
         _validate_rule_signature(fn, id)
-        fn._rule_meta = RuleMeta(id=id, description=description)
+        fn._rule_meta = RuleMeta(
+            id=id,
+            description=description,
+            rationale=rationale,
+            remediation=remediation,
+            exceptions=exceptions,
+            examples=tuple(examples),
+        )
         return fn
 
     return decorator

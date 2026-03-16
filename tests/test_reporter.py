@@ -220,3 +220,25 @@ class TestGitHubAnnotations:
     def test_empty_violations_no_annotations(self):
         result = report([], format="text", github_annotations=True)
         assert "::" not in result
+
+
+class TestExcludedCount:
+    """Excluded violation count in summary output."""
+
+    def test_no_violations_with_excluded(self):
+        result = report([], excluded=42)
+        assert "No violations found." in result
+        assert "42 skipped via config" in result
+
+    def test_no_violations_without_excluded(self):
+        result = report([])
+        assert "No violations found." in result
+        assert "skipped" not in result
+
+    def test_violations_with_excluded(self):
+        result = report([_v()], excluded=10)
+        assert "10 skipped via config" in result
+
+    def test_violations_without_excluded(self):
+        result = report([_v()])
+        assert "skipped" not in result

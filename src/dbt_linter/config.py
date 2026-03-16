@@ -10,6 +10,9 @@ from typing import Any
 
 import yaml
 
+BASELINE_FILENAME = "dbt-lint-baseline.yml"
+
+
 DEFAULTS: dict[str, Any] = {
     # Thresholds
     "documentation_coverage_target": 100,
@@ -132,6 +135,60 @@ def load_config(path: Path | None) -> Config:
         _rule_overrides=all_overrides,
         _custom_rule_entries=custom_entries,
     )
+
+
+def merge_baseline(config: Config, baseline_rules: dict[str, dict[str, Any]]) -> Config:
+    """Return a new Config with baseline suppressions merged in.
+
+    exclude_resources are unioned; enabled: false from baseline overrides.
+    """
+    merged_overrides = dict(config._rule_overrides)
+
+    for rule_id, baseline_entry in baseline_rules.items():
+        existing = merged_overrides.get(rule_id, {})
+        merged = dict(existing)
+
+        if "exclude_resources" in baseline_entry:
+            existing_excludes = set(merged.get("exclude_resources", []))
+            baseline_excludes = set(baseline_entry["exclude_resources"])
+            merged["exclude_resources"] = sorted(existing_excludes | baseline_excludes)
+
+        if baseline_entry.get("enabled") is False:
+            merged["enabled"] = False
+
+        merged_overrides[rule_id] = merged
+
+    return Config(
+        params=config.params,
+        include=config.include,
+        exclude=config.exclude,
+        config_dir=config.config_dir,
+        _rule_overrides=merged_overrides,
+        _custom_rule_entries=config._custom_rule_entries,
+    )
+
+
+def load_baseline(path: Path) -> dict[str, dict[str, Any]]:
+    """Load a baseline YAML file and return its rules section.
+
+    Only extracts exclude_resources and enabled keys from each rule entry.
+    Other keys are ignored.
+    """
+    raw = yaml.safe_load(path.read_text()) or {}
+    rules = raw.get("rules", {})
+
+    sanitized: dict[str, dict[str, Any]] = {}
+    for rule_id, rule_cfg in rules.items():
+        if not isinstance(rule_cfg, dict):
+            continue
+        entry: dict[str, Any] = {}
+        if "exclude_resources" in rule_cfg:
+            entry["exclude_resources"] = rule_cfg["exclude_resources"]
+        if "enabled" in rule_cfg:
+            entry["enabled"] = rule_cfg["enabled"]
+        if entry:
+            sanitized[rule_id] = entry
+    return sanitized
 
 
 @lru_cache(maxsize=256)

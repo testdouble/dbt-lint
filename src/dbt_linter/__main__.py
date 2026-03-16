@@ -8,7 +8,13 @@ from pathlib import Path
 
 import click
 
-from dbt_linter.config import load_config
+from dbt_linter.baseline import generate_baseline
+from dbt_linter.config import (
+    BASELINE_FILENAME,
+    load_baseline,
+    load_config,
+    merge_baseline,
+)
 from dbt_linter.engine import evaluate
 from dbt_linter.graph import build_relationships
 from dbt_linter.manifest import parse_manifest
@@ -27,6 +33,18 @@ def _apply_filters(
     if exclude:
         violations = [v for v in violations if v.rule_id not in exclude]
     return violations
+
+
+def _resolve_baseline(
+    explicit: Path | None,
+    config_path: Path | None,
+) -> Path | None:
+    """Find the baseline file: explicit path, or auto-discover by convention."""
+    if explicit is not None:
+        return explicit
+    search_dir = config_path.parent if config_path is not None else Path.cwd()
+    candidate = search_dir / BASELINE_FILENAME
+    return candidate if candidate.exists() else None
 
 
 def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
@@ -76,6 +94,27 @@ def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
     default=False,
     help="Stop after the first violation.",
 )
+@click.option(
+    "--baseline",
+    "baseline_path",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Path to dbt-lint-baseline.yml suppressions file.",
+)
+@click.option(
+    "--generate-baseline",
+    "generate_baseline_flag",
+    is_flag=True,
+    default=False,
+    help="Output a YAML config that suppresses all current violations.",
+)
+@click.option(
+    "--output",
+    "output_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Write output to file instead of stdout (use with --generate-baseline).",
+)
 def main(
     manifest: Path,
     config: Path | None,
@@ -84,24 +123,40 @@ def main(
     exclude: tuple[str, ...],
     fail_on: str,
     fail_fast: bool,
+    baseline_path: Path | None,
+    generate_baseline_flag: bool,
+    output_path: Path | None,
 ) -> None:
     """Lint a dbt project by analyzing its manifest.json."""
     try:
         cfg = load_config(config)
+        if not generate_baseline_flag:
+            resolved = _resolve_baseline(baseline_path, config)
+            if resolved is not None:
+                cfg = merge_baseline(cfg, load_baseline(resolved))
         resources, edges = parse_manifest(manifest, cfg)
         relationships = build_relationships(resources, edges)
-        violations = evaluate(resources, relationships, cfg, fail_fast=fail_fast)
+        result = evaluate(resources, relationships, cfg, fail_fast=fail_fast)
     except Exception as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(2)
 
-    violations = _apply_filters(violations, select, exclude)
+    violations = _apply_filters(result.violations, select, exclude)
+
+    if generate_baseline_flag:
+        baseline = generate_baseline(violations)
+        if output_path:
+            output_path.write_text(baseline)
+        else:
+            click.echo(baseline, nl=False)
+        sys.exit(0)
 
     github_annotations = os.environ.get("GITHUB_ACTIONS") == "true"
     output = report(
         violations,
         format=output_format,
         github_annotations=github_annotations,
+        excluded=result.excluded,
     )
     click.echo(output)
 

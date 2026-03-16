@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import yaml
 from click.testing import CliRunner
 
 from dbt_linter.__main__ import main
@@ -271,3 +272,158 @@ class TestCliSelectExclude:
             parsed = json.loads(result.output)
             rule_ids = {v["rule_id"] for v in parsed}
             assert "documentation/undocumented-models" not in rule_ids
+
+
+class TestCliBaselineLoading:
+    """Loading and merging dbt-lint-baseline.yml."""
+
+    def test_auto_discover_next_to_config(self, tmp_path):
+        """Baseline file next to --config is auto-discovered and merged."""
+        manifest_path = _write_manifest(tmp_path)
+        config_path = tmp_path / "dbt-lint.yml"
+        config_path.write_text("rules: {}\n")
+        baseline_path = tmp_path / "dbt-lint-baseline.yml"
+        baseline_path.write_text(
+            "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [str(manifest_path), "--config", str(config_path), "--format", "json"],
+        )
+        parsed = json.loads(result.output)
+        rule_ids = {v["rule_id"] for v in parsed}
+        assert "documentation/undocumented-models" not in rule_ids
+
+    def test_no_baseline_no_error(self, tmp_path):
+        """Missing baseline file is silently ignored."""
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, [str(manifest_path)])
+        assert result.exit_code in (0, 1)
+
+    def test_explicit_baseline_flag(self, tmp_path):
+        """--baseline with explicit path loads the file."""
+        manifest_path = _write_manifest(tmp_path)
+        baseline_path = tmp_path / "custom-baseline.yml"
+        baseline_path.write_text(
+            "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                str(manifest_path),
+                "--baseline",
+                str(baseline_path),
+                "--format",
+                "json",
+            ],
+        )
+        parsed = json.loads(result.output)
+        rule_ids = {v["rule_id"] for v in parsed}
+        assert "documentation/undocumented-models" not in rule_ids
+
+    def test_generate_baseline_skips_existing_baseline(self, tmp_path):
+        """--generate-baseline ignores existing baseline to show full violations."""
+        manifest_path = _write_manifest(tmp_path)
+        config_path = tmp_path / "dbt-lint.yml"
+        config_path.write_text("rules: {}\n")
+        # Baseline that disables everything
+        baseline_path = tmp_path / "dbt-lint-baseline.yml"
+        baseline_path.write_text(
+            "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [str(manifest_path), "--config", str(config_path), "--generate-baseline"],
+        )
+        assert result.exit_code == 0
+        parsed = yaml.safe_load(result.output)
+        # Should still contain undocumented-models since baseline was skipped
+        assert "documentation/undocumented-models" in parsed["rules"]
+
+    def test_round_trip_generate_then_load(self, tmp_path):
+        """Generate baseline, then load it. Suppressed rules should vanish."""
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        # Step 1: generate baseline
+        gen_result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        assert gen_result.exit_code == 0
+        baseline_path = tmp_path / "dbt-lint-baseline.yml"
+        baseline_path.write_text(gen_result.output)
+        # Step 2: run with baseline
+        result = runner.invoke(
+            main,
+            [str(manifest_path), "--baseline", str(baseline_path), "--format", "json"],
+        )
+        parsed = json.loads(result.output)
+        assert len(parsed) == 0
+
+
+class TestCliGenerateBaseline:
+    """--generate-baseline flag for producing suppressions config."""
+
+    def test_outputs_valid_yaml(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        assert result.exit_code == 0
+        parsed = yaml.safe_load(result.output)
+        assert "rules" in parsed
+
+    def test_exits_0(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        assert result.exit_code == 0
+
+    def test_skips_normal_report(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        assert "Found" not in result.output
+
+    def test_contains_header_comment(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        assert "Generated by dbt-lint" in result.output
+
+    def test_contains_violated_rules(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        parsed = yaml.safe_load(result.output)
+        assert len(parsed["rules"]) > 0
+
+    def test_output_file(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        output_path = tmp_path / "baseline.yml"
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [str(manifest_path), "--generate-baseline", "--output", str(output_path)],
+        )
+        assert result.exit_code == 0
+        assert output_path.exists()
+        parsed = yaml.safe_load(output_path.read_text())
+        assert "rules" in parsed
+
+    def test_select_filters_config(self, tmp_path):
+        """--select should limit which rules appear in the config."""
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                str(manifest_path),
+                "--generate-baseline",
+                "--select",
+                "documentation/undocumented-models",
+            ],
+        )
+        assert result.exit_code == 0
+        parsed = yaml.safe_load(result.output)
+        assert set(parsed["rules"].keys()) <= {"documentation/undocumented-models"}

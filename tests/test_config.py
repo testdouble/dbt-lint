@@ -5,8 +5,10 @@ from pathlib import Path
 
 from dbt_linter.config import (
     DEFAULTS,
+    load_baseline,
     load_config,
     matches_path_filter,
+    merge_baseline,
 )
 
 
@@ -124,6 +126,153 @@ class TestRuleConfig:
         rc = config.rule_config("nonexistent/rule")
         assert rc.enabled is True
         assert rc.severity == "warn"
+
+
+class TestMergeBaseline:
+    def test_empty_baseline_returns_same_config(self):
+        config = load_config(None)
+        merged = merge_baseline(config, {})
+        assert merged._rule_overrides == config._rule_overrides
+
+    def test_adds_exclude_resources_to_existing_rule(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_linter.yml"
+        config_file.write_text(
+            textwrap.dedent("""\
+            rules:
+              my-rule:
+                exclude_resources:
+                  - model.pkg.a
+                  - model.pkg.b
+        """)
+        )
+        config = load_config(config_file)
+        baseline_rules = {
+            "my-rule": {"exclude_resources": ["model.pkg.b", "model.pkg.c"]},
+        }
+        merged = merge_baseline(config, baseline_rules)
+        rc = merged.rule_config("my-rule")
+        assert rc.exclude_resources == ["model.pkg.a", "model.pkg.b", "model.pkg.c"]
+
+    def test_adds_new_rule_from_baseline(self):
+        config = load_config(None)
+        baseline_rules = {
+            "new-rule": {"exclude_resources": ["model.pkg.d"]},
+        }
+        merged = merge_baseline(config, baseline_rules)
+        rc = merged.rule_config("new-rule")
+        assert rc.exclude_resources == ["model.pkg.d"]
+
+    def test_enabled_false_overrides(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_linter.yml"
+        config_file.write_text(
+            textwrap.dedent("""\
+            rules:
+              my-rule:
+                severity: error
+        """)
+        )
+        config = load_config(config_file)
+        baseline_rules = {"my-rule": {"enabled": False}}
+        merged = merge_baseline(config, baseline_rules)
+        rc = merged.rule_config("my-rule")
+        assert rc.enabled is False
+        assert rc.severity == "error"
+
+    def test_preserves_main_severity(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_linter.yml"
+        config_file.write_text(
+            textwrap.dedent("""\
+            rules:
+              my-rule:
+                severity: error
+        """)
+        )
+        config = load_config(config_file)
+        baseline_rules = {
+            "my-rule": {"exclude_resources": ["model.pkg.a"]},
+        }
+        merged = merge_baseline(config, baseline_rules)
+        rc = merged.rule_config("my-rule")
+        assert rc.severity == "error"
+
+    def test_does_not_mutate_original(self):
+        config = load_config(None)
+        original_overrides = dict(config._rule_overrides)
+        merge_baseline(config, {"new-rule": {"enabled": False}})
+        assert config._rule_overrides == original_overrides
+
+    def test_preserves_custom_rule_entries(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_linter.yml"
+        config_file.write_text(
+            textwrap.dedent("""\
+            rules:
+              custom/my-rule:
+                source: my_rules.py
+        """)
+        )
+        config = load_config(config_file)
+        baseline_rules = {
+            "custom/my-rule": {"exclude_resources": ["model.pkg.a"]},
+        }
+        merged = merge_baseline(config, baseline_rules)
+        assert len(merged._custom_rule_entries) == 1
+        rc = merged.rule_config("custom/my-rule")
+        assert rc.exclude_resources == ["model.pkg.a"]
+
+
+class TestLoadBaseline:
+    def test_valid_file(self, tmp_path: Path):
+        baseline = tmp_path / "baseline.yml"
+        baseline.write_text(
+            textwrap.dedent("""\
+            rules:
+              documentation/undocumented-models:
+                exclude_resources:
+                  - model.pkg.stg_users
+              documentation/documentation-coverage:
+                enabled: false
+        """)
+        )
+        result = load_baseline(baseline)
+        assert result["documentation/undocumented-models"] == {
+            "exclude_resources": ["model.pkg.stg_users"],
+        }
+        assert result["documentation/documentation-coverage"] == {"enabled": False}
+
+    def test_empty_file(self, tmp_path: Path):
+        baseline = tmp_path / "baseline.yml"
+        baseline.write_text("")
+        assert load_baseline(baseline) == {}
+
+    def test_strips_non_allowed_keys(self, tmp_path: Path):
+        baseline = tmp_path / "baseline.yml"
+        baseline.write_text(
+            textwrap.dedent("""\
+            rules:
+              my-rule:
+                severity: error
+                source: custom.py
+                exclude_resources:
+                  - model.pkg.foo
+        """)
+        )
+        result = load_baseline(baseline)
+        assert result["my-rule"] == {"exclude_resources": ["model.pkg.foo"]}
+
+    def test_skips_non_dict_entries(self, tmp_path: Path):
+        baseline = tmp_path / "baseline.yml"
+        baseline.write_text(
+            textwrap.dedent("""\
+            rules:
+              bad-rule: true
+              good-rule:
+                exclude_resources:
+                  - model.pkg.foo
+        """)
+        )
+        result = load_baseline(baseline)
+        assert "bad-rule" not in result
+        assert "good-rule" in result
 
 
 class TestMatchesPathFilter:

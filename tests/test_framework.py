@@ -5,6 +5,7 @@ from dbt_linter.models import Relationship, Resource, Violation
 from dbt_linter.rules import (
     RuleDef,
     RuleInfo,
+    _parse_docstring_sections,
     direct_edges,
     filter_by_model_type,
     generate_rules_index,
@@ -126,6 +127,60 @@ class TestGetAllRules:
         }
 
 
+class TestParseDocstringSections:
+    def test_extracts_all_sections(self):
+        doc = """\
+Summary line here.
+
+Body paragraph with rationale.
+
+Remediation:
+    Fix it this way.
+
+Exceptions:
+    When X applies.
+
+Examples:
+    Violation: bad
+    Pass: good
+"""
+        sections = _parse_docstring_sections(doc)
+        assert sections["rationale"].startswith("Summary line here.")
+        assert "Fix it this way" in sections["remediation"]
+        assert "When X applies" in sections["exceptions"]
+        assert sections["has_examples"] is True
+
+    def test_missing_sections_return_empty(self):
+        doc = "Just a rationale paragraph."
+        sections = _parse_docstring_sections(doc)
+        assert sections["rationale"] == "Just a rationale paragraph."
+        assert sections["remediation"] == ""
+        assert sections["exceptions"] == ""
+        assert sections["has_examples"] is False
+
+    def test_empty_docstring(self):
+        sections = _parse_docstring_sections("")
+        assert sections["rationale"] == ""
+        assert sections["remediation"] == ""
+        assert sections["exceptions"] == ""
+        assert sections["has_examples"] is False
+
+    def test_configurable_line_in_rationale(self):
+        doc = """\
+Summary line.
+
+Body text.
+
+Configurable via some_param (default: 5).
+
+Examples:
+    Violation: bad
+"""
+        sections = _parse_docstring_sections(doc)
+        assert "Configurable via" in sections["rationale"]
+        assert sections["has_examples"] is True
+
+
 class TestAllRulesHaveDocstrings:
     def test_all_rules_have_docstrings(self):
         rules = get_all_rules()
@@ -163,3 +218,9 @@ class TestGenerateRulesIndex:
         index = generate_rules_index()
         for info in index:
             assert isinstance(info.is_per_resource, bool)
+
+    def test_remediation_and_exceptions_are_strings(self):
+        index = generate_rules_index()
+        for info in index:
+            assert isinstance(info.remediation, str)
+            assert isinstance(info.exceptions, str)

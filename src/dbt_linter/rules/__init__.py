@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import inspect
+import re
+import textwrap
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, get_type_hints
@@ -83,7 +85,50 @@ class RuleInfo:
     description: str
     is_per_resource: bool
     rationale: str
+    remediation: str
+    exceptions: str
     has_examples: bool
+
+
+# Sections that get extracted into their own RuleInfo fields.
+_NAMED_SECTIONS = re.compile(r"^(Remediation|Exceptions|Examples):", re.MULTILINE)
+
+
+def _parse_docstring_sections(doc: str) -> dict[str, Any]:
+    """Extract named sections from a Google-style docstring.
+
+    Returns a dict with keys: rationale, remediation, exceptions,
+    has_examples. Rationale is everything before the first named
+    section header. Each named section is dedented body text.
+    """
+    doc = textwrap.dedent(doc).strip()
+    if not doc:
+        return {
+            "rationale": "",
+            "remediation": "",
+            "exceptions": "",
+            "has_examples": False,
+        }
+
+    # Split on section headers, keeping the delimiter.
+    parts = _NAMED_SECTIONS.split(doc)
+
+    # parts[0] is everything before the first named section = rationale
+    rationale = parts[0].strip()
+
+    sections: dict[str, str] = {}
+    # pairs: (header, body) from parts[1:]
+    for i in range(1, len(parts), 2):
+        header = parts[i].lower()
+        body = textwrap.dedent(parts[i + 1]).strip() if i + 1 < len(parts) else ""
+        sections[header] = body
+
+    return {
+        "rationale": rationale,
+        "remediation": sections.get("remediation", ""),
+        "exceptions": sections.get("exceptions", ""),
+        "has_examples": "examples" in sections,
+    }
 
 
 def generate_rules_index() -> list[RuleInfo]:
@@ -91,17 +136,18 @@ def generate_rules_index() -> list[RuleInfo]:
     rules = get_all_rules()
     index = []
     for r in rules:
-        doc = (r.fn.__doc__ or "").strip()
-        rationale = doc.split("\n\n")[0] if doc else ""
-        has_examples = "Examples:" in doc if doc else False
+        doc = r.fn.__doc__ or ""
+        sections = _parse_docstring_sections(doc)
         index.append(
             RuleInfo(
                 id=r.id,
                 category=r.category,
                 description=r.description,
                 is_per_resource=r.is_per_resource,
-                rationale=rationale,
-                has_examples=has_examples,
+                rationale=sections["rationale"],
+                remediation=sections["remediation"],
+                exceptions=sections["exceptions"],
+                has_examples=sections["has_examples"],
             )
         )
     return sorted(index, key=lambda r: r.id)

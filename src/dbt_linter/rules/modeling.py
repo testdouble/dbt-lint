@@ -16,6 +16,16 @@ def direct_join_to_source(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Models should not join source and model parents in the same query.
+
+    Mixing raw source data with transformed model data in a single
+    model bypasses the staging layer's type casting and renaming.
+    Route source references through a staging model first.
+
+    Examples:
+        Violation: fct_orders refs source.raw.orders AND ref('dim_customers')
+        Pass: fct_orders refs stg_orders AND ref('dim_customers')
+    """
     edges = direct_edges(relationships)
     model_children = [e for e in edges if e.child_resource_type == "model"]
     by_child = group_by(model_children, key=lambda e: e.child)
@@ -50,6 +60,12 @@ def downstream_depends_on_source(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Intermediate and marts models should not depend directly on sources.
+
+    Only staging models should reference sources. Downstream models
+    should consume data through the staging layer, which provides a
+    stable interface for type casting, renaming, and source isolation.
+    """
     edges = direct_edges(relationships)
     violations = []
     resources_by_id = {r.resource_id: r for r in resources}
@@ -86,6 +102,13 @@ def staging_depends_on_staging(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Staging models should not depend on other staging models.
+
+    Each staging model should map 1:1 to a source, performing only
+    renaming, casting, and basic cleanup. When staging models reference
+    each other, it creates hidden coupling between source pipelines
+    and makes the staging layer harder to reason about.
+    """
     edges = direct_edges(relationships)
     violations = []
     resources_by_id = {r.resource_id: r for r in resources}
@@ -118,6 +141,12 @@ def staging_depends_on_downstream(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Staging models should not depend on intermediate or marts models.
+
+    Staging is the lowest transformation layer; it should only read
+    from sources. A dependency on downstream models creates a cycle
+    in the logical layer hierarchy, even if the DAG itself is acyclic.
+    """
     edges = direct_edges(relationships)
     violations = []
     resources_by_id = {r.resource_id: r for r in resources}
@@ -153,6 +182,12 @@ def root_models(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Models should have at least one parent.
+
+    A model with no parents is either reading from a hard-coded
+    reference (bypassing source declarations) or is an orphaned
+    artifact. Both cases indicate missing lineage in the DAG.
+    """
     edges = direct_edges(relationships)
     models_with_parents = {e.child for e in edges if e.child_resource_type == "model"}
 
@@ -177,6 +212,13 @@ def root_models(
     description="Models with hard-coded table references in SQL.",
 )
 def hard_coded_references(resource: Resource, config: RuleConfig) -> Violation | None:
+    """Models should not contain hard-coded table references in SQL.
+
+    Hard-coded references (e.g., `schema.table` instead of
+    `{{ ref('model') }}` or `{{ source('src', 'table') }}`) bypass
+    dbt's dependency graph. This breaks lineage tracking, prevents
+    environment-aware schema resolution, and makes refactoring fragile.
+    """
     if resource.resource_type == "model" and resource.hard_coded_references:
         return Violation(
             rule_id="modeling/hard-coded-references",
@@ -198,6 +240,12 @@ def duplicate_sources(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Each database table should be declared as a source at most once.
+
+    Duplicate source entries for the same database.schema.table create
+    ambiguity about which source definition is authoritative and can
+    lead to inconsistent freshness checks or descriptions.
+    """
     sources = [r for r in resources if r.resource_type == "source"]
     by_target = group_by(
         sources,
@@ -233,6 +281,12 @@ def unused_sources(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Every declared source should have at least one downstream consumer.
+
+    An unused source definition adds clutter to the YAML and dbt docs
+    without contributing to the project. It may indicate a removed
+    pipeline that wasn't fully cleaned up.
+    """
     edges = direct_edges(relationships)
     sources_with_children = {
         e.parent for e in edges if e.parent_resource_type == "source"
@@ -263,6 +317,17 @@ def multiple_sources_joined(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Models should not join multiple sources directly.
+
+    Each staging model should wrap exactly one source. When a model
+    joins multiple sources, it combines raw data from different
+    upstream systems in a single transformation, making it harder to
+    isolate source-specific changes.
+
+    Examples:
+        Violation: stg_orders refs source.stripe.charges AND source.shopify.orders
+        Pass: stg_stripe_charges refs only source.stripe.charges
+    """
     edges = direct_edges(relationships)
     source_edges = [
         e
@@ -298,6 +363,17 @@ def source_fanout(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Sources should have exactly one direct child: a staging model.
+
+    When multiple models read from the same source, schema changes in
+    the upstream system require coordinated updates across all
+    consumers. A single staging model acts as a contract boundary,
+    isolating downstream models from source volatility.
+
+    Examples:
+        Violation: source.raw.users -> [stg_users, dim_profiles]
+        Pass: source.raw.users -> stg_users -> [dim_users, fct_orders]
+    """
     edges = direct_edges(relationships)
     source_edges = [e for e in edges if e.parent_resource_type == "source"]
     by_parent = group_by(source_edges, key=lambda e: e.parent)
@@ -330,6 +406,14 @@ def model_fanout(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Models should not have too many direct dependents.
+
+    High fanout suggests a model is doing too much or that an
+    intermediate model is needed to encapsulate shared logic.
+    Refactoring reduces the blast radius of changes to the parent.
+
+    Configurable via models_fanout_threshold (default: 3).
+    """
     threshold = config.params.get("models_fanout_threshold", 3)
     edges = direct_edges(relationships)
     model_edges = [e for e in edges if e.parent_resource_type == "model"]
@@ -367,6 +451,14 @@ def too_many_joins(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Models should not join too many direct parents.
+
+    A model with many parents is likely overly complex and doing too
+    much in a single transformation. Breaking it into intermediate
+    models improves readability and testability.
+
+    Configurable via too_many_joins_threshold (default: 7).
+    """
     threshold = config.params.get("too_many_joins_threshold", 7)
     edges = direct_edges(relationships)
     model_children = [e for e in edges if e.child_resource_type == "model"]
@@ -401,6 +493,14 @@ def staging_model_too_many_parents(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Staging models should have at most one parent (no joins).
+
+    A staging model should be a 1:1 mapping of a single source.
+    Multiple parents indicate joins happening in the staging layer,
+    which should be deferred to intermediate or marts models.
+
+    Configurable via staging_max_parents (default: 1).
+    """
     threshold = config.params.get("staging_max_parents", 1)
     edges = direct_edges(relationships)
     staging_edges = [e for e in edges if e.child_model_type == "staging"]
@@ -438,6 +538,14 @@ def intermediate_fanout(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Intermediate models should have limited direct dependents.
+
+    Intermediates encapsulate shared logic for a specific downstream
+    consumer. High fanout suggests the intermediate is really a mart
+    or should be promoted to a more visible layer.
+
+    Configurable via intermediate_fanout_threshold (default: 1).
+    """
     threshold = config.params.get("intermediate_fanout_threshold", 1)
     edges = direct_edges(relationships)
     inter_edges = [
@@ -479,6 +587,13 @@ def duplicate_mart_concepts(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """The same entity should not appear as a mart in multiple directories.
+
+    Duplicate mart names across subdirectories (e.g., finance/dim_users
+    and marketing/dim_users) create ambiguity about which is the
+    canonical model. Consolidate into a single shared mart or rename
+    to clarify the distinct concepts.
+    """
     marts = [
         r for r in resources if r.resource_type == "model" and r.model_type == "marts"
     ]
@@ -516,11 +631,17 @@ def rejoining_upstream_concepts(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
-    """Triad pattern: A->B->C and A->C at d=1.
+    """Models should not rejoin a previously consumed upstream concept.
 
-    A "rejoined" concept is when model C depends on both A and B,
-    where B also depends on A. This means C could potentially get
-    what it needs from B alone.
+    A "rejoin" occurs when model C depends on both A and B, where B
+    already depends on A (the A->B->C, A->C triad). This often means
+    C could get what it needs from B alone, and the direct A->C edge
+    creates redundant coupling.
+
+    Examples:
+        Violation: fct_orders refs stg_users AND dim_users
+            (dim_users already refs stg_users)
+        Pass: fct_orders refs only dim_users
     """
     edges = direct_edges(relationships)
     by_child = group_by(edges, key=lambda e: e.child)

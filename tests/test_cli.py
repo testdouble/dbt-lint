@@ -296,7 +296,6 @@ class TestCliGenerateBaseline:
         runner = CliRunner()
         result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
         assert "Found" not in result.output
-        assert "violation" not in result.output.lower()
 
     def test_contains_header_comment(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)

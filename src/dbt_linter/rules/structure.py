@@ -22,6 +22,11 @@ def model_name_format(resource: Resource, config: RuleConfig) -> Violation | Non
     Consistent naming prevents quoting issues across warehouses and
     makes models predictable to reference in SQL and Jinja. Allows
     lowercase letters, numbers, and underscores.
+
+    Remediation:
+        Rename the model file and all ref() calls to use
+        snake_case. Avoid dots (conflict with database.schema.object
+        notation) and abbreviations.
     """
     if resource.resource_type != "model":
         return None
@@ -55,6 +60,14 @@ def model_naming_conventions(
 
     Configurable via <model_type>_prefixes (e.g., staging_prefixes:
     ["stg_"]).
+
+    Remediation:
+        Rename the model with the appropriate prefix for its layer.
+        Update all ref() calls across the project.
+
+    Exceptions:
+        Utility models (e.g., date spines, mappings) that don't
+        belong to a standard layer.
 
     Examples:
         Violation: users (marts model, no fct_ or dim_ prefix)
@@ -94,6 +107,10 @@ def model_directories(resource: Resource, config: RuleConfig) -> Violation | Non
 
     Configurable via <model_type>_folder_name (e.g.,
     staging_folder_name: "staging").
+
+    Remediation:
+        Move the model file to the correct directory for its model
+        type. For staging models, nest in staging/<source_name>/.
     """
     if resource.resource_type != "model" or not resource.model_type:
         return None
@@ -128,6 +145,10 @@ def source_directories(resource: Resource, config: RuleConfig) -> Violation | No
     in the file tree.
 
     Configurable via staging_folder_name (default: "staging").
+
+    Remediation:
+        Move the source YAML file to staging/<source_name>/
+        alongside the staging models that consume it.
     """
     if resource.resource_type != "source":
         return None
@@ -158,7 +179,14 @@ def test_directories(
 ) -> list[Violation]:
     """Test YAML should be colocated with the model it tests.
 
+    Each subdirectory should contain one YAML file with tests and
+    docs for all models in that directory.
+
     Placeholder rule, not yet implemented.
+
+    Remediation:
+        Move test YAML into the same directory as the model(s) it
+        tests.
     """
     # Unimplemented: checks test YAML colocation with tested models.
     return []
@@ -179,6 +207,11 @@ def staging_naming_convention(
     guide.
 
     Configurable via staging_prefixes (list of accepted prefixes).
+
+    Remediation:
+        Rename the model to stg_<source>__<entity>s.sql with a
+        double underscore separating source from entity. Update
+        all ref() calls.
 
     Examples:
         Violation: stg_users (missing __ separator)
@@ -246,10 +279,18 @@ def staging_materialization(resource: Resource, config: RuleConfig) -> Violation
     """Staging models should use allowed materializations (typically view).
 
     Staging models are lightweight transformations (renaming, casting)
-    of source data. Views avoid redundant storage. Some teams allow
-    table or incremental for high-volume sources.
+    of source data. Views avoid redundant storage and ensure
+    downstream models always get fresh data.
 
     Configurable via staging_allowed_materializations.
+
+    Remediation:
+        Set the materialization to view (recommended default) in
+        dbt_project.yml at the staging directory level.
+
+    Exceptions:
+        High-volume sources where view performance is unacceptable.
+        Use table or incremental with explicit justification.
     """
     return _check_materialization(
         resource, config, "staging", "structure/staging-materialization"
@@ -265,11 +306,19 @@ def intermediate_materialization(
 ) -> Violation | None:
     """Intermediate models should use allowed materializations.
 
-    Intermediates sit between staging and marts. Ephemeral or view is
-    common; table if the intermediate is reused by many downstream
-    models.
+    Intermediates sit between staging and marts. Ephemeral is the
+    default recommendation; view in a custom schema for debugging.
+    Table if the intermediate is reused by many downstream models.
 
     Configurable via intermediate_allowed_materializations.
+
+    Remediation:
+        Set the materialization to ephemeral (recommended default)
+        in dbt_project.yml at the intermediate directory level.
+
+    Exceptions:
+        Intermediates reused by many downstream models where
+        ephemeral would cause redundant computation.
     """
     return _check_materialization(
         resource,
@@ -291,6 +340,11 @@ def marts_materialization(resource: Resource, config: RuleConfig) -> Violation |
     fact tables.
 
     Configurable via marts_allowed_materializations.
+
+    Remediation:
+        Set the materialization to table (recommended default) or
+        incremental for large fact tables in dbt_project.yml at
+        the marts directory level.
     """
     return _check_materialization(
         resource, config, "marts", "structure/marts-materialization"
@@ -312,7 +366,13 @@ def yaml_file_naming(resource: Resource, config: RuleConfig) -> Violation | None
     A consistent naming pattern (_staging__models.yml,
     _staging__sources.yml) makes property files discoverable and
     groups them visually at the top of directory listings due to the
-    leading underscore.
+    leading underscore. Including the directory name speeds up fuzzy
+    file search.
+
+    Remediation:
+        Rename the YAML file to _<directory>__<type>.yml where
+        type is models, sources, or docs. Use _<dir>__docs.md for
+        doc blocks.
 
     Examples:
         Violation: schema.yml, sources.yml
@@ -410,6 +470,14 @@ def column_naming_conventions(
 
     Configurable via column_naming_conventions with sub-keys:
     forbidden_suffixes, boolean_prefixes, type_suffixes.
+
+    Remediation:
+        Rename columns in the staging model where they are first
+        introduced. Update downstream references accordingly.
+
+    Exceptions:
+        Columns inherited from external APIs or regulatory schemas
+        where renaming would break compliance or integration.
     """
     conventions = config.params.get("column_naming_conventions")
     if not conventions:

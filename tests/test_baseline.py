@@ -28,7 +28,9 @@ class TestGenerateBaseline:
         assert parsed == {"rules": {}}
 
     def test_single_rule_single_resource(self):
-        violations = [_violation("documentation/undocumented-models", "model.pkg.stg_users")]
+        violations = [
+            _violation("documentation/undocumented-models", "model.pkg.stg_users"),
+        ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)
         assert parsed == {
@@ -46,7 +48,8 @@ class TestGenerateBaseline:
         ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)
-        resources = parsed["rules"]["documentation/undocumented-models"]["exclude_resources"]
+        rule = parsed["rules"]["documentation/undocumented-models"]
+        resources = rule["exclude_resources"]
         assert sorted(resources) == ["model.pkg.fct_orders", "model.pkg.stg_users"]
 
     def test_multiple_rules(self):
@@ -67,7 +70,8 @@ class TestGenerateBaseline:
         ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)
-        resources = parsed["rules"]["documentation/undocumented-models"]["exclude_resources"]
+        rule = parsed["rules"]["documentation/undocumented-models"]
+        resources = rule["exclude_resources"]
         assert resources == ["model.pkg.stg_users"]
 
     def test_rules_sorted_alphabetically(self):
@@ -89,8 +93,13 @@ class TestGenerateBaseline:
         ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)
-        resources = parsed["rules"]["documentation/undocumented-models"]["exclude_resources"]
-        assert resources == ["model.pkg.a_model", "model.pkg.m_model", "model.pkg.z_model"]
+        rule = parsed["rules"]["documentation/undocumented-models"]
+        resources = rule["exclude_resources"]
+        assert resources == [
+            "model.pkg.a_model",
+            "model.pkg.m_model",
+            "model.pkg.z_model",
+        ]
 
     def test_output_is_valid_yaml(self):
         violations = [

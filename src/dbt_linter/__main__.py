@@ -8,6 +8,7 @@ from pathlib import Path
 
 import click
 
+from dbt_linter.baseline import generate_baseline
 from dbt_linter.config import load_config
 from dbt_linter.engine import evaluate
 from dbt_linter.graph import build_relationships
@@ -76,6 +77,20 @@ def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
     default=False,
     help="Stop after the first violation.",
 )
+@click.option(
+    "--generate-baseline",
+    "generate_baseline_flag",
+    is_flag=True,
+    default=False,
+    help="Output a YAML config that suppresses all current violations.",
+)
+@click.option(
+    "--output",
+    "output_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Write output to file instead of stdout (use with --generate-baseline).",
+)
 def main(
     manifest: Path,
     config: Path | None,
@@ -84,6 +99,8 @@ def main(
     exclude: tuple[str, ...],
     fail_on: str,
     fail_fast: bool,
+    generate_baseline_flag: bool,
+    output_path: Path | None,
 ) -> None:
     """Lint a dbt project by analyzing its manifest.json."""
     try:
@@ -96,6 +113,14 @@ def main(
         sys.exit(2)
 
     violations = _apply_filters(violations, select, exclude)
+
+    if generate_baseline_flag:
+        baseline = generate_baseline(violations)
+        if output_path:
+            output_path.write_text(baseline)
+        else:
+            click.echo(baseline, nl=False)
+        sys.exit(0)
 
     github_annotations = os.environ.get("GITHUB_ACTIONS") == "true"
     output = report(

@@ -126,6 +126,13 @@ class TestGetAllRules:
         }
 
 
+class TestAllRulesHaveDocstrings:
+    def test_all_rules_have_docstrings(self):
+        rules = get_all_rules()
+        for r in rules:
+            assert r.fn.__doc__, f"{r.id} is missing a docstring"
+
+
 class TestGenerateRulesIndex:
     def test_returns_41_entries(self):
         index = generate_rules_index()

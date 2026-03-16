@@ -17,6 +17,12 @@ _SNAKE_CASE = re.compile(r"^[a-z][a-z0-9_]*$")
     description="Model name is not valid snake_case.",
 )
 def model_name_format(resource: Resource, config: RuleConfig) -> Violation | None:
+    """Model names should be valid snake_case.
+
+    Consistent naming prevents quoting issues across warehouses and
+    makes models predictable to reference in SQL and Jinja. Allows
+    lowercase letters, numbers, and underscores.
+    """
     if resource.resource_type != "model":
         return None
     if _SNAKE_CASE.match(resource.resource_name):
@@ -41,6 +47,19 @@ def model_name_format(resource: Resource, config: RuleConfig) -> Violation | Non
 def model_naming_conventions(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
+    """Model names should start with the expected prefix for their model type.
+
+    Prefixes (stg_, int_, fct_, dim_) make a model's layer and purpose
+    immediately obvious from its name. They also enable directory-based
+    selectors like `dbt run --select staging.*`.
+
+    Configurable via <model_type>_prefixes (e.g., staging_prefixes:
+    ["stg_"]).
+
+    Examples:
+        Violation: users (marts model, no fct_ or dim_ prefix)
+        Pass: fct_orders, dim_customers, stg_users
+    """
     if resource.resource_type != "model" or not resource.model_type:
         return None
     prefixes_key = f"{resource.model_type}_prefixes"
@@ -67,6 +86,15 @@ def model_naming_conventions(
     description="Model not in expected directory for its model type.",
 )
 def model_directories(resource: Resource, config: RuleConfig) -> Violation | None:
+    """Models should live in the directory matching their model type.
+
+    Directory structure should mirror the DAG layers (staging,
+    intermediate, marts). A model in the wrong directory creates
+    confusion about its role and breaks directory-based selectors.
+
+    Configurable via <model_type>_folder_name (e.g.,
+    staging_folder_name: "staging").
+    """
     if resource.resource_type != "model" or not resource.model_type:
         return None
     folder_key = f"{resource.model_type}_folder_name"
@@ -93,6 +121,14 @@ def model_directories(resource: Resource, config: RuleConfig) -> Violation | Non
     description="Source YAML not in staging directory.",
 )
 def source_directories(resource: Resource, config: RuleConfig) -> Violation | None:
+    """Source YAML definitions should live in the staging directory.
+
+    Sources feed staging models, so colocating source YAML with the
+    staging directory keeps the source-to-staging relationship visible
+    in the file tree.
+
+    Configurable via staging_folder_name (default: "staging").
+    """
     if resource.resource_type != "source":
         return None
     staging_folder = config.params.get("staging_folder_name", "staging")
@@ -120,6 +156,10 @@ def test_directories(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Test YAML should be colocated with the model it tests.
+
+    Placeholder rule, not yet implemented.
+    """
     # Unimplemented: checks test YAML colocation with tested models.
     return []
 
@@ -131,6 +171,19 @@ def test_directories(
 def staging_naming_convention(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
+    """Staging models should follow the stg_<source>__<entity> pattern.
+
+    The double underscore separates the source system from the entity
+    name, making it unambiguous which upstream source a staging model
+    wraps. This is the dbt community convention from the dbt style
+    guide.
+
+    Configurable via staging_prefixes (list of accepted prefixes).
+
+    Examples:
+        Violation: stg_users (missing __ separator)
+        Pass: stg_stripe__payments, stg_shopify__orders
+    """
     if resource.resource_type != "model" or resource.model_type != "staging":
         return None
     prefixes = config.params.get("staging_prefixes", [])
@@ -190,6 +243,14 @@ def _check_materialization(
     description="Staging model not in allowed materializations.",
 )
 def staging_materialization(resource: Resource, config: RuleConfig) -> Violation | None:
+    """Staging models should use allowed materializations (typically view).
+
+    Staging models are lightweight transformations (renaming, casting)
+    of source data. Views avoid redundant storage. Some teams allow
+    table or incremental for high-volume sources.
+
+    Configurable via staging_allowed_materializations.
+    """
     return _check_materialization(
         resource, config, "staging", "structure/staging-materialization"
     )
@@ -202,6 +263,14 @@ def staging_materialization(resource: Resource, config: RuleConfig) -> Violation
 def intermediate_materialization(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
+    """Intermediate models should use allowed materializations.
+
+    Intermediates sit between staging and marts. Ephemeral or view is
+    common; table if the intermediate is reused by many downstream
+    models.
+
+    Configurable via intermediate_allowed_materializations.
+    """
     return _check_materialization(
         resource,
         config,
@@ -215,6 +284,14 @@ def intermediate_materialization(
     description="Marts model not in allowed materializations.",
 )
 def marts_materialization(resource: Resource, config: RuleConfig) -> Violation | None:
+    """Marts models should use allowed materializations (typically table).
+
+    Marts are the consumption layer queried by BI tools and analysts.
+    Tables provide stable query performance; incremental for large
+    fact tables.
+
+    Configurable via marts_allowed_materializations.
+    """
     return _check_materialization(
         resource, config, "marts", "structure/marts-materialization"
     )
@@ -230,6 +307,17 @@ _YAML_NAMING_RE = re.compile(
     description="YAML/doc file doesn't follow _<dir>__<type> naming convention.",
 )
 def yaml_file_naming(resource: Resource, config: RuleConfig) -> Violation | None:
+    """YAML property files should follow the _<directory>__<type>.yml convention.
+
+    A consistent naming pattern (_staging__models.yml,
+    _staging__sources.yml) makes property files discoverable and
+    groups them visually at the top of directory listings due to the
+    leading underscore.
+
+    Examples:
+        Violation: schema.yml, sources.yml
+        Pass: _staging__models.yml, _marts__sources.yml
+    """
     if resource.resource_type == "source":
         yaml_path = resource.file_path
     elif resource.resource_type == "model" and resource.patch_path:
@@ -314,6 +402,15 @@ def column_naming_conventions(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Column names should follow configured naming conventions.
+
+    Checks forbidden suffixes (e.g., _date instead of _at), boolean
+    prefixes (is_, has_), and type-based suffixes. Disabled by default
+    (no conventions configured).
+
+    Configurable via column_naming_conventions with sub-keys:
+    forbidden_suffixes, boolean_prefixes, type_suffixes.
+    """
     conventions = config.params.get("column_naming_conventions")
     if not conventions:
         return []

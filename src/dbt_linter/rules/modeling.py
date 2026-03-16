@@ -20,7 +20,13 @@ def direct_join_to_source(
 
     Mixing raw source data with transformed model data in a single
     model bypasses the staging layer's type casting and renaming.
-    Route source references through a staging model first.
+    Maintain a 1:1 relationship between sources and staging models;
+    no other model should read directly from a source.
+
+    Remediation:
+        Create a staging model for the source if one is missing.
+        Replace the source() call with a ref() to the staging
+        model.
 
     Examples:
         Violation: fct_orders refs source.raw.orders AND ref('dim_customers')
@@ -65,6 +71,11 @@ def downstream_depends_on_source(
     Only staging models should reference sources. Downstream models
     should consume data through the staging layer, which provides a
     stable interface for type casting, renaming, and source isolation.
+
+    Remediation:
+        Add a staging model as an abstraction layer between the
+        raw data and the downstream model. Replace source() with
+        ref() to the new staging model.
     """
     edges = direct_edges(relationships)
     violations = []
@@ -108,6 +119,10 @@ def staging_depends_on_staging(
     renaming, casting, and basic cleanup. When staging models reference
     each other, it creates hidden coupling between source pipelines
     and makes the staging layer harder to reason about.
+
+    Remediation:
+        Change the dependent model's type to intermediate, or
+        update its lineage to reference source() directly.
     """
     edges = direct_edges(relationships)
     violations = []
@@ -146,6 +161,11 @@ def staging_depends_on_downstream(
     Staging is the lowest transformation layer; it should only read
     from sources. A dependency on downstream models creates a cycle
     in the logical layer hierarchy, even if the DAG itself is acyclic.
+
+    Remediation:
+        Rename the model with the appropriate prefix for its actual
+        layer (e.g., int_), or change its lineage to reference
+        source() instead.
     """
     edges = direct_edges(relationships)
     violations = []
@@ -187,6 +207,14 @@ def root_models(
     A model with no parents is either reading from a hard-coded
     reference (bypassing source declarations) or is an orphaned
     artifact. Both cases indicate missing lineage in the DAG.
+
+    Remediation:
+        Map table references in FROM clauses to ref() or source().
+        Declare new sources in YAML if needed.
+
+    Exceptions:
+        Self-contained utility models like dim_calendar generated
+        by dbt_utils.date_spine() that have no upstream data.
     """
     edges = direct_edges(relationships)
     models_with_parents = {e.child for e in edges if e.child_resource_type == "model"}
@@ -218,6 +246,11 @@ def hard_coded_references(resource: Resource, config: RuleConfig) -> Violation |
     `{{ ref('model') }}` or `{{ source('src', 'table') }}`) bypass
     dbt's dependency graph. This breaks lineage tracking, prevents
     environment-aware schema resolution, and makes refactoring fragile.
+
+    Remediation:
+        Replace hard-coded references with ref() or source().
+        Create source definitions in YAML if the table doesn't
+        have one yet.
     """
     if resource.resource_type == "model" and resource.hard_coded_references:
         return Violation(
@@ -245,6 +278,10 @@ def duplicate_sources(
     Duplicate source entries for the same database.schema.table create
     ambiguity about which source definition is authoritative and can
     lead to inconsistent freshness checks or descriptions.
+
+    Remediation:
+        Combine duplicate source nodes into a single definition.
+        Update all source() references to use the canonical entry.
     """
     sources = [r for r in resources if r.resource_type == "source"]
     by_target = group_by(
@@ -286,6 +323,10 @@ def unused_sources(
     An unused source definition adds clutter to the YAML and dbt docs
     without contributing to the project. It may indicate a removed
     pipeline that wasn't fully cleaned up.
+
+    Remediation:
+        Remove the unused table entry from the source YAML
+        definition.
     """
     edges = direct_edges(relationships)
     sources_with_children = {
@@ -323,6 +364,15 @@ def multiple_sources_joined(
     joins multiple sources, it combines raw data from different
     upstream systems in a single transformation, making it harder to
     isolate source-specific changes.
+
+    Remediation:
+        Split into individual staging models per source. Combine
+        them in an intermediate model. Or use base__ models as
+        transitional steps.
+
+    Exceptions:
+        Identical sources across systems that are only used
+        collectively (union pattern, e.g., multiple Shopify stores).
 
     Examples:
         Violation: stg_orders refs source.stripe.charges AND source.shopify.orders
@@ -370,6 +420,15 @@ def source_fanout(
     consumers. A single staging model acts as a contract boundary,
     isolating downstream models from source volatility.
 
+    Remediation:
+        Create a single staging model per source. Refactor
+        downstream models to reference the staging model instead
+        of the source directly.
+
+    Exceptions:
+        NoSQL or heavily nested data sources that need multiple
+        base models to stage different aspects of the data.
+
     Examples:
         Violation: source.raw.users -> [stg_users, dim_profiles]
         Pass: source.raw.users -> stg_users -> [dim_users, fct_orders]
@@ -413,6 +472,15 @@ def model_fanout(
     Refactoring reduces the blast radius of changes to the parent.
 
     Configurable via models_fanout_threshold (default: 3).
+
+    Remediation:
+        Define an end point for your dbt project. Move
+        reporting-specific logic to the BI layer or consolidate
+        into fewer downstream models.
+
+    Exceptions:
+        BI tools like Looker that join marts directly, or Tableau
+        workbooks that benefit from pre-joined tables.
     """
     threshold = config.params.get("models_fanout_threshold", 3)
     edges = direct_edges(relationships)
@@ -458,6 +526,10 @@ def too_many_joins(
     models improves readability and testability.
 
     Configurable via too_many_joins_threshold (default: 7).
+
+    Remediation:
+        Break into intermediate models of 4-6 entities each, then
+        join the intermediates in the final model.
     """
     threshold = config.params.get("too_many_joins_threshold", 7)
     edges = direct_edges(relationships)
@@ -500,6 +572,14 @@ def staging_model_too_many_parents(
     which should be deferred to intermediate or marts models.
 
     Configurable via staging_max_parents (default: 1).
+
+    Remediation:
+        Move join logic to an intermediate model. The staging
+        model should select from a single source only.
+
+    Exceptions:
+        Base models that join a separate delete table to mark or
+        filter deleted records before the staging model.
     """
     threshold = config.params.get("staging_max_parents", 1)
     edges = direct_edges(relationships)
@@ -545,6 +625,11 @@ def intermediate_fanout(
     or should be promoted to a more visible layer.
 
     Configurable via intermediate_fanout_threshold (default: 1).
+
+    Remediation:
+        Promote the intermediate to a mart if it serves multiple
+        consumers, or restructure so each intermediate feeds a
+        single downstream model.
     """
     threshold = config.params.get("intermediate_fanout_threshold", 1)
     edges = direct_edges(relationships)
@@ -591,8 +676,12 @@ def duplicate_mart_concepts(
 
     Duplicate mart names across subdirectories (e.g., finance/dim_users
     and marketing/dim_users) create ambiguity about which is the
-    canonical model. Consolidate into a single shared mart or rename
-    to clarify the distinct concepts.
+    canonical model. One source of truth per entity.
+
+    Remediation:
+        Consolidate into a single shared mart, or rename to
+        clarify the distinct concepts (e.g., tax_revenue vs
+        revenue rather than finance_orders vs marketing_orders).
     """
     marts = [
         r for r in resources if r.resource_type == "model" and r.model_type == "marts"
@@ -636,7 +725,18 @@ def rejoining_upstream_concepts(
     A "rejoin" occurs when model C depends on both A and B, where B
     already depends on A (the A->B->C, A->C triad). This often means
     C could get what it needs from B alone, and the direct A->C edge
-    creates redundant coupling.
+    creates redundant coupling that adds complexity without enabling
+    parallelism.
+
+    Remediation:
+        Fold the intermediate model's SQL into a CTE within the
+        downstream model, or remove the direct dependency on the
+        ancestor if the intermediate already provides what's needed.
+
+    Exceptions:
+        When using dbt_utils functions (e.g., star,
+        get_column_values) that require a relation as input and
+        the shape differs from the intermediate parent.
 
     Examples:
         Violation: fct_orders refs stg_users AND dim_users

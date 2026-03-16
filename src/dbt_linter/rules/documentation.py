@@ -17,6 +17,11 @@ def undocumented_models(resource: Resource, config: RuleConfig) -> Violation | N
     Descriptions populate the dbt docs site and serve as the primary
     reference for consumers. Missing descriptions force consumers to
     read SQL to understand what a model represents.
+
+    Remediation:
+        Add a description in the model's YAML entry. Use {{ doc() }}
+        with a docs block in a markdown file for longer descriptions.
+        Prioritize marts models first, then work upstream.
     """
     if resource.resource_type == "model" and not resource.is_described:
         return Violation(
@@ -40,6 +45,10 @@ def undocumented_sources(resource: Resource, config: RuleConfig) -> Violation | 
     Source descriptions document the upstream system and table purpose.
     Without them, analysts must reverse-engineer meaning from column
     names or track down the source system owner.
+
+    Remediation:
+        Add a description at the source name level in the YAML
+        properties file (_<dir>__sources.yml).
     """
     if resource.resource_type != "source":
         return None
@@ -71,6 +80,10 @@ def undocumented_source_tables(
     documenting the specific table's contents and grain. This is
     distinct from undocumented-sources, which checks the parent source
     definition.
+
+    Remediation:
+        Add a description under the table entry in the source YAML
+        definition.
     """
     if resource.resource_type == "source" and not resource.is_described:
         return Violation(
@@ -102,6 +115,11 @@ def documentation_coverage(
 
     Configurable via documentation_coverage_target (default: 100) and
     model_types (list of model types to check).
+
+    Remediation:
+        Add descriptions to undocumented models. Use {{ doc() }}
+        with markdown docs blocks for longer descriptions. Start
+        with the lowest-coverage model type to maximize impact.
     """
     target = config.params.get("documentation_coverage_target", 100)
     violations = []
@@ -146,6 +164,14 @@ def column_documentation_coverage(
 
     Configurable via column_documentation_coverage_target (no default,
     rule is inactive until set).
+
+    Remediation:
+        Add description to each column entry in the model's YAML
+        properties file. Focus on public and marts models first.
+
+    Exceptions:
+        Models with many auto-generated columns (e.g., pivot
+        outputs) where individual descriptions add little value.
     """
     target = config.params.get("column_documentation_coverage_target")
     if target is None:

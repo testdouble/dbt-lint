@@ -20,6 +20,10 @@ def public_models_without_contract(
     of a model's output. Without one, downstream consumers of a public
     model can break silently when the schema changes. Contracts make
     the public interface explicit and testable.
+
+    Remediation:
+        Add config.contract.enforced: true and column entries with
+        data_type for every column in the model's YAML properties.
     """
     if (
         resource.resource_type == "model"
@@ -51,6 +55,12 @@ def undocumented_public_models(
     Public models are the external API of a dbt project. Both a model
     description and column descriptions are expected so that consumers
     can understand the data without reading the implementation.
+    Stricter than undocumented-models: requires both model and column
+    descriptions.
+
+    Remediation:
+        Add a description at the model level and on every column in
+        the model's YAML properties file.
     """
     if resource.resource_type != "model" or not resource.is_public:
         return None
@@ -92,6 +102,10 @@ def exposures_depend_on_private_models(
     If an exposure depends on a private model, that model's schema can
     change without considering the exposure. Routing through public
     models with contracts protects the exposure from breaking changes.
+
+    Remediation:
+        Set access: public on models that exposures depend on, and
+        add contracts and documentation to those models.
 
     Examples:
         Violation: exposure.weekly_report -> int_orders (protected)

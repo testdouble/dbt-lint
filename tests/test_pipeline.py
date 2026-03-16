@@ -150,8 +150,8 @@ class TestEndToEndPipeline:
         config = load_config(None)
         resources, edges = parse_manifest(manifest_path, config)
         relationships = build_relationships(resources, edges)
-        violations = evaluate(resources, relationships, config)
-        return resources, edges, relationships, violations
+        result = evaluate(resources, relationships, config)
+        return resources, edges, relationships, result.violations
 
     def test_parse_extracts_all_resources(self, tmp_path):
         resources, _, _, _ = self._run_pipeline(tmp_path)

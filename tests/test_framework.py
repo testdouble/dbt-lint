@@ -6,7 +6,6 @@ from dbt_linter.rules import (
     RuleDef,
     RuleInfo,
     RuleMeta,
-    _parse_docstring_sections,
     direct_edges,
     filter_by_model_type,
     generate_rules_index,
@@ -157,65 +156,16 @@ class TestGetAllRules:
         }
 
 
-class TestParseDocstringSections:
-    def test_extracts_all_sections(self):
-        doc = """\
-Summary line here.
-
-Body paragraph with rationale.
-
-Remediation:
-    Fix it this way.
-
-Exceptions:
-    When X applies.
-
-Examples:
-    Violation: bad
-    Pass: good
-"""
-        sections = _parse_docstring_sections(doc)
-        assert sections["rationale"].startswith("Summary line here.")
-        assert "Fix it this way" in sections["remediation"]
-        assert "When X applies" in sections["exceptions"]
-        assert sections["has_examples"] is True
-
-    def test_missing_sections_return_empty(self):
-        doc = "Just a rationale paragraph."
-        sections = _parse_docstring_sections(doc)
-        assert sections["rationale"] == "Just a rationale paragraph."
-        assert sections["remediation"] == ""
-        assert sections["exceptions"] == ""
-        assert sections["has_examples"] is False
-
-    def test_empty_docstring(self):
-        sections = _parse_docstring_sections("")
-        assert sections["rationale"] == ""
-        assert sections["remediation"] == ""
-        assert sections["exceptions"] == ""
-        assert sections["has_examples"] is False
-
-    def test_configurable_line_in_rationale(self):
-        doc = """\
-Summary line.
-
-Body text.
-
-Configurable via some_param (default: 5).
-
-Examples:
-    Violation: bad
-"""
-        sections = _parse_docstring_sections(doc)
-        assert "Configurable via" in sections["rationale"]
-        assert sections["has_examples"] is True
-
-
-class TestAllRulesHaveDocstrings:
-    def test_all_rules_have_docstrings(self):
+class TestAllRulesHaveRationale:
+    def test_all_rules_have_rationale(self):
         rules = get_all_rules()
         for r in rules:
-            assert r.fn.__doc__, f"{r.id} is missing a docstring"
+            assert r.fn._rule_meta.rationale, f"{r.id} is missing rationale"
+
+    def test_all_rules_have_remediation(self):
+        rules = get_all_rules()
+        for r in rules:
+            assert r.fn._rule_meta.remediation, f"{r.id} is missing remediation"
 
 
 class TestGenerateRulesIndex:
@@ -254,3 +204,8 @@ class TestGenerateRulesIndex:
         for info in index:
             assert isinstance(info.remediation, str)
             assert isinstance(info.exceptions, str)
+
+    def test_examples_are_tuples(self):
+        index = generate_rules_index()
+        for info in index:
+            assert isinstance(info.examples, tuple), f"{info.id} examples not a tuple"

@@ -10,21 +10,22 @@ from dbt_linter.rules import direct_edges, group_by, rule
 @rule(
     id="governance/public-models-without-contract",
     description="Public models without contract enforcement.",
+    rationale=(
+        "Public models should enforce a contract."
+        "\n\n"
+        "A dbt contract guarantees the column names, types, and constraints "
+        "of a model's output. Without one, downstream consumers of a public "
+        "model can break silently when the schema changes. Contracts make "
+        "the public interface explicit and testable."
+    ),
+    remediation=(
+        "Add config.contract.enforced: true and column entries with "
+        "data_type for every column in the model's YAML properties."
+    ),
 )
 def public_models_without_contract(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
-    """Public models should enforce a contract.
-
-    A dbt contract guarantees the column names, types, and constraints
-    of a model's output. Without one, downstream consumers of a public
-    model can break silently when the schema changes. Contracts make
-    the public interface explicit and testable.
-
-    Remediation:
-        Add config.contract.enforced: true and column entries with
-        data_type for every column in the model's YAML properties.
-    """
     if (
         resource.resource_type == "model"
         and resource.is_public
@@ -46,22 +47,23 @@ def public_models_without_contract(
 @rule(
     id="governance/undocumented-public-models",
     description="Public models missing description or column docs.",
+    rationale=(
+        "Public models should have complete documentation."
+        "\n\n"
+        "Public models are the external API of a dbt project. Both a model "
+        "description and column descriptions are expected so that consumers "
+        "can understand the data without reading the implementation. "
+        "Stricter than undocumented-models: requires both model and column "
+        "descriptions."
+    ),
+    remediation=(
+        "Add a description at the model level and on every column in "
+        "the model's YAML properties file."
+    ),
 )
 def undocumented_public_models(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
-    """Public models should have complete documentation.
-
-    Public models are the external API of a dbt project. Both a model
-    description and column descriptions are expected so that consumers
-    can understand the data without reading the implementation.
-    Stricter than undocumented-models: requires both model and column
-    descriptions.
-
-    Remediation:
-        Add a description at the model level and on every column in
-        the model's YAML properties file.
-    """
     if resource.resource_type != "model" or not resource.is_public:
         return None
     issues = []
@@ -90,27 +92,28 @@ def undocumented_public_models(
 @rule(
     id="governance/exposures-depend-on-private-models",
     description="Exposures with non-public model parents.",
+    rationale=(
+        "Exposures should only depend on public models."
+        "\n\n"
+        "Exposures represent consumer-facing outputs (dashboards, ML models). "
+        "If an exposure depends on a private model, that model's schema can "
+        "change without considering the exposure. Routing through public "
+        "models with contracts protects the exposure from breaking changes."
+    ),
+    remediation=(
+        "Set access: public on models that exposures depend on, and "
+        "add contracts and documentation to those models."
+    ),
+    examples=(
+        "Violation: exposure.weekly_report -> int_orders (protected)",
+        "Pass: exposure.weekly_report -> fct_orders (public)",
+    ),
 )
 def exposures_depend_on_private_models(
     resources: list[Resource],
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
-    """Exposures should only depend on public models.
-
-    Exposures represent consumer-facing outputs (dashboards, ML models).
-    If an exposure depends on a private model, that model's schema can
-    change without considering the exposure. Routing through public
-    models with contracts protects the exposure from breaking changes.
-
-    Remediation:
-        Set access: public on models that exposures depend on, and
-        add contracts and documentation to those models.
-
-    Examples:
-        Violation: exposure.weekly_report -> int_orders (protected)
-        Pass: exposure.weekly_report -> fct_orders (public)
-    """
     resources_by_id = {r.resource_id: r for r in resources}
     edges = direct_edges(relationships)
     exposure_edges = [e for e in edges if e.child_resource_type == "exposure"]

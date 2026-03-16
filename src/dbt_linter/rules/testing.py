@@ -10,23 +10,26 @@ from dbt_linter.rules import direct_edges, filter_by_model_type, rule
 @rule(
     id="testing/missing-primary-key-tests",
     description="Models without primary key uniqueness tests.",
+    rationale=(
+        "Every model should have a unique or unique_combination test on its "
+        "primary key."
+        "\n\n"
+        "Primary key tests catch duplicates and nulls that would silently "
+        "corrupt downstream aggregations. Without them, data quality issues "
+        "propagate undetected through the DAG."
+        "\n\n"
+        "Configurable via enforced_primary_key_node_types "
+        '(default: ["model"]).'
+    ),
+    remediation=(
+        "Apply unique + not_null tests to the grain column in the "
+        "model's YAML. For composite keys, add a surrogate key or "
+        "use dbt_utils.unique_combination_of_columns."
+    ),
 )
 def missing_primary_key_tests(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
-    """Every model should have a unique or unique_combination test on its primary key.
-
-    Primary key tests catch duplicates and nulls that would silently
-    corrupt downstream aggregations. Without them, data quality issues
-    propagate undetected through the DAG.
-
-    Configurable via enforced_primary_key_node_types (default: ["model"]).
-
-    Remediation:
-        Apply unique + not_null tests to the grain column in the
-        model's YAML. For composite keys, add a surrogate key or
-        use dbt_utils.unique_combination_of_columns.
-    """
     enforced_types = config.params.get("enforced_primary_key_node_types", ["model"])
     if resource.resource_type in enforced_types and not resource.is_primary_key_tested:
         return Violation(
@@ -43,25 +46,26 @@ def missing_primary_key_tests(
 @rule(
     id="testing/sources-without-freshness",
     description="Sources without freshness checks configured.",
+    rationale=(
+        "Every source should have a freshness check configured."
+        "\n\n"
+        "Freshness checks detect stale upstream data before it silently "
+        "affects downstream models. Without them, a broken pipeline in the "
+        "source system can go unnoticed for days. Source freshness also "
+        "enables the source_status selector method for smart reruns."
+    ),
+    remediation=(
+        "Add a freshness block with warn_after and/or error_after "
+        "at the source name or table name level in the source YAML."
+    ),
+    exceptions=(
+        "Static reference data that never changes (e.g., zip code "
+        "mappings, country codes)."
+    ),
 )
 def sources_without_freshness(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
-    """Every source should have a freshness check configured.
-
-    Freshness checks detect stale upstream data before it silently
-    affects downstream models. Without them, a broken pipeline in the
-    source system can go unnoticed for days. Source freshness also
-    enables the source_status selector method for smart reruns.
-
-    Remediation:
-        Add a freshness block with warn_after and/or error_after
-        at the source name or table name level in the source YAML.
-
-    Exceptions:
-        Static reference data that never changes (e.g., zip code
-        mappings, country codes).
-    """
     if resource.resource_type == "source" and not resource.is_freshness_enabled:
         return Violation(
             rule_id="testing/sources-without-freshness",
@@ -77,28 +81,30 @@ def sources_without_freshness(
 @rule(
     id="testing/missing-relationship-tests",
     description="Models with model parents but no relationship tests.",
+    rationale=(
+        "Non-staging models with model parents should have relationship "
+        "tests."
+        "\n\n"
+        "Relationship tests validate that foreign key references resolve to "
+        "existing rows. Without them, joins can silently drop rows or "
+        "produce nulls from orphaned keys. Staging models are excluded "
+        "because they typically reference sources, not other models."
+    ),
+    remediation=(
+        "Add a relationships test on the foreign key column(s) in "
+        "the model's YAML, referencing the parent model and its "
+        "primary key."
+    ),
+    exceptions=(
+        "Models that only join dimension tables with guaranteed "
+        "referential integrity at the warehouse level."
+    ),
 )
 def missing_relationship_tests(
     resources: list[Resource],
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
-    """Non-staging models with model parents should have relationship tests.
-
-    Relationship tests validate that foreign key references resolve to
-    existing rows. Without them, joins can silently drop rows or
-    produce nulls from orphaned keys. Staging models are excluded
-    because they typically reference sources, not other models.
-
-    Remediation:
-        Add a relationships test on the foreign key column(s) in
-        the model's YAML, referencing the parent model and its
-        primary key.
-
-    Exceptions:
-        Models that only join dimension tables with guaranteed
-        referential integrity at the warehouse level.
-    """
     edges = direct_edges(relationships)
     models_with_model_parents = {
         e.child
@@ -133,26 +139,27 @@ def missing_relationship_tests(
 @rule(
     id="testing/test-coverage",
     description="Test coverage below target, by model type.",
+    rationale=(
+        "Test coverage should meet a minimum target per model type."
+        "\n\n"
+        "Measures the percentage of models with at least one primary key "
+        "test, broken down by model type. Like documentation-coverage, this "
+        "supports incremental adoption with a ratcheting target."
+        "\n\n"
+        "Configurable via test_coverage_target (default: 100) and "
+        "model_types (list of model types to check)."
+    ),
+    remediation=(
+        "Apply generic tests in YAML or create singular tests. At "
+        "minimum: unique + not_null on the primary key for each "
+        "untested model."
+    ),
 )
 def check_test_coverage(
     resources: list[Resource],
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
-    """Test coverage should meet a minimum target per model type.
-
-    Measures the percentage of models with at least one primary key
-    test, broken down by model type. Like documentation-coverage, this
-    supports incremental adoption with a ratcheting target.
-
-    Configurable via test_coverage_target (default: 100) and
-    model_types (list of model types to check).
-
-    Remediation:
-        Apply generic tests in YAML or create singular tests. At
-        minimum: unique + not_null on the primary key for each
-        untested model.
-    """
     target = config.params.get("test_coverage_target", 100)
     violations = []
     model_types = config.params.get("model_types", [])

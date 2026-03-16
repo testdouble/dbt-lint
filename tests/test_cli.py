@@ -362,6 +362,40 @@ class TestCliBaselineLoading:
         assert len(parsed) == 0
 
 
+class TestCliListRules:
+    """--list-rules flag for rule discovery."""
+
+    def test_text_output_includes_totals(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["--list-rules"])
+        assert result.exit_code == 0
+        assert "41 rules" in result.output
+
+    def test_text_output_includes_categories(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["--list-rules"])
+        assert result.exit_code == 0
+        assert "modeling" in result.output.lower()
+        assert "documentation" in result.output.lower()
+
+    def test_json_output_parses_to_41_items(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["--list-rules", "--format", "json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.output)
+        assert len(parsed) == 41
+
+    def test_no_manifest_required(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["--list-rules"])
+        assert result.exit_code == 0
+
+    def test_manifest_still_required_without_flag(self):
+        runner = CliRunner()
+        result = runner.invoke(main, [])
+        assert result.exit_code == 2
+
+
 class TestCliGenerateBaseline:
     """--generate-baseline flag for producing suppressions config."""
 

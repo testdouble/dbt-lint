@@ -4,8 +4,10 @@ from dbt_linter.config import RuleConfig
 from dbt_linter.models import Relationship, Resource, Violation
 from dbt_linter.rules import (
     RuleDef,
+    RuleInfo,
     direct_edges,
     filter_by_model_type,
+    generate_rules_index,
     get_all_rules,
     group_by,
     rule,
@@ -122,3 +124,35 @@ class TestGetAllRules:
             "performance",
             "governance",
         }
+
+
+class TestGenerateRulesIndex:
+    def test_returns_41_entries(self):
+        index = generate_rules_index()
+        assert len(index) == 41
+
+    def test_sorted_by_id(self):
+        index = generate_rules_index()
+        ids = [r.id for r in index]
+        assert ids == sorted(ids)
+
+    def test_all_have_description_and_category(self):
+        index = generate_rules_index()
+        for info in index:
+            assert info.description, f"{info.id} missing description"
+            assert info.category, f"{info.id} missing category"
+
+    def test_categories_match_id_prefix(self):
+        index = generate_rules_index()
+        for info in index:
+            assert info.id.startswith(info.category + "/")
+
+    def test_returns_rule_info_instances(self):
+        index = generate_rules_index()
+        for info in index:
+            assert isinstance(info, RuleInfo)
+
+    def test_is_per_resource_is_bool(self):
+        index = generate_rules_index()
+        for info in index:
+            assert isinstance(info.is_per_resource, bool)

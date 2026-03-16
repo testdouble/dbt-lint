@@ -74,6 +74,39 @@ class RuleDef:
         )
 
 
+@dataclass(frozen=True)
+class RuleInfo:
+    """Summary metadata for a rule, used by generate_rules_index and --list-rules."""
+
+    id: str
+    category: str
+    description: str
+    is_per_resource: bool
+    rationale: str
+    has_examples: bool
+
+
+def generate_rules_index() -> list[RuleInfo]:
+    """Build a sorted index of all rules with extracted docstring metadata."""
+    rules = get_all_rules()
+    index = []
+    for r in rules:
+        doc = (r.fn.__doc__ or "").strip()
+        rationale = doc.split("\n\n")[0] if doc else ""
+        has_examples = "Examples:" in doc if doc else False
+        index.append(
+            RuleInfo(
+                id=r.id,
+                category=r.category,
+                description=r.description,
+                is_per_resource=r.is_per_resource,
+                rationale=rationale,
+                has_examples=has_examples,
+            )
+        )
+    return sorted(index, key=lambda r: r.id)
+
+
 def get_all_rules() -> list[RuleDef]:
     """Discover all decorated rule functions across rule modules."""
     from dbt_linter.rules import (

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import dataclasses
+import json
 import os
 import sys
+from itertools import groupby
 from pathlib import Path
 
 import click
@@ -20,6 +23,24 @@ from dbt_linter.graph import build_relationships
 from dbt_linter.manifest import parse_manifest
 from dbt_linter.models import Violation
 from dbt_linter.reporter import report
+from dbt_linter.rules import generate_rules_index
+
+
+def _handle_list_rules(output_format: str) -> None:
+    """Print the rules index and exit."""
+    index = generate_rules_index()
+
+    if output_format == "json":
+        click.echo(json.dumps([dataclasses.asdict(r) for r in index], indent=2))
+        return
+
+    for category, rules in groupby(index, key=lambda r: r.category):
+        click.echo(f"\n{category}")
+        for r in rules:
+            click.echo(f"  {r.id}: {r.description}")
+
+    categories = {r.category for r in index}
+    click.echo(f"\n{len(index)} rules across {len(categories)} categories")
 
 
 def _apply_filters(
@@ -57,7 +78,11 @@ def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
 
 
 @click.command()
-@click.argument("manifest", type=click.Path(exists=True, path_type=Path))
+@click.argument(
+    "manifest",
+    type=click.Path(exists=True, path_type=Path),
+    required=False,
+)
 @click.option(
     "--config",
     type=click.Path(exists=True, path_type=Path),
@@ -102,6 +127,13 @@ def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
     help="Path to dbt-lint-baseline.yml suppressions file.",
 )
 @click.option(
+    "--list-rules",
+    "list_rules",
+    is_flag=True,
+    default=False,
+    help="List all available rules and exit.",
+)
+@click.option(
     "--generate-baseline",
     "generate_baseline_flag",
     is_flag=True,
@@ -116,18 +148,26 @@ def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
     help="Write output to file instead of stdout (use with --generate-baseline).",
 )
 def main(
-    manifest: Path,
+    manifest: Path | None,
     config: Path | None,
     output_format: str,
     select: tuple[str, ...],
     exclude: tuple[str, ...],
     fail_on: str,
     fail_fast: bool,
+    list_rules: bool,
     baseline_path: Path | None,
     generate_baseline_flag: bool,
     output_path: Path | None,
 ) -> None:
     """Lint a dbt project by analyzing its manifest.json."""
+    if list_rules:
+        _handle_list_rules(output_format)
+        return
+
+    if manifest is None:
+        raise click.UsageError("Missing argument 'MANIFEST'.")
+
     try:
         cfg = load_config(config)
         if not generate_baseline_flag:

@@ -14,6 +14,14 @@ from dbt_linter.rules import direct_edges, filter_by_model_type, rule
 def missing_primary_key_tests(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
+    """Every model should have a unique or unique_combination test on its primary key.
+
+    Primary key tests catch duplicates and nulls that would silently
+    corrupt downstream aggregations. Without them, data quality issues
+    propagate undetected through the DAG.
+
+    Configurable via enforced_primary_key_node_types (default: ["model"]).
+    """
     enforced_types = config.params.get("enforced_primary_key_node_types", ["model"])
     if resource.resource_type in enforced_types and not resource.is_primary_key_tested:
         return Violation(
@@ -34,6 +42,12 @@ def missing_primary_key_tests(
 def sources_without_freshness(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
+    """Every source should have a freshness check configured.
+
+    Freshness checks detect stale upstream data before it silently
+    affects downstream models. Without them, a broken pipeline in the
+    source system can go unnoticed for days.
+    """
     if resource.resource_type == "source" and not resource.is_freshness_enabled:
         return Violation(
             rule_id="testing/sources-without-freshness",
@@ -55,6 +69,13 @@ def missing_relationship_tests(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Non-staging models with model parents should have relationship tests.
+
+    Relationship tests validate that foreign key references resolve to
+    existing rows. Without them, joins can silently drop rows or
+    produce nulls from orphaned keys. Staging models are excluded
+    because they typically reference sources, not other models.
+    """
     edges = direct_edges(relationships)
     models_with_model_parents = {
         e.child
@@ -95,6 +116,15 @@ def check_test_coverage(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Test coverage should meet a minimum target per model type.
+
+    Measures the percentage of models with at least one primary key
+    test, broken down by model type. Like documentation-coverage, this
+    supports incremental adoption with a ratcheting target.
+
+    Configurable via test_coverage_target (default: 100) and
+    model_types (list of model types to check).
+    """
     target = config.params.get("test_coverage_target", 100)
     violations = []
     model_types = config.params.get("model_types", [])

@@ -16,6 +16,20 @@ def chained_views(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """View chains should not exceed a depth threshold.
+
+    Long chains of views force the warehouse to inline and re-execute
+    every upstream query on each run. This compounds query time and can
+    cause timeouts. Materializing intermediate models as tables or
+    incremental breaks the chain.
+
+    Configurable via chained_views_threshold (default: 5).
+
+    Examples:
+        Violation: stg_a (view) -> int_b (view) -> int_c (view) ->
+            int_d (view) -> int_e (view) -> fct_f (depth 5)
+        Pass: stg_a (view) -> int_b (table) -> fct_c (chain broken)
+    """
     threshold = config.params.get("chained_views_threshold", 5)
     resources_by_id = {r.resource_id: r for r in resources}
     violations = []
@@ -54,6 +68,17 @@ def exposure_parent_materializations(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Exposures should not depend directly on views, ephemeral models, or sources.
+
+    Exposures represent user-facing outputs that need reliable query
+    performance. Views and ephemeral models re-execute upstream SQL on
+    every query, and sources lack dbt-managed materialization. Direct
+    parents of exposures should be tables or incremental models.
+
+    Examples:
+        Violation: exposure.dashboard -> stg_users (view)
+        Pass: exposure.dashboard -> fct_orders (table)
+    """
     resources_by_id = {r.resource_id: r for r in resources}
     edges = direct_edges(relationships)
     exposure_edges = [e for e in edges if e.child_resource_type == "exposure"]

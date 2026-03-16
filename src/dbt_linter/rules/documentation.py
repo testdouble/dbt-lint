@@ -12,6 +12,12 @@ from dbt_linter.rules import filter_by_model_type, rule
     description="Models without a description.",
 )
 def undocumented_models(resource: Resource, config: RuleConfig) -> Violation | None:
+    """Every model should have a description in its YAML properties file.
+
+    Descriptions populate the dbt docs site and serve as the primary
+    reference for consumers. Missing descriptions force consumers to
+    read SQL to understand what a model represents.
+    """
     if resource.resource_type == "model" and not resource.is_described:
         return Violation(
             rule_id="documentation/undocumented-models",
@@ -29,6 +35,12 @@ def undocumented_models(resource: Resource, config: RuleConfig) -> Violation | N
     description="Sources without a source-level description.",
 )
 def undocumented_sources(resource: Resource, config: RuleConfig) -> Violation | None:
+    """Every source should have a top-level description.
+
+    Source descriptions document the upstream system and table purpose.
+    Without them, analysts must reverse-engineer meaning from column
+    names or track down the source system owner.
+    """
     if resource.resource_type != "source":
         return None
     # is_described tracks table-level; source-level is in meta
@@ -53,6 +65,13 @@ def undocumented_source_tables(
     resource: Resource,
     config: RuleConfig,
 ) -> Violation | None:
+    """Every source table should have its own description.
+
+    Table-level descriptions complement the source-level description by
+    documenting the specific table's contents and grain. This is
+    distinct from undocumented-sources, which checks the parent source
+    definition.
+    """
     if resource.resource_type == "source" and not resource.is_described:
         return Violation(
             rule_id="documentation/undocumented-source-tables",
@@ -74,6 +93,16 @@ def documentation_coverage(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Documentation coverage should meet a minimum target per model type.
+
+    Tracks the percentage of models with descriptions, broken down by
+    model type (staging, marts, intermediate, etc.). Useful for
+    incremental adoption: set a lower target initially and ratchet up
+    over time.
+
+    Configurable via documentation_coverage_target (default: 100) and
+    model_types (list of model types to check).
+    """
     target = config.params.get("documentation_coverage_target", 100)
     violations = []
     model_types = config.params.get("model_types", [])
@@ -109,6 +138,15 @@ def column_documentation_coverage(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Column documentation coverage should meet a minimum target per model.
+
+    Flags models where fewer than the configured percentage of columns
+    have descriptions. Disabled by default (no target set). Useful for
+    public or marts models where column-level docs are expected.
+
+    Configurable via column_documentation_coverage_target (no default,
+    rule is inactive until set).
+    """
     target = config.params.get("column_documentation_coverage_target")
     if target is None:
         return []

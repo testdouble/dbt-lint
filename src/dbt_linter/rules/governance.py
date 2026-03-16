@@ -14,6 +14,13 @@ from dbt_linter.rules import direct_edges, group_by, rule
 def public_models_without_contract(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
+    """Public models should enforce a contract.
+
+    A dbt contract guarantees the column names, types, and constraints
+    of a model's output. Without one, downstream consumers of a public
+    model can break silently when the schema changes. Contracts make
+    the public interface explicit and testable.
+    """
     if (
         resource.resource_type == "model"
         and resource.is_public
@@ -39,6 +46,12 @@ def public_models_without_contract(
 def undocumented_public_models(
     resource: Resource, config: RuleConfig
 ) -> Violation | None:
+    """Public models should have complete documentation.
+
+    Public models are the external API of a dbt project. Both a model
+    description and column descriptions are expected so that consumers
+    can understand the data without reading the implementation.
+    """
     if resource.resource_type != "model" or not resource.is_public:
         return None
     issues = []
@@ -73,6 +86,17 @@ def exposures_depend_on_private_models(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
+    """Exposures should only depend on public models.
+
+    Exposures represent consumer-facing outputs (dashboards, ML models).
+    If an exposure depends on a private model, that model's schema can
+    change without considering the exposure. Routing through public
+    models with contracts protects the exposure from breaking changes.
+
+    Examples:
+        Violation: exposure.weekly_report -> int_orders (protected)
+        Pass: exposure.weekly_report -> fct_orders (public)
+    """
     resources_by_id = {r.resource_id: r for r in resources}
     edges = direct_edges(relationships)
     exposure_edges = [e for e in edges if e.child_resource_type == "exposure"]

@@ -25,6 +25,11 @@ def chained_views(
 
     Configurable via chained_views_threshold (default: 5).
 
+    Remediation:
+        Change the materialization of key upstream models to table
+        or incremental. Prioritize views used by many downstream
+        models or containing complex calculations.
+
     Examples:
         Violation: stg_a (view) -> int_b (view) -> int_c (view) ->
             int_d (view) -> int_e (view) -> fct_f (depth 5)
@@ -74,6 +79,12 @@ def exposure_parent_materializations(
     performance. Views and ephemeral models re-execute upstream SQL on
     every query, and sources lack dbt-managed materialization. Direct
     parents of exposures should be tables or incremental models.
+
+    Remediation:
+        For source parents: incorporate the raw data into the
+        project via a staging model, then update the exposure.
+        For model parents: change materialization to table or
+        incremental.
 
     Examples:
         Violation: exposure.dashboard -> stg_users (view)

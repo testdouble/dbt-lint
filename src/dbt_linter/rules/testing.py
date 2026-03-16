@@ -21,6 +21,11 @@ def missing_primary_key_tests(
     propagate undetected through the DAG.
 
     Configurable via enforced_primary_key_node_types (default: ["model"]).
+
+    Remediation:
+        Apply unique + not_null tests to the grain column in the
+        model's YAML. For composite keys, add a surrogate key or
+        use dbt_utils.unique_combination_of_columns.
     """
     enforced_types = config.params.get("enforced_primary_key_node_types", ["model"])
     if resource.resource_type in enforced_types and not resource.is_primary_key_tested:
@@ -46,7 +51,16 @@ def sources_without_freshness(
 
     Freshness checks detect stale upstream data before it silently
     affects downstream models. Without them, a broken pipeline in the
-    source system can go unnoticed for days.
+    source system can go unnoticed for days. Source freshness also
+    enables the source_status selector method for smart reruns.
+
+    Remediation:
+        Add a freshness block with warn_after and/or error_after
+        at the source name or table name level in the source YAML.
+
+    Exceptions:
+        Static reference data that never changes (e.g., zip code
+        mappings, country codes).
     """
     if resource.resource_type == "source" and not resource.is_freshness_enabled:
         return Violation(
@@ -75,6 +89,15 @@ def missing_relationship_tests(
     existing rows. Without them, joins can silently drop rows or
     produce nulls from orphaned keys. Staging models are excluded
     because they typically reference sources, not other models.
+
+    Remediation:
+        Add a relationships test on the foreign key column(s) in
+        the model's YAML, referencing the parent model and its
+        primary key.
+
+    Exceptions:
+        Models that only join dimension tables with guaranteed
+        referential integrity at the warehouse level.
     """
     edges = direct_edges(relationships)
     models_with_model_parents = {
@@ -124,6 +147,11 @@ def check_test_coverage(
 
     Configurable via test_coverage_target (default: 100) and
     model_types (list of model types to check).
+
+    Remediation:
+        Apply generic tests in YAML or create singular tests. At
+        minimum: unique + not_null on the primary key for each
+        untested model.
     """
     target = config.params.get("test_coverage_target", 100)
     violations = []

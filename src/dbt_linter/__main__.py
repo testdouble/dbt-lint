@@ -107,12 +107,12 @@ def main(
         cfg = load_config(config)
         resources, edges = parse_manifest(manifest, cfg)
         relationships = build_relationships(resources, edges)
-        violations = evaluate(resources, relationships, cfg, fail_fast=fail_fast)
+        result = evaluate(resources, relationships, cfg, fail_fast=fail_fast)
     except Exception as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(2)
 
-    violations = _apply_filters(violations, select, exclude)
+    violations = _apply_filters(result.violations, select, exclude)
 
     if generate_baseline_flag:
         baseline = generate_baseline(violations)
@@ -127,6 +127,7 @@ def main(
         violations,
         format=output_format,
         github_annotations=github_annotations,
+        excluded=result.excluded,
     )
     click.echo(output)
 

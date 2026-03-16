@@ -12,6 +12,7 @@ def report(
     violations: list[Violation],
     format: str = "text",
     github_annotations: bool = False,
+    excluded: int = 0,
 ) -> str:
     """Format violations for output.
 
@@ -19,6 +20,7 @@ def report(
         violations: List of violations to report.
         format: Output format ("text" or "json").
         github_annotations: If True, also emit ::error/::warning lines.
+        excluded: Number of violations suppressed via config.
 
     Returns:
         Formatted string.
@@ -31,12 +33,14 @@ def report(
     if github_annotations:
         parts.append(_format_annotations(violations))
 
-    parts.append(_format_text(violations))
+    parts.append(_format_text(violations, excluded=excluded))
     return "\n".join(parts)
 
 
-def _format_text(violations: list[Violation]) -> str:
+def _format_text(violations: list[Violation], *, excluded: int = 0) -> str:
     if not violations:
+        if excluded:
+            return f"No violations found. ({excluded} skipped via config)"
         return "No violations found."
 
     by_category: dict[str, dict[str, list[Violation]]] = defaultdict(
@@ -77,6 +81,8 @@ def _format_text(violations: list[Violation]) -> str:
         for cat in sorted(by_category)
     )
     lines.append(f"  {category_counts}")
+    if excluded:
+        lines.append(f"  {excluded} skipped via config")
 
     return "\n".join(lines)
 

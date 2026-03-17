@@ -49,6 +49,11 @@ Options:
   --select TEXT           Only run these rule IDs (repeatable)
   --exclude TEXT          Skip these rule IDs (repeatable)
   --fail-on [warn|error]  Minimum severity for exit code 1 (default: warn)
+  --fail-fast             Stop after the first violation
+  --baseline PATH         Path to dbt-lint-baseline.yml suppressions file
+  --list-rules            List all available rules and exit
+  --generate-baseline     Output YAML config that suppresses all current violations
+  --output PATH           Write output to file (use with --generate-baseline)
 ```
 
 Exit codes: `0` clean, `1` violations found, `2` tool error.

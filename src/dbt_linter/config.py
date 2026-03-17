@@ -102,7 +102,6 @@ def load_config(path: Path | None) -> Config:
 
     merged = {**DEFAULTS, **raw}
     rule_overrides = merged.pop("rules", {})
-    merged["rules"] = {}  # Keep rules key empty in params
 
     # Separate custom rule entries (those with source:) from built-in overrides.
     # Both types get their overrides stored in all_overrides for rule_config().

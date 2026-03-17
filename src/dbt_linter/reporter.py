@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import json as json_lib
+import json
 from collections import defaultdict
 
 from dbt_linter.models import Violation
@@ -57,9 +57,9 @@ def _format_text(violations: list[Violation], *, excluded: int = 0) -> str:
         for rule_id in sorted(by_category[category]):
             rule_violations = by_category[category][rule_id]
             rule_name = rule_id.split("/")[1] if "/" in rule_id else rule_id
-            lines.append(f"\n  {rule_name} ({len(rule_violations)})")
-            separator_len = len(rule_name) + len(str(len(rule_violations))) + 3
-            lines.append(f"  {'-' * separator_len}")
+            header = f"{rule_name} ({len(rule_violations)})"
+            lines.append(f"\n  {header}")
+            lines.append(f"  {'-' * len(header)}")
             for v in rule_violations:
                 severity_tag = f" [{v.severity}]" if v.severity == "error" else ""
                 lines.append(f"    {v.message}{severity_tag}")
@@ -88,7 +88,7 @@ def _format_text(violations: list[Violation], *, excluded: int = 0) -> str:
 
 
 def _format_json(violations: list[Violation]) -> str:
-    return json_lib.dumps(
+    return json.dumps(
         [
             {
                 "rule_id": v.rule_id,

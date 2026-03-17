@@ -102,9 +102,10 @@ def exposure_parent_materializations(
         parent = resources_by_id.get(edge.parent)
         if not parent:
             continue
-        bad_mats = ("view", "ephemeral")
-        is_bad = parent.resource_type == "source" or parent.materialization in bad_mats
-        if is_bad:
+        if parent.resource_type == "source" or parent.materialization in (
+            "view",
+            "ephemeral",
+        ):
             exposure = resources_by_id.get(edge.child)
             violations.append(
                 Violation(

@@ -224,11 +224,9 @@ def staging_naming_convention(
     if resource.resource_type != "model" or resource.model_type != "staging":
         return None
     prefixes = config.params.get("staging_prefixes", [])
-    matched_prefix = None
-    for p in prefixes:
-        if resource.resource_name.startswith(p):
-            matched_prefix = p
-            break
+    matched_prefix = next(
+        (p for p in prefixes if resource.resource_name.startswith(p)), None
+    )
     if matched_prefix is None:
         return None
     remainder = resource.resource_name[len(matched_prefix) :]

@@ -71,10 +71,8 @@ def _resolve_baseline(
 def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
     """Return 1 if any violation meets the fail_on threshold, else 0."""
     if fail_on == "error":
-        has_blocking = any(v.severity == "error" for v in violations)
-    else:
-        has_blocking = len(violations) > 0
-    return 1 if has_blocking else 0
+        return 1 if any(v.severity == "error" for v in violations) else 0
+    return 1 if violations else 0
 
 
 @click.command()

@@ -250,10 +250,10 @@ class TestCliSelectExclude:
                 "documentation/undocumented-models",
             ],
         )
-        if result.exit_code == 1:
-            parsed = json.loads(result.output)
-            rule_ids = {v["rule_id"] for v in parsed}
-            assert rule_ids == {"documentation/undocumented-models"}
+        assert result.exit_code == 1
+        parsed = json.loads(result.output)
+        rule_ids = {v["rule_id"] for v in parsed}
+        assert rule_ids == {"documentation/undocumented-models"}
 
     def test_exclude_single_rule(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
@@ -268,10 +268,10 @@ class TestCliSelectExclude:
                 "documentation/undocumented-models",
             ],
         )
-        if result.exit_code == 1:
-            parsed = json.loads(result.output)
-            rule_ids = {v["rule_id"] for v in parsed}
-            assert "documentation/undocumented-models" not in rule_ids
+        assert result.exit_code == 1
+        parsed = json.loads(result.output)
+        rule_ids = {v["rule_id"] for v in parsed}
+        assert "documentation/undocumented-models" not in rule_ids
 
 
 class TestCliBaselineLoading:

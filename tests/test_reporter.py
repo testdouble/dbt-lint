@@ -215,7 +215,7 @@ class TestGitHubAnnotations:
     def test_no_annotations_without_flag(self):
         violations = [_v()]
         result = report(violations, format="text", github_annotations=False)
-        assert "::" not in result or "::warning" not in result
+        assert "::" not in result
 
     def test_empty_violations_no_annotations(self):
         result = report([], format="text", github_annotations=True)

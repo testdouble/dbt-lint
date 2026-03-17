@@ -140,7 +140,7 @@ def _fixture_manifest() -> dict:
 class TestEndToEndPipeline:
     """Full pipeline: manifest JSON -> parse -> graph -> evaluate."""
 
-    def setup_method(self, tmp_path_factory=None):
+    def setup_method(self):
         self.manifest_data = _fixture_manifest()
 
     def _run_pipeline(self, tmp_path: Path):

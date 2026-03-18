@@ -19,7 +19,9 @@ class TestChainedViews:
                 is_dependent_on_chain_of_views=True,
             ),
         ]
+
         vs = chained_views([child], rels, default_config)
+
         assert len(vs) == 1
         assert "depth 6" in vs[0].message
 
@@ -35,6 +37,7 @@ class TestChainedViews:
                 is_dependent_on_chain_of_views=True,
             ),
         ]
+
         assert chained_views([child], rels, default_config) == []
 
     def test_clean_non_view_chain(
@@ -49,6 +52,7 @@ class TestChainedViews:
                 is_dependent_on_chain_of_views=False,
             ),
         ]
+
         assert chained_views([child], rels, default_config) == []
 
 
@@ -75,7 +79,9 @@ class TestExposureParentMaterializations:
                 child_resource_type="exposure",
             ),
         ]
+
         vs = exposure_parent_materializations([exposure, parent], rels, default_config)
+
         assert len(vs) == 1
 
     def test_flags_exposure_depending_on_source(
@@ -100,7 +106,9 @@ class TestExposureParentMaterializations:
                 child_resource_type="exposure",
             ),
         ]
+
         vs = exposure_parent_materializations([exposure, src], rels, default_config)
+
         assert len(vs) == 1
 
     def test_clean_exposure_depending_on_table(
@@ -124,5 +132,7 @@ class TestExposureParentMaterializations:
                 child_resource_type="exposure",
             ),
         ]
+
         vs = exposure_parent_materializations([exposure, parent], rels, default_config)
+
         assert len(vs) == 0

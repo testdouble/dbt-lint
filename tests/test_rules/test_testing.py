@@ -11,28 +11,34 @@ from dbt_linter.rules.testing import (
 class TestMissingPrimaryKeyTests:
     def test_flags_model_without_pk_test(self, make_resource, default_config):
         r = make_resource(resource_type="model", is_primary_key_tested=False)
+
         assert missing_primary_key_tests(r, default_config) is not None
 
     def test_clean_model_with_pk_test(self, make_resource, default_config):
         r = make_resource(resource_type="model", is_primary_key_tested=True)
+
         assert missing_primary_key_tests(r, default_config) is None
 
     def test_ignores_sources(self, make_resource, default_config):
         r = make_resource(resource_type="source", is_primary_key_tested=False)
+
         assert missing_primary_key_tests(r, default_config) is None
 
 
 class TestSourcesWithoutFreshness:
     def test_flags_source_without_freshness(self, make_resource, default_config):
         r = make_resource(resource_type="source", is_freshness_enabled=False)
+
         assert sources_without_freshness(r, default_config) is not None
 
     def test_clean_source_with_freshness(self, make_resource, default_config):
         r = make_resource(resource_type="source", is_freshness_enabled=True)
+
         assert sources_without_freshness(r, default_config) is None
 
     def test_ignores_models(self, make_resource, default_config):
         r = make_resource(resource_type="model", is_freshness_enabled=False)
+
         assert sources_without_freshness(r, default_config) is None
 
 
@@ -50,8 +56,10 @@ class TestTestCoverage:
                 is_primary_key_tested=False,
             ),
         ]
+
         vs = check_test_coverage(resources, [], default_config)
         staging_vs = [v for v in vs if v.resource_name == "staging"]
+
         assert len(staging_vs) == 1
         assert "50%" in staging_vs[0].message
 
@@ -63,8 +71,10 @@ class TestTestCoverage:
                 is_primary_key_tested=True,
             ),
         ]
+
         vs = check_test_coverage(resources, [], default_config)
         staging_vs = [v for v in vs if v.resource_name == "staging"]
+
         assert len(staging_vs) == 0
 
 
@@ -88,7 +98,9 @@ class TestMissingRelationshipTests:
                 distance=1,
             ),
         ]
+
         vs = missing_relationship_tests([child], rels, default_config)
+
         assert len(vs) == 1
 
     def test_clean_model_with_relationship_tests(
@@ -109,7 +121,9 @@ class TestMissingRelationshipTests:
                 distance=1,
             ),
         ]
+
         vs = missing_relationship_tests([child], rels, default_config)
+
         assert vs == []
 
     def test_ignores_staging_models(
@@ -130,7 +144,9 @@ class TestMissingRelationshipTests:
                 distance=1,
             ),
         ]
+
         vs = missing_relationship_tests([child], rels, default_config)
+
         assert vs == []
 
     def test_ignores_models_with_no_model_parents(self, make_resource, default_config):
@@ -140,5 +156,7 @@ class TestMissingRelationshipTests:
             model_type="other",
             has_relationship_tests=False,
         )
+
         vs = missing_relationship_tests([child], [], default_config)
+
         assert vs == []

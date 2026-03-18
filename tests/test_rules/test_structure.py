@@ -22,6 +22,7 @@ class TestModelNamingConventions:
             model_type="staging",
             resource_name="orders",
         )
+
         assert model_naming_conventions(r, default_config) is not None
 
     def test_clean_staging_with_prefix(self, make_resource, default_config):
@@ -30,6 +31,7 @@ class TestModelNamingConventions:
             model_type="staging",
             resource_name="stg_orders",
         )
+
         assert model_naming_conventions(r, default_config) is None
 
     def test_clean_marts_with_fct_prefix(self, make_resource, default_config):
@@ -38,6 +40,7 @@ class TestModelNamingConventions:
             model_type="marts",
             resource_name="fct_orders",
         )
+
         assert model_naming_conventions(r, default_config) is None
 
     def test_clean_marts_with_dim_prefix(self, make_resource, default_config):
@@ -46,10 +49,12 @@ class TestModelNamingConventions:
             model_type="marts",
             resource_name="dim_customers",
         )
+
         assert model_naming_conventions(r, default_config) is None
 
     def test_ignores_sources(self, make_resource, default_config):
         r = make_resource(resource_type="source", model_type="")
+
         assert model_naming_conventions(r, default_config) is None
 
     def test_clean_marts_plain_name_with_empty_default(
@@ -61,6 +66,7 @@ class TestModelNamingConventions:
             model_type="marts",
             resource_name="orders",
         )
+
         assert model_naming_conventions(r, default_config) is None
 
     def test_flags_marts_without_prefix_when_overridden(
@@ -73,6 +79,7 @@ class TestModelNamingConventions:
             model_type="marts",
             resource_name="orders",
         )
+
         assert model_naming_conventions(r, default_config) is not None
 
 
@@ -83,6 +90,7 @@ class TestModelDirectories:
             model_type="staging",
             file_path="models/marts/stg_orders.sql",
         )
+
         assert model_directories(r, default_config) is not None
 
     def test_clean_staging_in_staging_dir(self, make_resource, default_config):
@@ -91,6 +99,7 @@ class TestModelDirectories:
             model_type="staging",
             file_path="models/staging/stg_orders.sql",
         )
+
         assert model_directories(r, default_config) is None
 
     def test_folder_name_as_list(self, make_resource, default_config):
@@ -104,6 +113,7 @@ class TestModelDirectories:
             model_type="intermediate",
             file_path="models/transformed_intermediate/int_orders.sql",
         )
+
         assert model_directories(r, default_config) is None
 
     def test_folder_name_as_list_flags_mismatch(self, make_resource, default_config):
@@ -116,6 +126,7 @@ class TestModelDirectories:
             model_type="intermediate",
             file_path="models/reporting/int_orders.sql",
         )
+
         assert model_directories(r, default_config) is not None
 
 
@@ -125,6 +136,7 @@ class TestSourceDirectories:
             resource_type="source",
             file_path="models/marts/sources.yml",
         )
+
         assert source_directories(r, default_config) is not None
 
     def test_clean_source_in_staging(self, make_resource, default_config):
@@ -132,10 +144,12 @@ class TestSourceDirectories:
             resource_type="source",
             file_path="models/staging/raw/sources.yml",
         )
+
         assert source_directories(r, default_config) is None
 
     def test_ignores_models(self, make_resource, default_config):
         r = make_resource(resource_type="model")
+
         assert source_directories(r, default_config) is None
 
 
@@ -146,6 +160,7 @@ class TestStagingMaterialization:
             model_type="staging",
             materialization="table",
         )
+
         assert staging_materialization(r, default_config) is not None
 
     def test_clean_staging_view(self, make_resource, default_config):
@@ -154,6 +169,7 @@ class TestStagingMaterialization:
             model_type="staging",
             materialization="view",
         )
+
         assert staging_materialization(r, default_config) is None
 
 
@@ -164,6 +180,7 @@ class TestIntermediateMaterialization:
             model_type="intermediate",
             materialization="table",
         )
+
         assert intermediate_materialization(r, default_config) is not None
 
     def test_clean_intermediate_ephemeral(self, make_resource, default_config):
@@ -172,6 +189,7 @@ class TestIntermediateMaterialization:
             model_type="intermediate",
             materialization="ephemeral",
         )
+
         assert intermediate_materialization(r, default_config) is None
 
 
@@ -182,6 +200,7 @@ class TestMartsMaterialization:
             model_type="marts",
             materialization="view",
         )
+
         assert marts_materialization(r, default_config) is not None
 
     def test_clean_marts_table(self, make_resource, default_config):
@@ -190,6 +209,7 @@ class TestMartsMaterialization:
             model_type="marts",
             materialization="table",
         )
+
         assert marts_materialization(r, default_config) is None
 
 
@@ -199,6 +219,7 @@ class TestModelNameFormat:
             resource_type="model",
             resource_name="stg_orders",
         )
+
         assert model_name_format(r, default_config) is None
 
     def test_clean_with_numbers(self, make_resource, default_config):
@@ -206,6 +227,7 @@ class TestModelNameFormat:
             resource_type="model",
             resource_name="stg_orders_v2",
         )
+
         assert model_name_format(r, default_config) is None
 
     def test_flags_uppercase(self, make_resource, default_config):
@@ -213,7 +235,9 @@ class TestModelNameFormat:
             resource_type="model",
             resource_name="Stg_Orders",
         )
+
         v = model_name_format(r, default_config)
+
         assert v is not None
         assert "snake_case" in v.message
 
@@ -222,6 +246,7 @@ class TestModelNameFormat:
             resource_type="model",
             resource_name="stg.orders",
         )
+
         assert model_name_format(r, default_config) is not None
 
     def test_flags_hyphens(self, make_resource, default_config):
@@ -229,6 +254,7 @@ class TestModelNameFormat:
             resource_type="model",
             resource_name="stg-orders",
         )
+
         assert model_name_format(r, default_config) is not None
 
     def test_flags_leading_number(self, make_resource, default_config):
@@ -236,6 +262,7 @@ class TestModelNameFormat:
             resource_type="model",
             resource_name="1_orders",
         )
+
         assert model_name_format(r, default_config) is not None
 
     def test_ignores_sources(self, make_resource, default_config):
@@ -243,6 +270,7 @@ class TestModelNameFormat:
             resource_type="source",
             resource_name="RawOrders",
         )
+
         assert model_name_format(r, default_config) is None
 
     def test_ignores_exposures(self, make_resource, default_config):
@@ -250,6 +278,7 @@ class TestModelNameFormat:
             resource_type="exposure",
             resource_name="Weekly-Dashboard",
         )
+
         assert model_name_format(r, default_config) is None
 
 
@@ -263,7 +292,9 @@ class TestStagingNamingConvention:
             model_type="staging",
             resource_name="stg_orders",
         )
+
         v = staging_naming_convention(r, default_config)
+
         assert v is not None
         assert "__" in v.message
 
@@ -274,6 +305,7 @@ class TestStagingNamingConvention:
             model_type="staging",
             resource_name="stg_stripe__orders",
         )
+
         assert staging_naming_convention(r, default_config) is None
 
     def test_clean_staging_with_nested_underscores(self, make_resource, default_config):
@@ -283,6 +315,7 @@ class TestStagingNamingConvention:
             model_type="staging",
             resource_name="stg_google_analytics__page_views",
         )
+
         assert staging_naming_convention(r, default_config) is None
 
     def test_ignores_non_staging(self, make_resource, default_config):
@@ -291,10 +324,12 @@ class TestStagingNamingConvention:
             model_type="marts",
             resource_name="orders",
         )
+
         assert staging_naming_convention(r, default_config) is None
 
     def test_ignores_sources(self, make_resource, default_config):
         r = make_resource(resource_type="source")
+
         assert staging_naming_convention(r, default_config) is None
 
     def test_ignores_when_no_staging_prefix_matched(
@@ -307,6 +342,7 @@ class TestStagingNamingConvention:
             model_type="staging",
             resource_name="orders",
         )
+
         assert staging_naming_convention(r, default_config) is None
 
 
@@ -318,7 +354,9 @@ class TestYamlFileNaming:
             resource_type="source",
             file_path="models/staging/stripe/sources.yml",
         )
+
         v = yaml_file_naming(r, default_config)
+
         assert v is not None
 
     def test_clean_source_yaml_with_convention(self, make_resource, default_config):
@@ -326,6 +364,7 @@ class TestYamlFileNaming:
             resource_type="source",
             file_path="models/staging/stripe/_stripe__sources.yml",
         )
+
         assert yaml_file_naming(r, default_config) is None
 
     def test_flags_model_yaml_without_convention(self, make_resource, default_config):
@@ -333,7 +372,9 @@ class TestYamlFileNaming:
             resource_type="model",
             patch_path="project://models/staging/stripe/models.yml",
         )
+
         v = yaml_file_naming(r, default_config)
+
         assert v is not None
 
     def test_clean_model_yaml_with_convention(self, make_resource, default_config):
@@ -341,6 +382,7 @@ class TestYamlFileNaming:
             resource_type="model",
             patch_path="project://models/staging/stripe/_stripe__models.yml",
         )
+
         assert yaml_file_naming(r, default_config) is None
 
     def test_ignores_model_without_patch_path(self, make_resource, default_config):
@@ -348,10 +390,12 @@ class TestYamlFileNaming:
             resource_type="model",
             patch_path="",
         )
+
         assert yaml_file_naming(r, default_config) is None
 
     def test_ignores_exposures(self, make_resource, default_config):
         r = make_resource(resource_type="exposure")
+
         assert yaml_file_naming(r, default_config) is None
 
 
@@ -365,7 +409,9 @@ class TestColumnNamingConventions:
                 ColumnInfo(name="order_count", data_type="integer", is_described=True),
             ),
         )
+
         result = column_naming_conventions([r], [], default_config)
+
         assert result == []
 
     def test_forbidden_suffix_flagged(self, make_resource, default_config):
@@ -381,7 +427,9 @@ class TestColumnNamingConventions:
                 ),
             ),
         )
+
         result = column_naming_conventions([r], [], default_config)
+
         assert len(result) == 1
         assert "_count" in result[0].message
         assert "_cnt" in result[0].message
@@ -399,7 +447,9 @@ class TestColumnNamingConventions:
                 ),
             ),
         )
+
         result = column_naming_conventions([r], [], default_config)
+
         assert result == []
 
     def test_boolean_prefix_flagged(self, make_resource, default_config):
@@ -415,7 +465,9 @@ class TestColumnNamingConventions:
                 ),
             ),
         )
+
         result = column_naming_conventions([r], [], default_config)
+
         assert len(result) == 1
         assert "boolean" in result[0].message
 
@@ -432,7 +484,9 @@ class TestColumnNamingConventions:
                 ),
             ),
         )
+
         result = column_naming_conventions([r], [], default_config)
+
         assert result == []
 
     def test_boolean_prefix_ignores_non_boolean(self, make_resource, default_config):
@@ -448,7 +502,9 @@ class TestColumnNamingConventions:
                 ),
             ),
         )
+
         result = column_naming_conventions([r], [], default_config)
+
         assert result == []
 
     def test_type_suffix_flagged(self, make_resource, default_config):
@@ -464,7 +520,9 @@ class TestColumnNamingConventions:
                 ),
             ),
         )
+
         result = column_naming_conventions([r], [], default_config)
+
         assert len(result) == 1
         assert "_at" in result[0].message
 
@@ -481,7 +539,9 @@ class TestColumnNamingConventions:
                 ),
             ),
         )
+
         result = column_naming_conventions([r], [], default_config)
+
         assert result == []
 
     def test_multiple_violations_same_resource(self, make_resource, default_config):
@@ -503,7 +563,9 @@ class TestColumnNamingConventions:
                 ),
             ),
         )
+
         result = column_naming_conventions([r], [], default_config)
+
         assert len(result) == 2
 
     def test_ignores_sources(self, make_resource, default_config):
@@ -520,7 +582,9 @@ class TestColumnNamingConventions:
                 ),
             ),
         )
+
         result = column_naming_conventions([r], [], default_config)
+
         assert result == []
 
     def test_violation_uses_from_resource(self, make_resource, default_config):
@@ -537,6 +601,8 @@ class TestColumnNamingConventions:
                 ),
             ),
         )
+
         result = column_naming_conventions([r], [], default_config)
+
         assert result[0].rule_id == ""
         assert result[0].severity == ""

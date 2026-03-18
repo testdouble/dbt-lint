@@ -14,7 +14,9 @@ class TestPublicModelsWithoutContract:
             is_public=True,
             is_contract_enforced=False,
         )
+
         v = public_models_without_contract(r, default_config)
+
         assert v is not None
 
     def test_clean_public_with_contract(self, make_resource, default_config):
@@ -23,6 +25,7 @@ class TestPublicModelsWithoutContract:
             is_public=True,
             is_contract_enforced=True,
         )
+
         assert public_models_without_contract(r, default_config) is None
 
     def test_clean_private_model(self, make_resource, default_config):
@@ -31,6 +34,7 @@ class TestPublicModelsWithoutContract:
             is_public=False,
             is_contract_enforced=False,
         )
+
         assert public_models_without_contract(r, default_config) is None
 
 
@@ -41,7 +45,9 @@ class TestUndocumentedPublicModels:
             is_public=True,
             is_described=False,
         )
+
         v = undocumented_public_models(r, default_config)
+
         assert v is not None
         assert "missing description" in v.message
 
@@ -53,7 +59,9 @@ class TestUndocumentedPublicModels:
             number_of_columns=5,
             number_of_documented_columns=3,
         )
+
         v = undocumented_public_models(r, default_config)
+
         assert v is not None
         assert "3/5" in v.message
 
@@ -65,6 +73,7 @@ class TestUndocumentedPublicModels:
             number_of_columns=5,
             number_of_documented_columns=5,
         )
+
         assert undocumented_public_models(r, default_config) is None
 
 
@@ -92,9 +101,11 @@ class TestExposuresDependOnPrivateModels:
                 child_resource_type="exposure",
             ),
         ]
+
         vs = exposures_depend_on_private_models(
             [exposure, parent], rels, default_config
         )
+
         assert len(vs) == 1
         assert "fct_orders" in vs[0].message
 
@@ -119,7 +130,9 @@ class TestExposuresDependOnPrivateModels:
                 child_resource_type="exposure",
             ),
         ]
+
         vs = exposures_depend_on_private_models(
             [exposure, parent], rels, default_config
         )
+
         assert len(vs) == 0

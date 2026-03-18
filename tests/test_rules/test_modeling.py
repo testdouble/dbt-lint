@@ -42,7 +42,9 @@ class TestDirectJoinToSource:
                 child_resource_type="model",
             ),
         ]
+
         vs = direct_join_to_source([child], rels, default_config)
+
         assert len(vs) == 1
 
     def test_clean_when_only_model_parents(
@@ -57,6 +59,7 @@ class TestDirectJoinToSource:
                 child_resource_type="model",
             ),
         ]
+
         assert direct_join_to_source([child], rels, default_config) == []
 
 
@@ -74,7 +77,9 @@ class TestDownstreamDependsOnSource:
                 child_model_type="marts",
             ),
         ]
+
         vs = downstream_depends_on_source([m], rels, default_config)
+
         assert len(vs) == 1
 
     def test_clean_for_staging(self, make_resource, make_relationship, default_config):
@@ -88,6 +93,7 @@ class TestDownstreamDependsOnSource:
                 child_model_type="staging",
             ),
         ]
+
         assert downstream_depends_on_source([m], rels, default_config) == []
 
 
@@ -103,7 +109,9 @@ class TestStagingDependsOnStaging:
                 child_model_type="staging",
             ),
         ]
+
         vs = staging_depends_on_staging([], rels, default_config)
+
         assert len(vs) == 1
 
 
@@ -119,7 +127,9 @@ class TestStagingDependsOnDownstream:
                 child_model_type="staging",
             ),
         ]
+
         vs = staging_depends_on_downstream([], rels, default_config)
+
         assert len(vs) == 1
 
 
@@ -131,7 +141,9 @@ class TestRootModels:
             resource_id="model.pkg.orphan",
             resource_type="model",
         )
+
         vs = root_models([orphan], [], default_config)
+
         assert len(vs) == 1
 
     def test_clean_when_model_has_parent(
@@ -145,21 +157,26 @@ class TestRootModels:
                 child_resource_type="model",
             ),
         ]
+
         vs = root_models([m], rels, default_config)
+
         assert len(vs) == 0
 
 
 class TestHardCodedReferences:
     def test_flags_hard_coded(self, make_resource, default_config):
         r = make_resource(resource_type="model", hard_coded_references=True)
+
         assert hard_coded_references(r, default_config) is not None
 
     def test_clean(self, make_resource, default_config):
         r = make_resource(resource_type="model", hard_coded_references=False)
+
         assert hard_coded_references(r, default_config) is None
 
     def test_ignores_non_models(self, make_resource, default_config):
         r = make_resource(resource_type="source", hard_coded_references=True)
+
         assert hard_coded_references(r, default_config) is None
 
 
@@ -179,7 +196,9 @@ class TestDuplicateSources:
             database="db",
             schema_name="raw",
         )
+
         vs = duplicate_sources([s1, s2], [], default_config)
+
         assert len(vs) == 1
 
     def test_clean_when_different_tables(self, make_resource, default_config):
@@ -195,6 +214,7 @@ class TestDuplicateSources:
             database="db",
             schema_name="raw",
         )
+
         assert duplicate_sources([s1, s2], [], default_config) == []
 
 
@@ -204,7 +224,9 @@ class TestUnusedSources:
             resource_id="source.pkg.raw.t",
             resource_type="source",
         )
+
         vs = unused_sources([s], [], default_config)
+
         assert len(vs) == 1
 
     def test_clean_when_source_has_child(
@@ -221,6 +243,7 @@ class TestUnusedSources:
                 parent_resource_type="source",
             ),
         ]
+
         assert unused_sources([s], rels, default_config) == []
 
 
@@ -243,7 +266,9 @@ class TestMultipleSourcesJoined:
                 child_resource_type="model",
             ),
         ]
+
         vs = multiple_sources_joined([m], rels, default_config)
+
         assert len(vs) == 1
 
 
@@ -267,7 +292,9 @@ class TestSourceFanout:
                 parent_resource_type="source",
             ),
         ]
+
         vs = source_fanout([s], rels, default_config)
+
         assert len(vs) == 1
 
 
@@ -284,7 +311,9 @@ class TestModelFanout:
             )
             for i in range(3)  # default threshold is 3
         ]
+
         vs = model_fanout([parent], rels, default_config)
+
         assert len(vs) == 1
 
     def test_clean_below_threshold(
@@ -303,6 +332,7 @@ class TestModelFanout:
                 parent_resource_type="model",
             ),
         ]
+
         assert model_fanout([parent], rels, default_config) == []
 
 
@@ -319,7 +349,9 @@ class TestTooManyJoins:
             )
             for i in range(5)  # default threshold is 5
         ]
+
         vs = too_many_joins([child], rels, default_config)
+
         assert len(vs) == 1
 
     def test_clean_below_threshold(
@@ -333,6 +365,7 @@ class TestTooManyJoins:
                 child_resource_type="model",
             ),
         ]
+
         assert too_many_joins([child], rels, default_config) == []
 
 
@@ -360,7 +393,9 @@ class TestRejoiningUpstreamConcepts:
             ),
         ]
         c = make_resource(resource_id="model.pkg.c")
+
         vs = rejoining_upstream_concepts([c], rels, default_config)
+
         assert len(vs) == 1
         assert "rejoins" in vs[0].message
 
@@ -376,6 +411,7 @@ class TestRejoiningUpstreamConcepts:
                 child="model.pkg.c",
             ),
         ]
+
         assert rejoining_upstream_concepts([downstream], rels, default_config) == []
 
 
@@ -404,7 +440,9 @@ class TestStagingModelTooManyParents:
                 child_model_type="staging",
             ),
         ]
+
         vs = staging_model_too_many_parents([stg], rels, default_config)
+
         assert len(vs) == 1
         assert "2 parents" in vs[0].message
 
@@ -425,6 +463,7 @@ class TestStagingModelTooManyParents:
                 child_model_type="staging",
             ),
         ]
+
         assert staging_model_too_many_parents([stg], rels, default_config) == []
 
     def test_ignores_non_staging_models(
@@ -449,6 +488,7 @@ class TestStagingModelTooManyParents:
                 child_model_type="marts",
             ),
         ]
+
         assert staging_model_too_many_parents([mart], rels, default_config) == []
 
     def test_respects_custom_threshold(
@@ -477,6 +517,7 @@ class TestStagingModelTooManyParents:
                 child_model_type="staging",
             ),
         ]
+
         assert staging_model_too_many_parents([stg], rels, default_config) == []
 
 
@@ -503,7 +544,9 @@ class TestIntermediateFanout:
                 parent_model_type="intermediate",
             ),
         ]
+
         vs = intermediate_fanout([inter], rels, default_config)
+
         assert len(vs) == 1
         assert "2 dependents" in vs[0].message
 
@@ -523,6 +566,7 @@ class TestIntermediateFanout:
                 parent_model_type="intermediate",
             ),
         ]
+
         assert intermediate_fanout([inter], rels, default_config) == []
 
     def test_ignores_non_intermediate(
@@ -547,6 +591,7 @@ class TestIntermediateFanout:
                 parent_model_type="marts",
             ),
         ]
+
         assert intermediate_fanout([mart], rels, default_config) == []
 
     def test_respects_custom_threshold(
@@ -567,6 +612,7 @@ class TestIntermediateFanout:
             )
             for i in range(2)
         ]
+
         assert intermediate_fanout([inter], rels, default_config) == []
 
 
@@ -589,7 +635,9 @@ class TestDuplicateMartConcepts:
                 file_path="models/marts/marketing/fct_orders.sql",
             ),
         ]
+
         vs = duplicate_mart_concepts(resources, [], default_config)
+
         assert len(vs) == 1
 
     def test_flags_same_entity_different_prefix(self, make_resource, default_config):
@@ -610,7 +658,9 @@ class TestDuplicateMartConcepts:
                 file_path="models/marts/marketing/orders.sql",
             ),
         ]
+
         vs = duplicate_mart_concepts(resources, [], default_config)
+
         assert len(vs) == 1
 
     def test_clean_single_instance(self, make_resource, default_config):
@@ -623,7 +673,9 @@ class TestDuplicateMartConcepts:
                 file_path="models/marts/finance/orders.sql",
             ),
         ]
+
         vs = duplicate_mart_concepts(resources, [], default_config)
+
         assert vs == []
 
     def test_clean_different_entities(self, make_resource, default_config):
@@ -642,7 +694,9 @@ class TestDuplicateMartConcepts:
                 file_path="models/marts/marketing/customers.sql",
             ),
         ]
+
         vs = duplicate_mart_concepts(resources, [], default_config)
+
         assert vs == []
 
     def test_ignores_non_marts(self, make_resource, default_config):
@@ -660,5 +714,7 @@ class TestDuplicateMartConcepts:
                 file_path="models/staging/shopify/stg_stripe__orders.sql",
             ),
         ]
+
         vs = duplicate_mart_concepts(resources, [], default_config)
+
         assert vs == []

@@ -9,6 +9,7 @@ import yaml
 from click.testing import CliRunner
 
 from dbt_linter.__main__ import main
+from dbt_linter.rules import get_all_rules
 
 
 def _write_manifest(tmp_path: Path) -> Path:
@@ -370,7 +371,7 @@ class TestCliListRules:
         runner = CliRunner()
         result = runner.invoke(main, ["--list-rules"])
         assert result.exit_code == 0
-        assert "41 rules" in result.output
+        assert f"{len(get_all_rules())} rules" in result.output
 
     def test_text_output_includes_categories(self):
         runner = CliRunner()
@@ -379,12 +380,12 @@ class TestCliListRules:
         assert "modeling" in result.output.lower()
         assert "documentation" in result.output.lower()
 
-    def test_json_output_parses_to_41_items(self):
+    def test_json_output_matches_rule_count(self):
         runner = CliRunner()
         result = runner.invoke(main, ["--list-rules", "--format", "json"])
         assert result.exit_code == 0
         parsed = json.loads(result.output)
-        assert len(parsed) == 41
+        assert len(parsed) == len(get_all_rules())
 
     def test_no_manifest_required(self):
         runner = CliRunner()

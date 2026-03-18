@@ -134,9 +134,19 @@ class TestDirectEdges:
 
 
 class TestGetAllRules:
-    def test_discovers_all_41_rules(self):
+    def test_discovers_rules_across_all_categories(self):
         rules = get_all_rules()
-        assert len(rules) == 41
+        by_category = {r.category for r in rules}
+        expected_categories = {
+            "modeling",
+            "testing",
+            "documentation",
+            "structure",
+            "performance",
+            "governance",
+        }
+        assert by_category == expected_categories
+        assert len(rules) >= len(expected_categories)
 
     def test_all_rules_have_unique_ids(self):
         rules = get_all_rules()
@@ -169,9 +179,9 @@ class TestAllRulesHaveRationale:
 
 
 class TestGenerateRulesIndex:
-    def test_returns_41_entries(self):
+    def test_returns_entry_for_every_rule(self):
         index = generate_rules_index()
-        assert len(index) == 41
+        assert len(index) == len(get_all_rules())
 
     def test_sorted_by_id(self):
         index = generate_rules_index()

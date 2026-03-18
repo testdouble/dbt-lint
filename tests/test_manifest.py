@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from dbt_linter.config import DEFAULTS
+from dbt_linter.config import DEFAULTS, load_config
 from dbt_linter.manifest import (
     _build_test_index,
     _check_schema_version,
@@ -801,12 +803,7 @@ class TestParseManifest:
 
     def test_parse_returns_resources_and_edges(self, manifest_dict, tmp_path):
         manifest_path = tmp_path / "manifest.json"
-        import json
-
         manifest_path.write_text(json.dumps(manifest_dict))
-
-        from dbt_linter.config import load_config
-
         config = load_config(None)
         resources, edges = parse_manifest(manifest_path, config)
 
@@ -818,12 +815,7 @@ class TestParseManifest:
 
     def test_model_fields_correct(self, manifest_dict, tmp_path):
         manifest_path = tmp_path / "manifest.json"
-        import json
-
         manifest_path.write_text(json.dumps(manifest_dict))
-
-        from dbt_linter.config import load_config
-
         config = load_config(None)
         resources, _ = parse_manifest(manifest_path, config)
 
@@ -838,12 +830,7 @@ class TestParseManifest:
             "https://schemas.getdbt.com/dbt/manifest/v9.json"
         )
         manifest_path = tmp_path / "manifest.json"
-        import json
-
         manifest_path.write_text(json.dumps(manifest_dict))
-
-        from dbt_linter.config import load_config
-
         config = load_config(None)
         with pytest.raises(SystemExit, match="v11"):
             parse_manifest(manifest_path, config)

@@ -1,5 +1,7 @@
 """Tests for Resource, Relationship, Violation, and DirectEdge dataclasses."""
 
+import pytest
+
 from dbt_linter.models import ColumnInfo, DirectEdge, Relationship, Resource, Violation
 
 
@@ -66,11 +68,8 @@ class TestResource:
             config={},
             columns=(),
         )
-        try:
+        with pytest.raises(AttributeError):
             r.resource_id = "other"  # type: ignore[misc]
-            raise AssertionError("Should not allow mutation")
-        except AttributeError:
-            pass
 
     def test_skip_rules(self):
         r = Resource(
@@ -166,11 +165,8 @@ class TestRelationship:
             distance=2,
             is_dependent_on_chain_of_views=True,
         )
-        try:
+        with pytest.raises(AttributeError):
             rel.distance = 3  # type: ignore[misc]
-            raise AssertionError("Should not allow mutation")
-        except AttributeError:
-            pass
 
 
 class TestColumnInfo:
@@ -182,11 +178,8 @@ class TestColumnInfo:
 
     def test_frozen(self):
         c = ColumnInfo(name="id", data_type="", is_described=False)
-        try:
+        with pytest.raises(AttributeError):
             c.name = "other"  # type: ignore[misc]
-            raise AssertionError("Should not allow mutation")
-        except AttributeError:
-            pass
 
 
 class TestViolation:

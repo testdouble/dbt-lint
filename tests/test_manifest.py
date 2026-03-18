@@ -30,7 +30,7 @@ class TestCheckSchemaVersion:
                 "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json"
             }
         }
-        _check_schema_version(manifest)  # should not raise
+        assert _check_schema_version(manifest) is None
 
     def test_v12_passes(self):
         manifest = {
@@ -38,7 +38,7 @@ class TestCheckSchemaVersion:
                 "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json"
             }
         }
-        _check_schema_version(manifest)
+        assert _check_schema_version(manifest) is None
 
     def test_v10_raises(self):
         manifest = {

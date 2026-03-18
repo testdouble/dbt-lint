@@ -196,7 +196,7 @@ class TestCliGitHubAnnotations:
 class TestCliConfig:
     """Config file loading."""
 
-    def test_custom_config(self, tmp_path):
+    def test_custom_config_disables_rule(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         config_path = tmp_path / "custom.yml"
         config_yaml = (
@@ -204,11 +204,12 @@ class TestCliConfig:
         )
         config_path.write_text(config_yaml)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--config", str(config_path)])
-        # undocumented-models disabled, so fewer violations
-        if result.exit_code == 0:
-            assert "no violations" in result.output.lower()
-        # May still exit 1 from other rules, that's fine
+        result = runner.invoke(
+            main, [str(manifest_path), "--config", str(config_path), "--format", "json"]
+        )
+        parsed = json.loads(result.output)
+        rule_ids = {v["rule_id"] for v in parsed}
+        assert "documentation/undocumented-models" not in rule_ids
 
 
 class TestCliFailFast:

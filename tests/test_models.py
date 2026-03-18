@@ -41,62 +41,14 @@ class TestResource:
         assert r.raw_code == "SELECT * FROM {{ ref('raw_orders') }}"
         assert r.config == {"materialized": "view"}
 
-    def test_frozen(self):
-        r = Resource(
-            resource_id="model.pkg.m",
-            resource_name="m",
-            resource_type="model",
-            file_path="models/m.sql",
-            model_type="other",
-            materialization="table",
-            schema_name="public",
-            database="db",
-            is_described=False,
-            is_public=False,
-            is_contract_enforced=False,
-            hard_coded_references=False,
-            number_of_columns=0,
-            number_of_documented_columns=0,
-            is_freshness_enabled=False,
-            is_primary_key_tested=False,
-            has_relationship_tests=False,
-            patch_path="",
-            tags=(),
-            meta={},
-            skip_rules=frozenset(),
-            raw_code="",
-            config={},
-            columns=(),
-        )
+    def test_frozen(self, make_resource):
+        r = make_resource()
         with pytest.raises(AttributeError):
             r.resource_id = "other"  # type: ignore[misc]
 
-    def test_skip_rules(self):
-        r = Resource(
-            resource_id="model.pkg.m",
-            resource_name="m",
-            resource_type="model",
-            file_path="models/m.sql",
-            model_type="other",
-            materialization="table",
-            schema_name="public",
-            database="db",
-            is_described=False,
-            is_public=False,
-            is_contract_enforced=False,
-            hard_coded_references=False,
-            number_of_columns=0,
-            number_of_documented_columns=0,
-            is_freshness_enabled=False,
-            is_primary_key_tested=False,
-            has_relationship_tests=False,
-            patch_path="",
-            tags=(),
-            meta={"dbt-linter": {"skip": ["modeling/hard-coded-references"]}},
+    def test_skip_rules(self, make_resource):
+        r = make_resource(
             skip_rules=frozenset(["modeling/hard-coded-references"]),
-            raw_code="",
-            config={},
-            columns=(),
         )
         assert "modeling/hard-coded-references" in r.skip_rules
         assert "modeling/root-models" not in r.skip_rules

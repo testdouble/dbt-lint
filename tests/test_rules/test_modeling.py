@@ -365,6 +365,7 @@ class TestRejoiningUpstreamConcepts:
         assert "rejoins" in vs[0].message
 
     def test_clean_no_triad(self, make_resource, make_relationship, default_config):
+        downstream = make_resource(resource_id="model.pkg.c")
         rels = [
             make_relationship(
                 parent="model.pkg.a",
@@ -375,7 +376,7 @@ class TestRejoiningUpstreamConcepts:
                 child="model.pkg.c",
             ),
         ]
-        assert rejoining_upstream_concepts([], rels, default_config) == []
+        assert rejoining_upstream_concepts([downstream], rels, default_config) == []
 
 
 class TestStagingModelTooManyParents:

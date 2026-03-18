@@ -26,24 +26,30 @@ class TestChainedViews:
     def test_clean_below_threshold(
         self, make_resource, make_relationship, default_config
     ):
+        child = make_resource(resource_id="model.pkg.deep")
         rels = [
             make_relationship(
+                parent="model.pkg.root",
+                child="model.pkg.deep",
                 distance=3,
                 is_dependent_on_chain_of_views=True,
             ),
         ]
-        assert chained_views([], rels, default_config) == []
+        assert chained_views([child], rels, default_config) == []
 
     def test_clean_non_view_chain(
         self, make_resource, make_relationship, default_config
     ):
+        child = make_resource(resource_id="model.pkg.deep")
         rels = [
             make_relationship(
+                parent="model.pkg.root",
+                child="model.pkg.deep",
                 distance=6,
                 is_dependent_on_chain_of_views=False,
             ),
         ]
-        assert chained_views([], rels, default_config) == []
+        assert chained_views([child], rels, default_config) == []
 
 
 class TestExposureParentMaterializations:

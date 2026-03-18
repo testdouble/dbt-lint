@@ -96,8 +96,7 @@ class TestTextReport:
             ),
         ]
         result = report(violations, format="text")
-        # Should have a summary with total count
-        assert "2" in result
+        assert "Found 2 violations" in result
 
     def test_summary_includes_category_breakdown(self):
         violations = [
@@ -161,10 +160,11 @@ class TestJsonReport:
         names = {obj["resource_name"] for obj in result}
         assert names == {"m1", "m2"}
 
-    def test_json_is_valid(self):
+    def test_json_roundtrips_special_characters(self):
         violations = [_violation(message='has "quotes" and\nnewlines')]
         result = report(violations, format="json")
         parsed = json.loads(result)
+        assert len(parsed) == 1
         assert parsed[0]["message"] == 'has "quotes" and\nnewlines'
 
 

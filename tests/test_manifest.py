@@ -32,7 +32,7 @@ class TestCheckSchemaVersion:
                 "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json"
             }
         }
-        assert _check_schema_version(manifest) is None
+        _check_schema_version(manifest)  # should not sys.exit
 
     def test_v12_passes(self):
         manifest = {
@@ -40,7 +40,7 @@ class TestCheckSchemaVersion:
                 "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json"
             }
         }
-        assert _check_schema_version(manifest) is None
+        _check_schema_version(manifest)  # should not sys.exit
 
     def test_v10_raises(self):
         manifest = {

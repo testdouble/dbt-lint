@@ -44,7 +44,7 @@ class TestResource:
     def test_frozen(self, make_resource):
         r = make_resource()
         with pytest.raises(AttributeError):
-            r.resource_id = "other"  # type: ignore[misc]
+            r.resource_id = "other"
 
     def test_skip_rules(self, make_resource):
         r = make_resource(

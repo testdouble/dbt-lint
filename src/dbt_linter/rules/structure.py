@@ -447,13 +447,13 @@ def _check_column_naming(
             )
 
         if type_suffixes and col.data_type:
-            dt = col.data_type.lower()
-            if dt in type_suffixes:
-                expected = type_suffixes[dt]
+            data_type = col.data_type.lower()
+            if data_type in type_suffixes:
+                expected = type_suffixes[data_type]
                 if not name.endswith(expected):
                     messages.append(
                         f"{resource.resource_name}.{col.name}:"
-                        f" {dt} column should end with"
+                        f" {data_type} column should end with"
                         f" '{expected}'"
                     )
 

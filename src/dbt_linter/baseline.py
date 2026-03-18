@@ -34,16 +34,16 @@ def generate_baseline(violations: list[Violation]) -> str:
     for v in violations:
         by_rule[v.rule_id].add(v.resource_id)
 
-    rules: dict[str, dict[str, Any]] = {}
+    rules_section: dict[str, dict[str, Any]] = {}
     for rule_id in sorted(by_rule):
         real_ids = sorted(rid for rid in by_rule[rule_id] if _is_real_resource_id(rid))
         if real_ids:
-            rules[rule_id] = {"exclude_resources": real_ids}
+            rules_section[rule_id] = {"exclude_resources": real_ids}
         else:
-            rules[rule_id] = {"enabled": False}
+            rules_section[rule_id] = {"enabled": False}
 
     body = yaml.dump(
-        {"rules": rules},
+        {"rules": rules_section},
         default_flow_style=False,
         sort_keys=False,
     )

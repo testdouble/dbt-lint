@@ -46,12 +46,12 @@ def evaluate(
                     if fail_fast:
                         return result
         else:
-            filtered = [
+            eligible = [
                 r
                 for r in resources
                 if not _is_excluded(r, rule_def.id, rule_config, config)
             ]
-            raw = rule_def.fn(filtered, relationships, rule_config)
+            raw = rule_def.fn(eligible, relationships, rule_config)
             kept = _post_filter(raw, rule_config)
             result.excluded += len(raw) - len(kept)
             result.violations.extend(_finalize(v, rule_def, rule_config) for v in kept)

@@ -112,14 +112,14 @@ def generate_rules_index() -> list[RuleInfo]:
     """Build a sorted index of all rules from structured metadata."""
     rules = get_all_rules()
     index = []
-    for r in rules:
-        meta: RuleMeta = r.fn._rule_meta
+    for rule_def in rules:
+        meta: RuleMeta = rule_def.fn._rule_meta
         index.append(
             RuleInfo(
-                id=r.id,
-                category=r.category,
-                description=r.description,
-                is_per_resource=r.is_per_resource,
+                id=rule_def.id,
+                category=rule_def.category,
+                description=rule_def.description,
+                is_per_resource=rule_def.is_per_resource,
                 rationale=meta.rationale,
                 remediation=meta.remediation,
                 exceptions=meta.exceptions,

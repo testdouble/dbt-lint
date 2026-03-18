@@ -8,7 +8,7 @@ from dbt_linter.models import Violation
 from dbt_linter.reporter import report
 
 
-def _v(
+def _violation(
     rule_id: str = "documentation/undocumented-models",
     resource_id: str = "model.pkg.stg_users",
     resource_name: str = "stg_users",
@@ -34,7 +34,7 @@ class TestTextReport:
         assert "no violations" in result.lower()
 
     def test_single_violation(self):
-        violations = [_v()]
+        violations = [_violation()]
         result = report(violations, format="text")
         assert "documentation" in result.lower()
         assert "undocumented-models" in result
@@ -42,8 +42,8 @@ class TestTextReport:
 
     def test_groups_by_category(self):
         violations = [
-            _v(rule_id="documentation/undocumented-models", resource_name="m1"),
-            _v(
+            _violation(rule_id="documentation/undocumented-models", resource_name="m1"),
+            _violation(
                 rule_id="governance/public-models-without-contract",
                 resource_name="m2",
                 message="m2: public without contract",
@@ -56,18 +56,18 @@ class TestTextReport:
 
     def test_groups_by_rule_within_category(self):
         violations = [
-            _v(
+            _violation(
                 rule_id="documentation/undocumented-models",
                 resource_name="m1",
                 message="m1: missing description",
             ),
-            _v(
+            _violation(
                 rule_id="documentation/documentation-coverage",
                 resource_name="m2",
                 message="m2: below coverage target",
                 resource_id="model.pkg.m2",
             ),
-            _v(
+            _violation(
                 rule_id="documentation/undocumented-models",
                 resource_name="m3",
                 message="m3: missing description",
@@ -81,14 +81,14 @@ class TestTextReport:
         assert any("documentation-coverage" in line for line in lines)
 
     def test_severity_shown_for_errors(self):
-        violations = [_v(severity="error")]
+        violations = [_violation(severity="error")]
         result = report(violations, format="text")
         assert "error" in result.lower()
 
     def test_summary_line_with_counts(self):
         violations = [
-            _v(severity="warn"),
-            _v(
+            _violation(severity="warn"),
+            _violation(
                 severity="error",
                 resource_name="m2",
                 resource_id="model.pkg.m2",
@@ -101,13 +101,13 @@ class TestTextReport:
 
     def test_summary_includes_category_breakdown(self):
         violations = [
-            _v(rule_id="documentation/undocumented-models", resource_name="m1"),
-            _v(
+            _violation(rule_id="documentation/undocumented-models", resource_name="m1"),
+            _violation(
                 rule_id="governance/public-models-without-contract",
                 resource_name="m2",
                 message="m2: public without contract",
             ),
-            _v(
+            _violation(
                 rule_id="documentation/documentation-coverage",
                 resource_name="m3",
                 message="m3: below coverage target",
@@ -120,8 +120,8 @@ class TestTextReport:
 
     def test_multiple_violations_same_rule(self):
         violations = [
-            _v(resource_name="m1", message="m1: missing description"),
-            _v(
+            _violation(resource_name="m1", message="m1: missing description"),
+            _violation(
                 resource_name="m2",
                 resource_id="model.pkg.m2",
                 message="m2: missing description",
@@ -140,7 +140,7 @@ class TestJsonReport:
         assert json.loads(result) == []
 
     def test_single_violation_structure(self):
-        violations = [_v()]
+        violations = [_violation()]
         result = json.loads(report(violations, format="json"))
         assert len(result) == 1
         obj = result[0]
@@ -153,8 +153,8 @@ class TestJsonReport:
 
     def test_multiple_violations(self):
         violations = [
-            _v(resource_name="m1"),
-            _v(resource_name="m2", resource_id="model.pkg.m2"),
+            _violation(resource_name="m1"),
+            _violation(resource_name="m2", resource_id="model.pkg.m2"),
         ]
         result = json.loads(report(violations, format="json"))
         assert len(result) == 2
@@ -162,7 +162,7 @@ class TestJsonReport:
         assert names == {"m1", "m2"}
 
     def test_json_is_valid(self):
-        violations = [_v(message='has "quotes" and\nnewlines')]
+        violations = [_violation(message='has "quotes" and\nnewlines')]
         result = report(violations, format="json")
         parsed = json.loads(result)
         assert parsed[0]["message"] == 'has "quotes" and\nnewlines'
@@ -172,21 +172,21 @@ class TestGitHubAnnotations:
     """GitHub Actions ::error/::warning workflow commands."""
 
     def test_warning_annotation_format(self):
-        violations = [_v(severity="warn")]
+        violations = [_violation(severity="warn")]
         result = report(violations, format="text", github_annotations=True)
         assert "::warning file=models/staging/stg_users.sql" in result
         assert "title=documentation/undocumented-models" in result
         assert "::stg_users: missing description" in result
 
     def test_error_annotation_format(self):
-        violations = [_v(severity="error")]
+        violations = [_violation(severity="error")]
         result = report(violations, format="text", github_annotations=True)
         assert "::error file=models/staging/stg_users.sql" in result
 
     def test_multiple_annotations(self):
         violations = [
-            _v(severity="warn", resource_name="m1", message="m1: issue"),
-            _v(
+            _violation(severity="warn", resource_name="m1", message="m1: issue"),
+            _violation(
                 severity="error",
                 resource_name="m2",
                 resource_id="model.pkg.m2",
@@ -198,7 +198,7 @@ class TestGitHubAnnotations:
         assert result.count("::error") == 1
 
     def test_annotations_precede_text_output(self):
-        violations = [_v()]
+        violations = [_violation()]
         result = report(violations, format="text", github_annotations=True)
         lines = result.split("\n")
         annotation_idx = next(
@@ -213,7 +213,7 @@ class TestGitHubAnnotations:
         assert annotation_idx < text_idx
 
     def test_no_annotations_without_flag(self):
-        violations = [_v()]
+        violations = [_violation()]
         result = report(violations, format="text", github_annotations=False)
         assert "::" not in result
 
@@ -236,9 +236,9 @@ class TestExcludedCount:
         assert "skipped" not in result
 
     def test_violations_with_excluded(self):
-        result = report([_v()], excluded=10)
+        result = report([_violation()], excluded=10)
         assert "10 skipped via config" in result
 
     def test_violations_without_excluded(self):
-        result = report([_v()])
+        result = report([_violation()])
         assert "skipped" not in result

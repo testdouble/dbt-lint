@@ -74,8 +74,8 @@ def _format_text(violations: list[Violation], *, excluded: int = 0) -> str:
         summary_parts.append(f"{warn_count} warning{'s' if warn_count != 1 else ''}")
     total = len(violations)
     suffix = "s" if total != 1 else ""
-    detail = ", ".join(summary_parts)
-    lines.append(f"\nFound {total} violation{suffix}: {detail}")
+    severity_summary = ", ".join(summary_parts)
+    lines.append(f"\nFound {total} violation{suffix}: {severity_summary}")
     category_counts = ", ".join(
         f"{cat} ({sum(len(rules) for rules in by_category[cat].values())})"
         for cat in sorted(by_category)

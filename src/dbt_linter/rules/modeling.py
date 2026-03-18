@@ -296,20 +296,20 @@ def duplicate_sources(
     )
 
     violations = []
-    for key, group in by_target.items():
-        if len(group) > 1:
-            ids = [s.resource_id for s in group]
+    for table_key, source_group in by_target.items():
+        if len(source_group) > 1:
+            ids = [s.resource_id for s in source_group]
             violations.append(
                 Violation(
                     rule_id="modeling/duplicate-sources",
                     resource_id=ids[0],
-                    resource_name=group[0].resource_name,
+                    resource_name=source_group[0].resource_name,
                     message=(
-                        f"{key[0]}.{key[1]}.{key[2]}:"
-                        f" {len(group)} duplicate source entries"
+                        f"{table_key[0]}.{table_key[1]}.{table_key[2]}:"
+                        f" {len(source_group)} duplicate source entries"
                     ),
                     severity=config.severity,
-                    file_path=group[0].file_path,
+                    file_path=source_group[0].file_path,
                 )
             )
     return violations

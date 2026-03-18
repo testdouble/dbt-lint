@@ -164,9 +164,9 @@ def check_test_coverage(
     violations = []
     model_types = config.params.get("model_types", [])
 
-    for mt in model_types:
+    for model_type in model_types:
         models = filter_by_model_type(
-            [r for r in resources if r.resource_type == "model"], mt
+            [r for r in resources if r.resource_type == "model"], model_type
         )
         if not models:
             continue
@@ -176,9 +176,11 @@ def check_test_coverage(
             violations.append(
                 Violation(
                     rule_id="testing/test-coverage",
-                    resource_id=f"model_type:{mt}",
-                    resource_name=mt,
-                    message=(f"{mt}: {pct:.0f}% test coverage (target: {target}%)"),
+                    resource_id=f"model_type:{model_type}",
+                    resource_name=model_type,
+                    message=(
+                        f"{model_type}: {pct:.0f}% test coverage (target: {target}%)"
+                    ),
                     severity=config.severity,
                     file_path="",
                 )

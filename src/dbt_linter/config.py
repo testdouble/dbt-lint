@@ -145,17 +145,19 @@ def merge_baseline(config: Config, baseline_rules: dict[str, dict[str, Any]]) ->
 
     for rule_id, baseline_entry in baseline_rules.items():
         existing = merged_overrides.get(rule_id, {})
-        merged = dict(existing)
+        merged_entry = dict(existing)
 
         if "exclude_resources" in baseline_entry:
-            existing_excludes = set(merged.get("exclude_resources", []))
+            existing_excludes = set(merged_entry.get("exclude_resources", []))
             baseline_excludes = set(baseline_entry["exclude_resources"])
-            merged["exclude_resources"] = sorted(existing_excludes | baseline_excludes)
+            merged_entry["exclude_resources"] = sorted(
+                existing_excludes | baseline_excludes
+            )
 
         if baseline_entry.get("enabled") is False:
-            merged["enabled"] = False
+            merged_entry["enabled"] = False
 
-        merged_overrides[rule_id] = merged
+        merged_overrides[rule_id] = merged_entry
 
     return Config(
         params=config.params,

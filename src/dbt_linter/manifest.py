@@ -132,8 +132,7 @@ def _has_relationship_tests(tests: list[dict]) -> bool:
 def _extract_skip_rules(meta: dict) -> frozenset[str]:
     """Extract skip rules from meta.dbt-linter.skip list."""
     linter_meta = meta.get("dbt-linter", {})
-    skip_list = linter_meta.get("skip", [])
-    return frozenset(skip_list) if skip_list else frozenset()
+    return frozenset(linter_meta.get("skip", []))
 
 
 def _columns_to_tuple(columns_dict: dict) -> tuple[ColumnInfo, ...]:
@@ -196,13 +195,15 @@ def _model_to_resource(
 def _source_to_resource(source: dict) -> Resource:
     """Convert a source node dict to a Resource."""
     meta = source.get("meta", {})
-    freshness = source.get("freshness")
-    is_fresh = False
-    if freshness:
-        is_fresh = bool(freshness.get("warn_after") or freshness.get("error_after"))
+    freshness = source.get("freshness") or {}
+    is_freshness_enabled = bool(
+        freshness.get("warn_after") or freshness.get("error_after")
+    )
 
-    source_desc_populated = bool(source.get("source_description", ""))
-    enriched_meta = {**meta, "source_description_populated": source_desc_populated}
+    enriched_meta = {
+        **meta,
+        "source_description_populated": bool(source.get("source_description", "")),
+    }
 
     columns_dict = source.get("columns", {})
 
@@ -221,7 +222,7 @@ def _source_to_resource(source: dict) -> Resource:
         hard_coded_references=False,
         number_of_columns=0,
         number_of_documented_columns=0,
-        is_freshness_enabled=is_fresh,
+        is_freshness_enabled=is_freshness_enabled,
         is_primary_key_tested=False,
         has_relationship_tests=False,
         patch_path="",
@@ -266,11 +267,11 @@ def _exposure_to_resource(exposure: dict) -> Resource:
 
 def _extract_edges(parent_map: dict[str, list[str]]) -> list[DirectEdge]:
     """Convert parent_map to a list of DirectEdge records."""
-    edges = []
-    for child, parents in parent_map.items():
-        for parent in parents:
-            edges.append(DirectEdge(parent=parent, child=child))
-    return edges
+    return [
+        DirectEdge(parent=parent, child=child)
+        for child, parents in parent_map.items()
+        for parent in parents
+    ]
 
 
 def parse_manifest(

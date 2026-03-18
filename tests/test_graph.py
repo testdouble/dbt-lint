@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
 from dbt_linter.graph import build_relationships
-from dbt_linter.models import DirectEdge, Relationship, Resource
+from dbt_linter.models import DirectEdge, Resource
 
 
 def _resource(
@@ -80,35 +82,37 @@ class TestSingleEdge:
 class TestLinearChain:
     """A -> B -> C -> D: produces 6 relationships (all transitive pairs)."""
 
-    def setup_method(self):
-        self.a = _resource("model.pkg.a", materialization="table")
-        self.b = _resource("model.pkg.b", materialization="view")
-        self.c = _resource("model.pkg.c", materialization="view")
-        self.d = _resource("model.pkg.d", materialization="table")
-        self.resources = [self.a, self.b, self.c, self.d]
-        self.edges = [
+    @pytest.fixture
+    def chain(self):
+        resources = [
+            _resource("model.pkg.a", materialization="table"),
+            _resource("model.pkg.b", materialization="view"),
+            _resource("model.pkg.c", materialization="view"),
+            _resource("model.pkg.d", materialization="table"),
+        ]
+        edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),
             DirectEdge(parent="model.pkg.b", child="model.pkg.c"),
             DirectEdge(parent="model.pkg.c", child="model.pkg.d"),
         ]
-        self.rels = build_relationships(self.resources, self.edges)
-        self._by_pair = {(r.parent, r.child): r for r in self.rels}
+        rels = build_relationships(resources, edges)
+        return rels, {(r.parent, r.child): r for r in rels}
 
-    def _rel(self, parent_id: str, child_id: str) -> Relationship:
-        return self._by_pair[(parent_id, child_id)]
+    def test_count(self, chain):
+        rels, _ = chain
+        assert len(rels) == 6
 
-    def test_count(self):
-        assert len(self.rels) == 6
+    def test_direct_distances(self, chain):
+        _, by_pair = chain
+        assert by_pair[("model.pkg.a", "model.pkg.b")].distance == 1
+        assert by_pair[("model.pkg.b", "model.pkg.c")].distance == 1
+        assert by_pair[("model.pkg.c", "model.pkg.d")].distance == 1
 
-    def test_direct_distances(self):
-        assert self._rel("model.pkg.a", "model.pkg.b").distance == 1
-        assert self._rel("model.pkg.b", "model.pkg.c").distance == 1
-        assert self._rel("model.pkg.c", "model.pkg.d").distance == 1
-
-    def test_transitive_distances(self):
-        assert self._rel("model.pkg.a", "model.pkg.c").distance == 2
-        assert self._rel("model.pkg.a", "model.pkg.d").distance == 3
-        assert self._rel("model.pkg.b", "model.pkg.d").distance == 2
+    def test_transitive_distances(self, chain):
+        _, by_pair = chain
+        assert by_pair[("model.pkg.a", "model.pkg.c")].distance == 2
+        assert by_pair[("model.pkg.a", "model.pkg.d")].distance == 3
+        assert by_pair[("model.pkg.b", "model.pkg.d")].distance == 2
 
 
 class TestIsolatedNodes:
@@ -199,58 +203,45 @@ class TestSourceAndExposureTypes:
 class TestChainOfViews:
     """A(table) -> B(view) -> C(view) -> D(table): chain-of-views for intermediates."""
 
-    def setup_method(self):
-        self.a = _resource("model.pkg.a", materialization="table")
-        self.b = _resource("model.pkg.b", materialization="view")
-        self.c = _resource("model.pkg.c", materialization="view")
-        self.d = _resource("model.pkg.d", materialization="table")
-        self.resources = [self.a, self.b, self.c, self.d]
-        self.edges = [
+    @pytest.fixture
+    def chain(self):
+        resources = [
+            _resource("model.pkg.a", materialization="table"),
+            _resource("model.pkg.b", materialization="view"),
+            _resource("model.pkg.c", materialization="view"),
+            _resource("model.pkg.d", materialization="table"),
+        ]
+        edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),
             DirectEdge(parent="model.pkg.b", child="model.pkg.c"),
             DirectEdge(parent="model.pkg.c", child="model.pkg.d"),
         ]
-        self.rels = build_relationships(self.resources, self.edges)
-        self._by_pair = {(r.parent, r.child): r for r in self.rels}
+        rels = build_relationships(resources, edges)
+        return {(r.parent, r.child): r for r in rels}
 
-    def _rel(self, parent_id: str, child_id: str) -> Relationship:
-        return self._by_pair[(parent_id, child_id)]
-
-    def test_distance_1_always_false(self):
+    def test_distance_1_always_false(self, chain):
         # No intermediates at distance=1.
-        assert (
-            self._rel("model.pkg.a", "model.pkg.b").is_dependent_on_chain_of_views
-            is False
-        )
-        assert (
-            self._rel("model.pkg.b", "model.pkg.c").is_dependent_on_chain_of_views
-            is False
-        )
-        assert (
-            self._rel("model.pkg.c", "model.pkg.d").is_dependent_on_chain_of_views
-            is False
-        )
+        ab = chain[("model.pkg.a", "model.pkg.b")]
+        bc = chain[("model.pkg.b", "model.pkg.c")]
+        cd = chain[("model.pkg.c", "model.pkg.d")]
+        assert ab.is_dependent_on_chain_of_views is False
+        assert bc.is_dependent_on_chain_of_views is False
+        assert cd.is_dependent_on_chain_of_views is False
 
-    def test_a_to_c_intermediates_all_views(self):
+    def test_a_to_c_intermediates_all_views(self, chain):
         # A -> B(view) -> C: intermediate B is view -> True
-        assert (
-            self._rel("model.pkg.a", "model.pkg.c").is_dependent_on_chain_of_views
-            is True
-        )
+        ac = chain[("model.pkg.a", "model.pkg.c")]
+        assert ac.is_dependent_on_chain_of_views is True
 
-    def test_a_to_d_intermediate_table_breaks_chain(self):
+    def test_a_to_d_intermediate_table_breaks_chain(self, chain):
         # A -> B(view) -> C(view) -> D: intermediates B,C are views -> True
-        assert (
-            self._rel("model.pkg.a", "model.pkg.d").is_dependent_on_chain_of_views
-            is True
-        )
+        ad = chain[("model.pkg.a", "model.pkg.d")]
+        assert ad.is_dependent_on_chain_of_views is True
 
-    def test_b_to_d_intermediate_view(self):
+    def test_b_to_d_intermediate_view(self, chain):
         # B -> C(view) -> D: intermediate C is view -> True
-        assert (
-            self._rel("model.pkg.b", "model.pkg.d").is_dependent_on_chain_of_views
-            is True
-        )
+        bd = chain[("model.pkg.b", "model.pkg.d")]
+        assert bd.is_dependent_on_chain_of_views is True
 
 
 class TestChainOfViewsBroken:
@@ -296,45 +287,48 @@ class TestDiamondDAG:
        D
     """
 
-    def setup_method(self):
-        self.a = _resource("model.pkg.a", materialization="table")
-        self.b = _resource("model.pkg.b", materialization="view")
-        self.c = _resource("model.pkg.c", materialization="view")
-        self.d = _resource("model.pkg.d", materialization="table")
-        self.edges = [
+    @pytest.fixture
+    def diamond(self):
+        resources = [
+            _resource("model.pkg.a", materialization="table"),
+            _resource("model.pkg.b", materialization="view"),
+            _resource("model.pkg.c", materialization="view"),
+            _resource("model.pkg.d", materialization="table"),
+        ]
+        edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),
             DirectEdge(parent="model.pkg.a", child="model.pkg.c"),
             DirectEdge(parent="model.pkg.b", child="model.pkg.d"),
             DirectEdge(parent="model.pkg.c", child="model.pkg.d"),
         ]
-        self.rels = build_relationships([self.a, self.b, self.c, self.d], self.edges)
-        self._by_pair = {(r.parent, r.child): r for r in self.rels}
+        rels = build_relationships(resources, edges)
+        return rels, {(r.parent, r.child): r for r in rels}
 
-    def _rel(self, parent_id: str, child_id: str) -> Relationship:
-        return self._by_pair[(parent_id, child_id)]
-
-    def test_relationship_count(self):
+    def test_relationship_count(self, diamond):
+        rels, _ = diamond
         # A->B, A->C, A->D, B->D, C->D = 5 relationships
-        assert len(self.rels) == 5
+        assert len(rels) == 5
 
-    def test_a_to_d_shortest_distance_is_2(self):
-        assert self._rel("model.pkg.a", "model.pkg.d").distance == 2
+    def test_a_to_d_shortest_distance_is_2(self, diamond):
+        _, by_pair = diamond
+        assert by_pair[("model.pkg.a", "model.pkg.d")].distance == 2
 
-    def test_direct_distances(self):
-        assert self._rel("model.pkg.a", "model.pkg.b").distance == 1
-        assert self._rel("model.pkg.a", "model.pkg.c").distance == 1
-        assert self._rel("model.pkg.b", "model.pkg.d").distance == 1
-        assert self._rel("model.pkg.c", "model.pkg.d").distance == 1
+    def test_direct_distances(self, diamond):
+        _, by_pair = diamond
+        assert by_pair[("model.pkg.a", "model.pkg.b")].distance == 1
+        assert by_pair[("model.pkg.a", "model.pkg.c")].distance == 1
+        assert by_pair[("model.pkg.b", "model.pkg.d")].distance == 1
+        assert by_pair[("model.pkg.c", "model.pkg.d")].distance == 1
 
-    def test_a_to_d_chain_of_views(self):
+    def test_a_to_d_chain_of_views(self, diamond):
+        _, by_pair = diamond
         # A -> B(view) -> D or A -> C(view) -> D: intermediate is view -> True
-        assert (
-            self._rel("model.pkg.a", "model.pkg.d").is_dependent_on_chain_of_views
-            is True
-        )
+        ad = by_pair[("model.pkg.a", "model.pkg.d")]
+        assert ad.is_dependent_on_chain_of_views is True
 
-    def test_no_duplicate_relationships(self):
-        pairs = [(r.parent, r.child) for r in self.rels]
+    def test_no_duplicate_relationships(self, diamond):
+        rels, _ = diamond
+        pairs = [(r.parent, r.child) for r in rels]
         assert len(pairs) == len(set(pairs))
 
 

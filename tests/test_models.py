@@ -42,16 +42,16 @@ class TestResource:
         assert r.config == {"materialized": "view"}
 
     def test_frozen(self, make_resource):
-        r = make_resource()
+        resource = make_resource()
         with pytest.raises(AttributeError):
-            r.resource_id = "other"
+            resource.resource_id = "other"
 
     def test_skip_rules(self, make_resource):
-        r = make_resource(
+        resource = make_resource(
             skip_rules=frozenset(["modeling/hard-coded-references"]),
         )
-        assert "modeling/hard-coded-references" in r.skip_rules
-        assert "modeling/root-models" not in r.skip_rules
+        assert "modeling/hard-coded-references" in resource.skip_rules
+        assert "modeling/root-models" not in resource.skip_rules
 
     def test_non_model_defaults(self):
         """Sources and exposures use empty strings for model-only fields."""

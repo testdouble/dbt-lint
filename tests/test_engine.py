@@ -399,9 +399,9 @@ class TestEngineFinalization:
 
         result = evaluate(resources, [], _default_config(), rules=[_make_rule()])
 
-        v = result.violations[0]
-        assert v.rule_id == STUB_PER_RESOURCE_ID
-        assert v.severity == "warn"
+        violation = result.violations[0]
+        assert violation.rule_id == STUB_PER_RESOURCE_ID
+        assert violation.severity == "warn"
 
     def test_severity_override_from_config(self, make_resource):
         resources = [make_resource()]
@@ -428,9 +428,9 @@ class TestEngineFinalization:
 
         result = evaluate([make_resource()], [], _default_config(), rules=[rule])
 
-        v = result.violations[0]
-        assert v.rule_id == "custom/already-set"
-        assert v.severity == "error"
+        violation = result.violations[0]
+        assert violation.rule_id == "custom/already-set"
+        assert violation.severity == "error"
 
 
 class TestEngineFailFast:

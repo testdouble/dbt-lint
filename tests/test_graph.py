@@ -221,27 +221,27 @@ class TestChainOfViews:
 
     def test_distance_1_always_false(self, chain):
         # No intermediates at distance=1.
-        ab = chain[("model.pkg.a", "model.pkg.b")]
-        bc = chain[("model.pkg.b", "model.pkg.c")]
-        cd = chain[("model.pkg.c", "model.pkg.d")]
-        assert ab.is_dependent_on_chain_of_views is False
-        assert bc.is_dependent_on_chain_of_views is False
-        assert cd.is_dependent_on_chain_of_views is False
+        a_to_b = chain[("model.pkg.a", "model.pkg.b")]
+        b_to_c = chain[("model.pkg.b", "model.pkg.c")]
+        c_to_d = chain[("model.pkg.c", "model.pkg.d")]
+        assert a_to_b.is_dependent_on_chain_of_views is False
+        assert b_to_c.is_dependent_on_chain_of_views is False
+        assert c_to_d.is_dependent_on_chain_of_views is False
 
     def test_a_to_c_intermediates_all_views(self, chain):
         # A -> B(view) -> C: intermediate B is view -> True
-        ac = chain[("model.pkg.a", "model.pkg.c")]
-        assert ac.is_dependent_on_chain_of_views is True
+        a_to_c = chain[("model.pkg.a", "model.pkg.c")]
+        assert a_to_c.is_dependent_on_chain_of_views is True
 
     def test_a_to_d_intermediate_table_breaks_chain(self, chain):
         # A -> B(view) -> C(view) -> D: intermediates B,C are views -> True
-        ad = chain[("model.pkg.a", "model.pkg.d")]
-        assert ad.is_dependent_on_chain_of_views is True
+        a_to_d = chain[("model.pkg.a", "model.pkg.d")]
+        assert a_to_d.is_dependent_on_chain_of_views is True
 
     def test_b_to_d_intermediate_view(self, chain):
         # B -> C(view) -> D: intermediate C is view -> True
-        bd = chain[("model.pkg.b", "model.pkg.d")]
-        assert bd.is_dependent_on_chain_of_views is True
+        b_to_d = chain[("model.pkg.b", "model.pkg.d")]
+        assert b_to_d.is_dependent_on_chain_of_views is True
 
 
 class TestChainOfViewsBroken:
@@ -323,8 +323,8 @@ class TestDiamondDAG:
     def test_a_to_d_chain_of_views(self, diamond):
         _, by_pair = diamond
         # A -> B(view) -> D or A -> C(view) -> D: intermediate is view -> True
-        ad = by_pair[("model.pkg.a", "model.pkg.d")]
-        assert ad.is_dependent_on_chain_of_views is True
+        a_to_d = by_pair[("model.pkg.a", "model.pkg.d")]
+        assert a_to_d.is_dependent_on_chain_of_views is True
 
     def test_no_duplicate_relationships(self, diamond):
         rels, _ = diamond

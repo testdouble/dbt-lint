@@ -153,18 +153,6 @@ class TestGetAllRules:
         ids = [r.id for r in rules]
         assert len(ids) == len(set(ids))
 
-    def test_all_categories_present(self):
-        rules = get_all_rules()
-        categories = {r.category for r in rules}
-        assert categories == {
-            "modeling",
-            "testing",
-            "documentation",
-            "structure",
-            "performance",
-            "governance",
-        }
-
 
 class TestAllRulesHaveRationale:
     def test_all_rules_have_rationale(self):

@@ -12,5 +12,5 @@ def default_config():
         enabled=True,
         severity="warn",
         exclude_resources=[],
-        params=DEFAULTS,
+        params={**DEFAULTS},
     )

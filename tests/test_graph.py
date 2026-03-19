@@ -5,51 +5,18 @@ from __future__ import annotations
 import pytest
 
 from dbt_linter.graph import build_relationships
-from dbt_linter.models import DirectEdge, Resource
-
-
-def _resource(
-    resource_id: str,
-    resource_type: str = "model",
-    model_type: str = "staging",
-    materialization: str = "table",
-    is_public: bool = False,
-) -> Resource:
-    """Build a minimal Resource for graph tests."""
-    return Resource(
-        resource_id=resource_id,
-        resource_name=resource_id.split(".")[-1],
-        resource_type=resource_type,
-        file_path=f"models/{resource_id.split('.')[-1]}.sql",
-        model_type=model_type,
-        materialization=materialization,
-        schema_name="public",
-        database="analytics",
-        is_described=True,
-        is_public=is_public,
-        is_contract_enforced=False,
-        hard_coded_references=False,
-        number_of_columns=5,
-        number_of_documented_columns=5,
-        is_freshness_enabled=False,
-        is_primary_key_tested=True,
-        has_relationship_tests=False,
-        patch_path="",
-        tags=(),
-        meta={},
-        skip_rules=frozenset(),
-        raw_code="",
-        config={},
-        columns=(),
-    )
+from dbt_linter.models import DirectEdge
 
 
 class TestEmptyInputs:
     def test_no_resources_no_edges(self):
         assert build_relationships([], []) == []
 
-    def test_resources_no_edges(self):
-        resources = [_resource("model.pkg.a"), _resource("model.pkg.b")]
+    def test_resources_no_edges(self, make_resource):
+        resources = [
+            make_resource(resource_id="model.pkg.a"),
+            make_resource(resource_id="model.pkg.b"),
+        ]
         assert build_relationships(resources, []) == []
 
     def test_no_resources_with_edges(self):
@@ -58,9 +25,13 @@ class TestEmptyInputs:
 
 
 class TestSingleEdge:
-    def test_single_direct_relationship(self):
-        a = _resource("model.pkg.a", model_type="staging", materialization="table")
-        b = _resource("model.pkg.b", model_type="marts", materialization="view")
+    def test_single_direct_relationship(self, make_resource):
+        a = make_resource(
+            resource_id="model.pkg.a", model_type="staging", materialization="table"
+        )
+        b = make_resource(
+            resource_id="model.pkg.b", model_type="marts", materialization="view"
+        )
         edges = [DirectEdge(parent="model.pkg.a", child="model.pkg.b")]
 
         rels = build_relationships([a, b], edges)
@@ -83,12 +54,12 @@ class TestLinearChain:
     """A -> B -> C -> D: produces 6 relationships (all transitive pairs)."""
 
     @pytest.fixture
-    def chain(self):
+    def chain(self, make_resource):
         resources = [
-            _resource("model.pkg.a", materialization="table"),
-            _resource("model.pkg.b", materialization="view"),
-            _resource("model.pkg.c", materialization="view"),
-            _resource("model.pkg.d", materialization="table"),
+            make_resource(resource_id="model.pkg.a", materialization="table"),
+            make_resource(resource_id="model.pkg.b", materialization="view"),
+            make_resource(resource_id="model.pkg.c", materialization="view"),
+            make_resource(resource_id="model.pkg.d", materialization="table"),
         ]
         edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),
@@ -116,10 +87,10 @@ class TestLinearChain:
 
 
 class TestIsolatedNodes:
-    def test_node_with_no_edges(self):
-        a = _resource("model.pkg.a")
-        b = _resource("model.pkg.b")
-        c = _resource("model.pkg.c")
+    def test_node_with_no_edges(self, make_resource):
+        a = make_resource(resource_id="model.pkg.a")
+        b = make_resource(resource_id="model.pkg.b")
+        c = make_resource(resource_id="model.pkg.c")
         edges = [DirectEdge(parent="model.pkg.a", child="model.pkg.b")]
 
         rels = build_relationships([a, b, c], edges)
@@ -131,19 +102,19 @@ class TestIsolatedNodes:
 
 
 class TestMissingResourceInEdge:
-    def test_edge_with_unknown_parent_skipped(self):
-        b = _resource("model.pkg.b")
+    def test_edge_with_unknown_parent_skipped(self, make_resource):
+        b = make_resource(resource_id="model.pkg.b")
         edges = [DirectEdge(parent="model.pkg.unknown", child="model.pkg.b")]
         assert build_relationships([b], edges) == []
 
-    def test_edge_with_unknown_child_skipped(self):
-        a = _resource("model.pkg.a")
+    def test_edge_with_unknown_child_skipped(self, make_resource):
+        a = make_resource(resource_id="model.pkg.a")
         edges = [DirectEdge(parent="model.pkg.a", child="model.pkg.unknown")]
         assert build_relationships([a], edges) == []
 
-    def test_partial_graph_with_valid_and_invalid_edges(self):
-        a = _resource("model.pkg.a")
-        b = _resource("model.pkg.b")
+    def test_partial_graph_with_valid_and_invalid_edges(self, make_resource):
+        a = make_resource(resource_id="model.pkg.a")
+        b = make_resource(resource_id="model.pkg.b")
         edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),
             DirectEdge(parent="model.pkg.a", child="model.pkg.missing"),
@@ -155,16 +126,17 @@ class TestMissingResourceInEdge:
 
 
 class TestSourceAndExposureTypes:
-    def test_source_parent_metadata(self):
-        src = _resource(
-            "source.pkg.raw.users",
+    def test_source_parent_metadata(self, make_resource):
+        src = make_resource(
+            resource_id="source.pkg.raw.users",
             resource_type="source",
             model_type="",
             materialization="",
-            is_public=False,
         )
-        model = _resource(
-            "model.pkg.stg_users", model_type="staging", materialization="view"
+        model = make_resource(
+            resource_id="model.pkg.stg_users",
+            model_type="staging",
+            materialization="view",
         )
         edges = [DirectEdge(parent="source.pkg.raw.users", child="model.pkg.stg_users")]
 
@@ -178,10 +150,14 @@ class TestSourceAndExposureTypes:
         assert rel.parent_materialization == ""
         assert rel.parent_is_public is False
 
-    def test_exposure_child_metadata(self):
-        model = _resource("model.pkg.fct_orders", model_type="marts", is_public=True)
-        exp = _resource(
-            "exposure.pkg.dashboard",
+    def test_exposure_child_metadata(self, make_resource):
+        model = make_resource(
+            resource_id="model.pkg.fct_orders",
+            model_type="marts",
+            is_public=True,
+        )
+        exp = make_resource(
+            resource_id="exposure.pkg.dashboard",
             resource_type="exposure",
             model_type="",
             materialization="",
@@ -204,12 +180,12 @@ class TestChainOfViews:
     """A(table) -> B(view) -> C(view) -> D(table): chain-of-views for intermediates."""
 
     @pytest.fixture
-    def chain(self):
+    def chain(self, make_resource):
         resources = [
-            _resource("model.pkg.a", materialization="table"),
-            _resource("model.pkg.b", materialization="view"),
-            _resource("model.pkg.c", materialization="view"),
-            _resource("model.pkg.d", materialization="table"),
+            make_resource(resource_id="model.pkg.a", materialization="table"),
+            make_resource(resource_id="model.pkg.b", materialization="view"),
+            make_resource(resource_id="model.pkg.c", materialization="view"),
+            make_resource(resource_id="model.pkg.d", materialization="table"),
         ]
         edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),
@@ -247,11 +223,11 @@ class TestChainOfViews:
 class TestChainOfViewsBroken:
     """A(table) -> B(table) -> C(view) -> D(table): B breaks the chain for A->C."""
 
-    def test_table_intermediate_breaks_chain(self):
-        a = _resource("model.pkg.a", materialization="table")
-        b = _resource("model.pkg.b", materialization="table")
-        c = _resource("model.pkg.c", materialization="view")
-        d = _resource("model.pkg.d", materialization="table")
+    def test_table_intermediate_breaks_chain(self, make_resource):
+        a = make_resource(resource_id="model.pkg.a", materialization="table")
+        b = make_resource(resource_id="model.pkg.b", materialization="table")
+        c = make_resource(resource_id="model.pkg.c", materialization="view")
+        d = make_resource(resource_id="model.pkg.d", materialization="table")
         edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),
             DirectEdge(parent="model.pkg.b", child="model.pkg.c"),
@@ -288,12 +264,12 @@ class TestDiamondDAG:
     """
 
     @pytest.fixture
-    def diamond(self):
+    def diamond(self, make_resource):
         resources = [
-            _resource("model.pkg.a", materialization="table"),
-            _resource("model.pkg.b", materialization="view"),
-            _resource("model.pkg.c", materialization="view"),
-            _resource("model.pkg.d", materialization="table"),
+            make_resource(resource_id="model.pkg.a", materialization="table"),
+            make_resource(resource_id="model.pkg.b", materialization="view"),
+            make_resource(resource_id="model.pkg.c", materialization="view"),
+            make_resource(resource_id="model.pkg.d", materialization="table"),
         ]
         edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),
@@ -335,9 +311,11 @@ class TestDiamondDAG:
 class TestWideFanout:
     """One parent with many direct children."""
 
-    def test_fifty_children(self):
-        parent = _resource("model.pkg.parent")
-        children = [_resource(f"model.pkg.child_{i}") for i in range(50)]
+    def test_fifty_children(self, make_resource):
+        parent = make_resource(resource_id="model.pkg.parent")
+        children = [
+            make_resource(resource_id=f"model.pkg.child_{i}") for i in range(50)
+        ]
         edges = [
             DirectEdge(parent="model.pkg.parent", child=f"model.pkg.child_{i}")
             for i in range(50)
@@ -353,9 +331,9 @@ class TestWideFanout:
 class TestDeepChain:
     """Linear chain of 20 nodes: verify distance computation at depth."""
 
-    def test_deep_distances(self):
+    def test_deep_distances(self, make_resource):
         n = 20
-        resources = [_resource(f"model.pkg.n{i}") for i in range(n)]
+        resources = [make_resource(resource_id=f"model.pkg.n{i}") for i in range(n)]
         edges = [
             DirectEdge(parent=f"model.pkg.n{i}", child=f"model.pkg.n{i + 1}")
             for i in range(n - 1)
@@ -388,11 +366,11 @@ class TestDiamondChainOfViewsShortestPath:
     flag should reflect the shortest path taken by BFS.
     """
 
-    def test_mixed_paths(self):
-        a = _resource("model.pkg.a", materialization="table")
-        b = _resource("model.pkg.b", materialization="view")
-        c = _resource("model.pkg.c", materialization="table")
-        d = _resource("model.pkg.d", materialization="table")
+    def test_mixed_paths(self, make_resource):
+        a = make_resource(resource_id="model.pkg.a", materialization="table")
+        b = make_resource(resource_id="model.pkg.b", materialization="view")
+        c = make_resource(resource_id="model.pkg.c", materialization="table")
+        d = make_resource(resource_id="model.pkg.d", materialization="table")
         # B listed before C in adjacency, so BFS from A visits B first.
         edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),

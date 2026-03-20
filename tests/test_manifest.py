@@ -237,40 +237,52 @@ class TestColumnsToTuple:
         assert result[0].name == "order_id"
 
 
-class TestModelToResource:
+def _model_node():
+    """Shared model node fixture data for TestModelToResource* classes."""
+    return {
+        "unique_id": "model.pkg.stg_orders",
+        "name": "stg_orders",
+        "resource_type": "model",
+        "original_file_path": "models/staging/stripe/stg_orders.sql",
+        "fqn": ["pkg", "staging", "stripe", "stg_orders"],
+        "config": {
+            "materialized": "view",
+            "meta": {},
+            "tags": ["daily"],
+        },
+        "description": "Staged orders from Stripe",
+        "columns": {
+            "id": {"name": "id", "description": "Primary key"},
+            "amount": {"name": "amount", "description": ""},
+        },
+        "raw_code": "SELECT * FROM {{ source('stripe', 'orders') }}",
+        "access": "protected",
+        "contract": {"enforced": False},
+        "schema": "staging",
+        "database": "analytics",
+    }
+
+
+def _test_index():
+    """Shared test index fixture data for TestModelToResource* classes."""
+    return {
+        "model.pkg.stg_orders": [
+            {"name": "unique", "namespace": "dbt", "kwargs": {}},
+            {"name": "not_null", "namespace": "dbt", "kwargs": {}},
+        ]
+    }
+
+
+class TestModelToResourceFields:
+    """Basic model fields: identity, classification, access, metadata."""
+
     @pytest.fixture
     def model_node(self):
-        return {
-            "unique_id": "model.pkg.stg_orders",
-            "name": "stg_orders",
-            "resource_type": "model",
-            "original_file_path": "models/staging/stripe/stg_orders.sql",
-            "fqn": ["pkg", "staging", "stripe", "stg_orders"],
-            "config": {
-                "materialized": "view",
-                "meta": {},
-                "tags": ["daily"],
-            },
-            "description": "Staged orders from Stripe",
-            "columns": {
-                "id": {"name": "id", "description": "Primary key"},
-                "amount": {"name": "amount", "description": ""},
-            },
-            "raw_code": "SELECT * FROM {{ source('stripe', 'orders') }}",
-            "access": "protected",
-            "contract": {"enforced": False},
-            "schema": "staging",
-            "database": "analytics",
-        }
+        return _model_node()
 
     @pytest.fixture
     def test_index(self):
-        return {
-            "model.pkg.stg_orders": [
-                {"name": "unique", "namespace": "dbt", "kwargs": {}},
-                {"name": "not_null", "namespace": "dbt", "kwargs": {}},
-            ]
-        }
+        return _test_index()
 
     def test_basic_fields(self, model_node, test_index):
         resource = _model_to_resource(model_node, test_index, DEFAULTS)
@@ -295,28 +307,6 @@ class TestModelToResource:
         resource = _model_to_resource(model_node, test_index, DEFAULTS)
         assert resource.is_described is False
 
-    def test_column_counts(self, model_node, test_index):
-        resource = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert resource.number_of_columns == 2
-        assert resource.number_of_documented_columns == 1  # only "id" has description
-
-    def test_hard_coded_references_false(self, model_node, test_index):
-        resource = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert resource.hard_coded_references is False
-
-    def test_hard_coded_references_true(self, model_node, test_index):
-        model_node["raw_code"] = "SELECT * FROM raw.orders"
-        resource = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert resource.hard_coded_references is True
-
-    def test_primary_key_tested(self, model_node, test_index):
-        resource = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert resource.is_primary_key_tested is True
-
-    def test_not_primary_key_tested(self, model_node):
-        resource = _model_to_resource(model_node, {}, DEFAULTS)
-        assert resource.is_primary_key_tested is False
-
     def test_access_public(self, model_node, test_index):
         model_node["access"] = "public"
         resource = _model_to_resource(model_node, test_index, DEFAULTS)
@@ -338,9 +328,40 @@ class TestModelToResource:
         resource = _model_to_resource(model_node, test_index, DEFAULTS)
         assert resource.skip_rules == frozenset({"modeling/hard-coded-references"})
 
+
+class TestModelToResourceConversion:
+    """Data conversion: raw code, config, columns, hard-coded references."""
+
+    @pytest.fixture
+    def model_node(self):
+        return _model_node()
+
+    @pytest.fixture
+    def test_index(self):
+        return _test_index()
+
+    def test_hard_coded_references_false(self, model_node, test_index):
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.hard_coded_references is False
+
+    def test_hard_coded_references_true(self, model_node, test_index):
+        model_node["raw_code"] = "SELECT * FROM raw.orders"
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.hard_coded_references is True
+
     def test_raw_code(self, model_node, test_index):
         resource = _model_to_resource(model_node, test_index, DEFAULTS)
         assert resource.raw_code == "SELECT * FROM {{ source('stripe', 'orders') }}"
+
+    def test_empty_raw_code(self, model_node, test_index):
+        model_node["raw_code"] = ""
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.raw_code == ""
+
+    def test_missing_raw_code(self, model_node, test_index):
+        del model_node["raw_code"]
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.raw_code == ""
 
     def test_config_dict(self, model_node, test_index):
         resource = _model_to_resource(model_node, test_index, DEFAULTS)
@@ -359,15 +380,30 @@ class TestModelToResource:
         assert by_name["id"].is_described is True
         assert by_name["amount"].is_described is False
 
-    def test_empty_raw_code(self, model_node, test_index):
-        model_node["raw_code"] = ""
-        resource = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert resource.raw_code == ""
 
-    def test_missing_raw_code(self, model_node, test_index):
-        del model_node["raw_code"]
+class TestModelToResourceTests:
+    """Test-related fields: column counts, PK tests, relationship tests."""
+
+    @pytest.fixture
+    def model_node(self):
+        return _model_node()
+
+    @pytest.fixture
+    def test_index(self):
+        return _test_index()
+
+    def test_column_counts(self, model_node, test_index):
         resource = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert resource.raw_code == ""
+        assert resource.number_of_columns == 2
+        assert resource.number_of_documented_columns == 1  # only "id" has description
+
+    def test_primary_key_tested(self, model_node, test_index):
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.is_primary_key_tested is True
+
+    def test_not_primary_key_tested(self, model_node):
+        resource = _model_to_resource(model_node, {}, DEFAULTS)
+        assert resource.is_primary_key_tested is False
 
     def test_has_relationship_tests(self, model_node):
         test_index = {

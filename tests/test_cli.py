@@ -369,3 +369,81 @@ class TestCliGenerateBaseline:
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
         assert set(parsed["rules"].keys()) <= {"documentation/undocumented-models"}
+
+
+def _write_custom_rule(tmp_path: Path) -> Path:
+    """Write a minimal custom rule that flags models containing SELECT *."""
+    rule_file = tmp_path / "no_select_star.py"
+    rule_file.write_text(
+        "from dbt_linter.extend import Resource, RuleConfig, Violation, rule\n"
+        "\n"
+        '@rule(id="custom/no-select-star", description="Model uses SELECT *.")\n'
+        "def no_select_star(resource: Resource, config: RuleConfig)"
+        " -> Violation | None:\n"
+        '    if resource.raw_code and "select *" in resource.raw_code.lower():\n'
+        "        return Violation.from_resource(resource, "
+        '"uses SELECT *")\n'
+        "    return None\n"
+    )
+    return rule_file
+
+
+def _write_custom_config(tmp_path: Path, rule_file: Path, **overrides) -> Path:
+    """Write a config with a custom rule source directive."""
+    rule_cfg: dict = {"source": rule_file.name, **overrides}
+    config = {"rules": {"custom/no-select-star": rule_cfg}}
+    config_path = tmp_path / "dbt-lint.yml"
+    config_path.write_text(yaml.dump(config))
+    return config_path
+
+
+class TestCliCustomRule:
+    """E2E: custom rule loaded via source directive produces CLI output."""
+
+    def test_custom_rule_violation_in_json_output(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        rule_file = _write_custom_rule(tmp_path)
+        config_path = _write_custom_config(tmp_path, rule_file)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [str(manifest_path), "--config", str(config_path), "--format", "json"],
+        )
+        assert result.exit_code == 1
+        parsed = json.loads(result.output)
+        custom_violations = [
+            v for v in parsed if v["rule_id"] == "custom/no-select-star"
+        ]
+        assert len(custom_violations) > 0
+
+    def test_custom_rule_disabled(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        rule_file = _write_custom_rule(tmp_path)
+        config_path = _write_custom_config(tmp_path, rule_file, enabled=False)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [str(manifest_path), "--config", str(config_path), "--format", "json"],
+        )
+        parsed = json.loads(result.output)
+        custom_violations = [
+            v for v in parsed if v["rule_id"] == "custom/no-select-star"
+        ]
+        assert len(custom_violations) == 0
+
+    def test_custom_rule_severity_override(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        rule_file = _write_custom_rule(tmp_path)
+        config_path = _write_custom_config(tmp_path, rule_file, severity="error")
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [str(manifest_path), "--config", str(config_path), "--format", "json"],
+        )
+        assert result.exit_code == 1
+        parsed = json.loads(result.output)
+        custom_violations = [
+            v for v in parsed if v["rule_id"] == "custom/no-select-star"
+        ]
+        assert len(custom_violations) > 0
+        assert all(v["severity"] == "error" for v in custom_violations)

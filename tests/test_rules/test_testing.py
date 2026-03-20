@@ -14,6 +14,7 @@ class TestMissingPrimaryKeyTests:
 
         violation = missing_primary_key_tests(resource, default_config)
 
+        assert violation is not None
         assert "missing primary key test" in violation.message
 
     def test_clean_model_with_pk_test(self, make_resource, default_config):
@@ -33,6 +34,7 @@ class TestSourcesWithoutFreshness:
 
         violation = sources_without_freshness(resource, default_config)
 
+        assert violation is not None
         assert "no freshness check configured" in violation.message
 
     def test_clean_source_with_freshness(self, make_resource, default_config):

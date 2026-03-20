@@ -16,6 +16,7 @@ class TestUndocumentedModels:
 
         violation = undocumented_models(resource, default_config)
 
+        assert violation is not None
         assert "missing description" in violation.message
 
     def test_clean_documented_model(self, make_resource, default_config):
@@ -40,6 +41,7 @@ class TestUndocumentedSources:
 
         violation = undocumented_sources(resource, default_config)
 
+        assert violation is not None
         assert "source missing description" in violation.message
 
     def test_clean_source_with_description(self, make_resource, default_config):
@@ -64,6 +66,7 @@ class TestUndocumentedSourceTables:
 
         violation = undocumented_source_tables(resource, default_config)
 
+        assert violation is not None
         assert "source table missing description" in violation.message
 
     def test_clean_source_table_with_description(self, make_resource, default_config):

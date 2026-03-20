@@ -17,6 +17,7 @@ class TestPublicModelsWithoutContract:
 
         violation = public_models_without_contract(resource, default_config)
 
+        assert violation is not None
         assert "without contract enforcement" in violation.message
 
     def test_clean_public_with_contract(self, make_resource, default_config):
@@ -48,6 +49,7 @@ class TestUndocumentedPublicModels:
 
         violation = undocumented_public_models(resource, default_config)
 
+        assert violation is not None
         assert "missing description" in violation.message
 
     def test_flags_public_missing_column_docs(self, make_resource, default_config):
@@ -61,6 +63,7 @@ class TestUndocumentedPublicModels:
 
         violation = undocumented_public_models(resource, default_config)
 
+        assert violation is not None
         assert "3/5 columns documented" in violation.message
 
     def test_clean_fully_documented(self, make_resource, default_config):

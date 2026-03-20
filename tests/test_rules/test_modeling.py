@@ -169,6 +169,7 @@ class TestHardCodedReferences:
 
         violation = hard_coded_references(resource, default_config)
 
+        assert violation is not None
         assert "hard-coded table references" in violation.message
 
     def test_clean(self, make_resource, default_config):

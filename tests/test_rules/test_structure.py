@@ -25,6 +25,7 @@ class TestModelNamingConventions:
 
         violation = model_naming_conventions(resource, default_config)
 
+        assert violation is not None
         assert "should start with" in violation.message
 
     def test_clean_staging_with_prefix(self, make_resource, default_config):
@@ -84,6 +85,7 @@ class TestModelNamingConventions:
 
         violation = model_naming_conventions(resource, default_config)
 
+        assert violation is not None
         assert "should start with" in violation.message
 
 
@@ -97,6 +99,7 @@ class TestModelDirectories:
 
         violation = model_directories(resource, default_config)
 
+        assert violation is not None
         assert "expected in staging/" in violation.message
 
     def test_clean_staging_in_staging_dir(self, make_resource, default_config):
@@ -135,6 +138,7 @@ class TestModelDirectories:
 
         violation = model_directories(resource, default_config)
 
+        assert violation is not None
         assert "expected in" in violation.message
 
 
@@ -147,6 +151,7 @@ class TestSourceDirectories:
 
         violation = source_directories(resource, default_config)
 
+        assert violation is not None
         assert "source YAML expected in staging/" in violation.message
 
     def test_clean_source_in_staging(self, make_resource, default_config):
@@ -173,6 +178,7 @@ class TestStagingMaterialization:
 
         violation = staging_materialization(resource, default_config)
 
+        assert violation is not None
         assert "table not allowed for staging" in violation.message
 
     def test_clean_staging_view(self, make_resource, default_config):
@@ -195,6 +201,7 @@ class TestIntermediateMaterialization:
 
         violation = intermediate_materialization(resource, default_config)
 
+        assert violation is not None
         assert "table not allowed for intermediate" in violation.message
 
     def test_clean_intermediate_ephemeral(self, make_resource, default_config):
@@ -217,6 +224,7 @@ class TestMartsMaterialization:
 
         violation = marts_materialization(resource, default_config)
 
+        assert violation is not None
         assert "view not allowed for marts" in violation.message
 
     def test_clean_marts_table(self, make_resource, default_config):
@@ -254,6 +262,7 @@ class TestModelNameFormat:
 
         violation = model_name_format(resource, default_config)
 
+        assert violation is not None
         assert "snake_case" in violation.message
 
     def test_flags_dots(self, make_resource, default_config):
@@ -264,6 +273,7 @@ class TestModelNameFormat:
 
         violation = model_name_format(resource, default_config)
 
+        assert violation is not None
         assert "snake_case" in violation.message
 
     def test_flags_hyphens(self, make_resource, default_config):
@@ -274,6 +284,7 @@ class TestModelNameFormat:
 
         violation = model_name_format(resource, default_config)
 
+        assert violation is not None
         assert "snake_case" in violation.message
 
     def test_flags_leading_number(self, make_resource, default_config):
@@ -284,6 +295,7 @@ class TestModelNameFormat:
 
         violation = model_name_format(resource, default_config)
 
+        assert violation is not None
         assert "snake_case" in violation.message
 
     def test_ignores_sources(self, make_resource, default_config):
@@ -316,6 +328,7 @@ class TestStagingNamingConvention:
 
         violation = staging_naming_convention(resource, default_config)
 
+        assert violation is not None
         assert "missing __ separator" in violation.message
 
     def test_clean_staging_with_double_underscore(self, make_resource, default_config):
@@ -377,6 +390,7 @@ class TestYamlFileNaming:
 
         violation = yaml_file_naming(resource, default_config)
 
+        assert violation is not None
         assert "_<directory>__<type>.yml" in violation.message
 
     def test_clean_source_yaml_with_convention(self, make_resource, default_config):
@@ -395,6 +409,7 @@ class TestYamlFileNaming:
 
         violation = yaml_file_naming(resource, default_config)
 
+        assert violation is not None
         assert "_<directory>__<type>.yml" in violation.message
 
     def test_clean_model_yaml_with_convention(self, make_resource, default_config):

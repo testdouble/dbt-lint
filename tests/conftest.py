@@ -1,10 +1,10 @@
-"""Shared test fixtures: Resource and Relationship builders."""
+"""Shared test fixtures: Resource, Relationship, and Violation builders."""
 
 from typing import Any
 
 import pytest
 
-from dbt_linter.models import Relationship, Resource
+from dbt_linter.models import Relationship, Resource, Violation
 
 
 @pytest.fixture
@@ -44,6 +44,31 @@ def make_resource():
         }
         defaults.update(overrides)
         return Resource(**defaults)
+
+    return _make
+
+
+@pytest.fixture
+def make_violation():
+    """Factory fixture for Violation with sensible defaults.
+
+    When resource_id is overridden but resource_name is not,
+    resource_name is derived from the last segment of resource_id.
+    """
+
+    def _make(**overrides: Any) -> Violation:
+        defaults: dict[str, Any] = {
+            "rule_id": "documentation/undocumented-models",
+            "resource_id": "model.pkg.stg_users",
+            "resource_name": "stg_users",
+            "message": "stg_users: missing description",
+            "severity": "warn",
+            "file_path": "models/staging/stg_users.sql",
+        }
+        if "resource_id" in overrides and "resource_name" not in overrides:
+            defaults["resource_name"] = overrides["resource_id"].split(".")[-1]
+        defaults.update(overrides)
+        return Violation(**defaults)
 
     return _make
 

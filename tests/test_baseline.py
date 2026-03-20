@@ -5,18 +5,6 @@ from __future__ import annotations
 import yaml
 
 from dbt_linter.baseline import generate_baseline
-from dbt_linter.models import Violation
-
-
-def _violation(rule_id: str, resource_id: str) -> Violation:
-    return Violation(
-        rule_id=rule_id,
-        resource_id=resource_id,
-        resource_name=resource_id.split(".")[-1],
-        message="test",
-        severity="warn",
-        file_path="models/test.sql",
-    )
 
 
 class TestGenerateBaseline:
@@ -27,9 +15,12 @@ class TestGenerateBaseline:
         parsed = yaml.safe_load(result)
         assert parsed == {"rules": {}}
 
-    def test_single_rule_single_resource(self):
+    def test_single_rule_single_resource(self, make_violation):
         violations = [
-            _violation("documentation/undocumented-models", "model.pkg.stg_users"),
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.stg_users",
+            ),
         ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)
@@ -41,10 +32,16 @@ class TestGenerateBaseline:
             },
         }
 
-    def test_single_rule_multiple_resources(self):
+    def test_single_rule_multiple_resources(self, make_violation):
         violations = [
-            _violation("documentation/undocumented-models", "model.pkg.stg_users"),
-            _violation("documentation/undocumented-models", "model.pkg.fct_orders"),
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.stg_users",
+            ),
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.fct_orders",
+            ),
         ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)
@@ -52,21 +49,33 @@ class TestGenerateBaseline:
         resources = rule["exclude_resources"]
         assert sorted(resources) == ["model.pkg.fct_orders", "model.pkg.stg_users"]
 
-    def test_multiple_rules(self):
+    def test_multiple_rules(self, make_violation):
         violations = [
-            _violation("documentation/undocumented-models", "model.pkg.stg_users"),
-            _violation("testing/missing-primary-key-tests", "model.pkg.fct_orders"),
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.stg_users",
+            ),
+            make_violation(
+                rule_id="testing/missing-primary-key-tests",
+                resource_id="model.pkg.fct_orders",
+            ),
         ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)
         assert "documentation/undocumented-models" in parsed["rules"]
         assert "testing/missing-primary-key-tests" in parsed["rules"]
 
-    def test_deduplicates_resources(self):
+    def test_deduplicates_resources(self, make_violation):
         """Same resource violating the same rule twice should appear once."""
         violations = [
-            _violation("documentation/undocumented-models", "model.pkg.stg_users"),
-            _violation("documentation/undocumented-models", "model.pkg.stg_users"),
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.stg_users",
+            ),
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.stg_users",
+            ),
         ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)
@@ -74,22 +83,40 @@ class TestGenerateBaseline:
         resources = rule["exclude_resources"]
         assert resources == ["model.pkg.stg_users"]
 
-    def test_rules_sorted_alphabetically(self):
+    def test_rules_sorted_alphabetically(self, make_violation):
         violations = [
-            _violation("testing/missing-primary-key-tests", "model.pkg.a"),
-            _violation("documentation/undocumented-models", "model.pkg.b"),
-            _violation("modeling/source-fanout", "model.pkg.c"),
+            make_violation(
+                rule_id="testing/missing-primary-key-tests",
+                resource_id="model.pkg.a",
+            ),
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.b",
+            ),
+            make_violation(
+                rule_id="modeling/source-fanout",
+                resource_id="model.pkg.c",
+            ),
         ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)
         rule_ids = list(parsed["rules"].keys())
         assert rule_ids == sorted(rule_ids)
 
-    def test_resources_sorted_within_rule(self):
+    def test_resources_sorted_within_rule(self, make_violation):
         violations = [
-            _violation("documentation/undocumented-models", "model.pkg.z_model"),
-            _violation("documentation/undocumented-models", "model.pkg.a_model"),
-            _violation("documentation/undocumented-models", "model.pkg.m_model"),
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.z_model",
+            ),
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.a_model",
+            ),
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.m_model",
+            ),
         ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)
@@ -101,10 +128,16 @@ class TestGenerateBaseline:
             "model.pkg.z_model",
         ]
 
-    def test_output_is_valid_yaml(self):
+    def test_output_is_valid_yaml(self, make_violation):
         violations = [
-            _violation("documentation/undocumented-models", "model.pkg.stg_users"),
-            _violation("testing/missing-primary-key-tests", "model.pkg.fct_orders"),
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.stg_users",
+            ),
+            make_violation(
+                rule_id="testing/missing-primary-key-tests",
+                resource_id="model.pkg.fct_orders",
+            ),
         ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)
@@ -115,16 +148,16 @@ class TestGenerateBaseline:
         result = generate_baseline([])
         assert "Generated by dbt-lint" in result
 
-    def test_synthetic_ids_emit_enabled_false(self):
+    def test_synthetic_ids_emit_enabled_false(self, make_violation):
         """Rules with only synthetic resource_ids get disabled."""
         violations = [
-            _violation(
-                "documentation/documentation-coverage",
-                "model_type:staging",
+            make_violation(
+                rule_id="documentation/documentation-coverage",
+                resource_id="model_type:staging",
             ),
-            _violation(
-                "documentation/documentation-coverage",
-                "model_type:marts",
+            make_violation(
+                rule_id="documentation/documentation-coverage",
+                resource_id="model_type:marts",
             ),
         ]
         result = generate_baseline(violations)
@@ -132,11 +165,17 @@ class TestGenerateBaseline:
         rule = parsed["rules"]["documentation/documentation-coverage"]
         assert rule == {"enabled": False}
 
-    def test_mixed_real_and_synthetic_ids(self):
+    def test_mixed_real_and_synthetic_ids(self, make_violation):
         """Rules with both real and synthetic IDs only exclude real ones."""
         violations = [
-            _violation("testing/test-coverage", "model_type:staging"),
-            _violation("testing/missing-primary-key-tests", "model.pkg.a"),
+            make_violation(
+                rule_id="testing/test-coverage",
+                resource_id="model_type:staging",
+            ),
+            make_violation(
+                rule_id="testing/missing-primary-key-tests",
+                resource_id="model.pkg.a",
+            ),
         ]
         result = generate_baseline(violations)
         parsed = yaml.safe_load(result)

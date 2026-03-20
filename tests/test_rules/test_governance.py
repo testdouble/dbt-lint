@@ -17,7 +17,7 @@ class TestPublicModelsWithoutContract:
 
         v = public_models_without_contract(r, default_config)
 
-        assert v is not None
+        assert "without contract enforcement" in v.message
 
     def test_clean_public_with_contract(self, make_resource, default_config):
         r = make_resource(
@@ -48,7 +48,6 @@ class TestUndocumentedPublicModels:
 
         v = undocumented_public_models(r, default_config)
 
-        assert v is not None
         assert "missing description" in v.message
 
     def test_flags_public_missing_column_docs(self, make_resource, default_config):
@@ -62,8 +61,7 @@ class TestUndocumentedPublicModels:
 
         v = undocumented_public_models(r, default_config)
 
-        assert v is not None
-        assert "3/5" in v.message
+        assert "3/5 columns documented" in v.message
 
     def test_clean_fully_documented(self, make_resource, default_config):
         r = make_resource(

@@ -23,7 +23,9 @@ class TestModelNamingConventions:
             resource_name="orders",
         )
 
-        assert model_naming_conventions(r, default_config) is not None
+        v = model_naming_conventions(r, default_config)
+
+        assert "should start with" in v.message
 
     def test_clean_staging_with_prefix(self, make_resource, default_config):
         r = make_resource(
@@ -80,7 +82,9 @@ class TestModelNamingConventions:
             resource_name="orders",
         )
 
-        assert model_naming_conventions(r, default_config) is not None
+        v = model_naming_conventions(r, default_config)
+
+        assert "should start with" in v.message
 
 
 class TestModelDirectories:
@@ -91,7 +95,9 @@ class TestModelDirectories:
             file_path="models/marts/stg_orders.sql",
         )
 
-        assert model_directories(r, default_config) is not None
+        v = model_directories(r, default_config)
+
+        assert "expected in staging/" in v.message
 
     def test_clean_staging_in_staging_dir(self, make_resource, default_config):
         r = make_resource(
@@ -127,7 +133,9 @@ class TestModelDirectories:
             file_path="models/reporting/int_orders.sql",
         )
 
-        assert model_directories(r, default_config) is not None
+        v = model_directories(r, default_config)
+
+        assert "expected in" in v.message
 
 
 class TestSourceDirectories:
@@ -137,7 +145,9 @@ class TestSourceDirectories:
             file_path="models/marts/sources.yml",
         )
 
-        assert source_directories(r, default_config) is not None
+        v = source_directories(r, default_config)
+
+        assert "source YAML expected in staging/" in v.message
 
     def test_clean_source_in_staging(self, make_resource, default_config):
         r = make_resource(
@@ -161,7 +171,9 @@ class TestStagingMaterialization:
             materialization="table",
         )
 
-        assert staging_materialization(r, default_config) is not None
+        v = staging_materialization(r, default_config)
+
+        assert "table not allowed for staging" in v.message
 
     def test_clean_staging_view(self, make_resource, default_config):
         r = make_resource(
@@ -181,7 +193,9 @@ class TestIntermediateMaterialization:
             materialization="table",
         )
 
-        assert intermediate_materialization(r, default_config) is not None
+        v = intermediate_materialization(r, default_config)
+
+        assert "table not allowed for intermediate" in v.message
 
     def test_clean_intermediate_ephemeral(self, make_resource, default_config):
         r = make_resource(
@@ -201,7 +215,9 @@ class TestMartsMaterialization:
             materialization="view",
         )
 
-        assert marts_materialization(r, default_config) is not None
+        v = marts_materialization(r, default_config)
+
+        assert "view not allowed for marts" in v.message
 
     def test_clean_marts_table(self, make_resource, default_config):
         r = make_resource(
@@ -238,7 +254,6 @@ class TestModelNameFormat:
 
         v = model_name_format(r, default_config)
 
-        assert v is not None
         assert "snake_case" in v.message
 
     def test_flags_dots(self, make_resource, default_config):
@@ -247,7 +262,9 @@ class TestModelNameFormat:
             resource_name="stg.orders",
         )
 
-        assert model_name_format(r, default_config) is not None
+        v = model_name_format(r, default_config)
+
+        assert "snake_case" in v.message
 
     def test_flags_hyphens(self, make_resource, default_config):
         r = make_resource(
@@ -255,7 +272,9 @@ class TestModelNameFormat:
             resource_name="stg-orders",
         )
 
-        assert model_name_format(r, default_config) is not None
+        v = model_name_format(r, default_config)
+
+        assert "snake_case" in v.message
 
     def test_flags_leading_number(self, make_resource, default_config):
         r = make_resource(
@@ -263,7 +282,9 @@ class TestModelNameFormat:
             resource_name="1_orders",
         )
 
-        assert model_name_format(r, default_config) is not None
+        v = model_name_format(r, default_config)
+
+        assert "snake_case" in v.message
 
     def test_ignores_sources(self, make_resource, default_config):
         r = make_resource(
@@ -295,8 +316,7 @@ class TestStagingNamingConvention:
 
         v = staging_naming_convention(r, default_config)
 
-        assert v is not None
-        assert "__" in v.message
+        assert "missing __ separator" in v.message
 
     def test_clean_staging_with_double_underscore(self, make_resource, default_config):
         """stg_stripe__orders follows the convention."""
@@ -357,7 +377,7 @@ class TestYamlFileNaming:
 
         v = yaml_file_naming(r, default_config)
 
-        assert v is not None
+        assert "_<directory>__<type>.yml" in v.message
 
     def test_clean_source_yaml_with_convention(self, make_resource, default_config):
         r = make_resource(
@@ -375,7 +395,7 @@ class TestYamlFileNaming:
 
         v = yaml_file_naming(r, default_config)
 
-        assert v is not None
+        assert "_<directory>__<type>.yml" in v.message
 
     def test_clean_model_yaml_with_convention(self, make_resource, default_config):
         r = make_resource(

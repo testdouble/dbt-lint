@@ -167,7 +167,9 @@ class TestHardCodedReferences:
     def test_flags_hard_coded(self, make_resource, default_config):
         r = make_resource(resource_type="model", hard_coded_references=True)
 
-        assert hard_coded_references(r, default_config) is not None
+        v = hard_coded_references(r, default_config)
+
+        assert "hard-coded table references" in v.message
 
     def test_clean(self, make_resource, default_config):
         r = make_resource(resource_type="model", hard_coded_references=False)

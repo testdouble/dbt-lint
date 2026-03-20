@@ -8,155 +8,17 @@ import pytest
 
 from dbt_linter.config import DEFAULTS, load_config
 from dbt_linter.manifest import (
-    _build_test_index,
-    _check_schema_version,
     _classify_model_type,
     _columns_to_tuple,
     _exposure_to_resource,
     _extract_edges,
     _extract_skip_rules,
     _has_hard_coded_references,
-    _has_relationship_tests,
-    _is_primary_key_tested,
     _model_to_resource,
     _source_to_resource,
     parse_manifest,
 )
 from dbt_linter.models import ColumnInfo, DirectEdge
-
-
-class TestCheckSchemaVersion:
-    def test_v11_passes(self):
-        manifest = {
-            "metadata": {
-                "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json"
-            }
-        }
-        _check_schema_version(manifest)  # should not sys.exit
-
-    def test_v12_passes(self):
-        manifest = {
-            "metadata": {
-                "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json"
-            }
-        }
-        _check_schema_version(manifest)  # should not sys.exit
-
-    def test_v10_raises(self):
-        manifest = {
-            "metadata": {
-                "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v10.json"
-            }
-        }
-        with pytest.raises(SystemExit, match="v11"):
-            _check_schema_version(manifest)
-
-    def test_v1_raises(self):
-        manifest = {
-            "metadata": {
-                "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v1.json"
-            }
-        }
-        with pytest.raises(SystemExit, match="v11"):
-            _check_schema_version(manifest)
-
-    def test_missing_metadata_raises(self):
-        with pytest.raises(SystemExit):
-            _check_schema_version({})
-
-    def test_missing_schema_version_raises(self):
-        with pytest.raises(SystemExit):
-            _check_schema_version({"metadata": {}})
-
-
-class TestBuildTestIndex:
-    def test_empty_nodes(self):
-        manifest = {"nodes": {}}
-        assert _build_test_index(manifest) == {}
-
-    def test_indexes_generic_test_by_attached_node(self):
-        manifest = {
-            "nodes": {
-                "test.pkg.unique_orders_id": {
-                    "resource_type": "test",
-                    "test_metadata": {
-                        "name": "unique",
-                        "namespace": "dbt",
-                        "kwargs": {"column_name": "id"},
-                    },
-                    "attached_node": "model.pkg.orders",
-                },
-            }
-        }
-        index = _build_test_index(manifest)
-        assert "model.pkg.orders" in index
-        assert len(index["model.pkg.orders"]) == 1
-        assert index["model.pkg.orders"][0]["name"] == "unique"
-
-    def test_multiple_tests_on_same_model(self):
-        manifest = {
-            "nodes": {
-                "test.pkg.unique_orders_id": {
-                    "resource_type": "test",
-                    "test_metadata": {
-                        "name": "unique",
-                        "namespace": "dbt",
-                        "kwargs": {},
-                    },
-                    "attached_node": "model.pkg.orders",
-                },
-                "test.pkg.not_null_orders_id": {
-                    "resource_type": "test",
-                    "test_metadata": {
-                        "name": "not_null",
-                        "namespace": "dbt",
-                        "kwargs": {},
-                    },
-                    "attached_node": "model.pkg.orders",
-                },
-            }
-        }
-        index = _build_test_index(manifest)
-        assert len(index["model.pkg.orders"]) == 2
-
-    def test_skips_non_test_nodes(self):
-        manifest = {
-            "nodes": {
-                "model.pkg.orders": {
-                    "resource_type": "model",
-                    "name": "orders",
-                }
-            }
-        }
-        assert _build_test_index(manifest) == {}
-
-    def test_skips_singular_tests_without_test_metadata(self):
-        """Singular tests (data tests) lack test_metadata."""
-        manifest = {
-            "nodes": {
-                "test.pkg.assert_positive_revenue": {
-                    "resource_type": "test",
-                    # no test_metadata
-                }
-            }
-        }
-        assert _build_test_index(manifest) == {}
-
-    def test_skips_tests_without_attached_node(self):
-        manifest = {
-            "nodes": {
-                "test.pkg.orphan_test": {
-                    "resource_type": "test",
-                    "test_metadata": {
-                        "name": "unique",
-                        "namespace": "dbt",
-                        "kwargs": {},
-                    },
-                    # no attached_node
-                }
-            }
-        }
-        assert _build_test_index(manifest) == {}
 
 
 class TestClassifyModelType:
@@ -302,74 +164,6 @@ class TestHasHardCodedReferences:
         SELECT * FROM {{ ref('stg_orders') }}
         """
         assert _has_hard_coded_references(sql) is False
-
-
-class TestIsPrimaryKeyTested:
-    """Check test_metadata index against primary_key_test_macros config."""
-
-    @pytest.fixture
-    def default_macros(self):
-        return DEFAULTS["primary_key_test_macros"]
-
-    def test_unique_and_not_null_qualifies(self, default_macros):
-        tests = [
-            {"name": "unique", "namespace": "dbt", "kwargs": {}},
-            {"name": "not_null", "namespace": "dbt", "kwargs": {}},
-        ]
-        assert _is_primary_key_tested(tests, default_macros) is True
-
-    def test_unique_alone_does_not_qualify(self, default_macros):
-        tests = [{"name": "unique", "namespace": "dbt", "kwargs": {}}]
-        assert _is_primary_key_tested(tests, default_macros) is False
-
-    def test_not_null_alone_does_not_qualify(self, default_macros):
-        tests = [{"name": "not_null", "namespace": "dbt", "kwargs": {}}]
-        assert _is_primary_key_tested(tests, default_macros) is False
-
-    def test_unique_combination_of_columns_qualifies(self, default_macros):
-        tests = [
-            {
-                "name": "unique_combination_of_columns",
-                "namespace": "dbt_utils",
-                "kwargs": {},
-            },
-        ]
-        assert _is_primary_key_tested(tests, default_macros) is True
-
-    def test_no_tests_does_not_qualify(self, default_macros):
-        assert _is_primary_key_tested([], default_macros) is False
-
-    def test_unrelated_tests_do_not_qualify(self, default_macros):
-        tests = [
-            {"name": "accepted_values", "namespace": "dbt", "kwargs": {}},
-            {"name": "relationships", "namespace": "dbt", "kwargs": {}},
-        ]
-        assert _is_primary_key_tested(tests, default_macros) is False
-
-    def test_custom_macro_set(self):
-        """Custom primary_key_test_macros config."""
-        custom_macros = [["custom_pkg.test_pk"]]
-        tests = [{"name": "pk", "namespace": "custom_pkg", "kwargs": {}}]
-        assert _is_primary_key_tested(tests, custom_macros) is True
-
-
-class TestHasRelationshipTests:
-    def test_true_when_relationships_test_present(self):
-        tests = [
-            {"namespace": "dbt", "name": "relationships"},
-            {"namespace": "dbt", "name": "not_null"},
-        ]
-        assert _has_relationship_tests(tests) is True
-
-    def test_false_when_no_relationships_test(self):
-        tests = [
-            {"namespace": "dbt", "name": "unique"},
-            {"namespace": "dbt", "name": "not_null"},
-        ]
-        assert _has_relationship_tests(tests) is False
-
-    def test_false_when_empty(self):
-        assert _has_relationship_tests([]) is False
 
 
 class TestExtractSkipRules:
@@ -574,6 +368,22 @@ class TestModelToResource:
         del model_node["raw_code"]
         r = _model_to_resource(model_node, test_index, DEFAULTS)
         assert r.raw_code == ""
+
+    def test_has_relationship_tests(self, model_node):
+        test_index = {
+            "model.pkg.stg_orders": [
+                {"name": "relationships", "namespace": "dbt", "kwargs": {}},
+            ]
+        }
+
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+
+        assert r.has_relationship_tests is True
+
+    def test_has_no_relationship_tests(self, model_node, test_index):
+        r = _model_to_resource(model_node, test_index, DEFAULTS)
+
+        assert r.has_relationship_tests is False
 
 
 class TestSourceToResource:

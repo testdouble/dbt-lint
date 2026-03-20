@@ -156,14 +156,14 @@ class TestGetAllRules:
 
 class TestAllRulesHaveRationale:
     def test_all_rules_have_rationale(self):
-        rules = get_all_rules()
-        for r in rules:
-            assert r.fn._rule_meta.rationale, f"{r.id} is missing rationale"
+        index = generate_rules_index()
+        for info in index:
+            assert info.rationale, f"{info.id} is missing rationale"
 
     def test_all_rules_have_remediation(self):
-        rules = get_all_rules()
-        for r in rules:
-            assert r.fn._rule_meta.remediation, f"{r.id} is missing remediation"
+        index = generate_rules_index()
+        for info in index:
+            assert info.remediation, f"{info.id} is missing remediation"
 
 
 class TestGenerateRulesIndex:

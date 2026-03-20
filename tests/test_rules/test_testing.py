@@ -12,7 +12,9 @@ class TestMissingPrimaryKeyTests:
     def test_flags_model_without_pk_test(self, make_resource, default_config):
         r = make_resource(resource_type="model", is_primary_key_tested=False)
 
-        assert missing_primary_key_tests(r, default_config) is not None
+        v = missing_primary_key_tests(r, default_config)
+
+        assert "missing primary key test" in v.message
 
     def test_clean_model_with_pk_test(self, make_resource, default_config):
         r = make_resource(resource_type="model", is_primary_key_tested=True)
@@ -29,7 +31,9 @@ class TestSourcesWithoutFreshness:
     def test_flags_source_without_freshness(self, make_resource, default_config):
         r = make_resource(resource_type="source", is_freshness_enabled=False)
 
-        assert sources_without_freshness(r, default_config) is not None
+        v = sources_without_freshness(r, default_config)
+
+        assert "no freshness check configured" in v.message
 
     def test_clean_source_with_freshness(self, make_resource, default_config):
         r = make_resource(resource_type="source", is_freshness_enabled=True)

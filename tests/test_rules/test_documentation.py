@@ -14,7 +14,9 @@ class TestUndocumentedModels:
     def test_flags_undocumented_model(self, make_resource, default_config):
         r = make_resource(resource_type="model", is_described=False)
 
-        assert undocumented_models(r, default_config) is not None
+        v = undocumented_models(r, default_config)
+
+        assert "missing description" in v.message
 
     def test_clean_documented_model(self, make_resource, default_config):
         r = make_resource(resource_type="model", is_described=True)
@@ -36,7 +38,9 @@ class TestUndocumentedSources:
             meta={"source_description_populated": False},
         )
 
-        assert undocumented_sources(r, default_config) is not None
+        v = undocumented_sources(r, default_config)
+
+        assert "source missing description" in v.message
 
     def test_clean_source_with_description(self, make_resource, default_config):
         r = make_resource(
@@ -60,7 +64,7 @@ class TestUndocumentedSourceTables:
 
         v = undocumented_source_tables(r, default_config)
 
-        assert v is not None
+        assert "source table missing description" in v.message
 
     def test_clean_source_table_with_description(self, make_resource, default_config):
         r = make_resource(resource_type="source", is_described=True)

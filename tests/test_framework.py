@@ -70,7 +70,7 @@ class TestRuleDecorator:
         assert meta.rationale == ""
         assert meta.remediation == ""
         assert meta.exceptions == ""
-        assert meta.examples == ()
+        assert not meta.examples
 
 
 class TestSignatureDetection:
@@ -102,7 +102,7 @@ class TestGroupBy:
         assert result == {"a": [("a", 1), ("a", 3)], "b": [("b", 2)]}
 
     def test_empty_input(self):
-        assert group_by([], key=lambda x: x) == {}
+        assert not group_by([], key=lambda x: x)
 
 
 class TestFilterByModelType:
@@ -118,7 +118,7 @@ class TestFilterByModelType:
 
     def test_no_matches(self, make_resource):
         resources = [make_resource(model_type="marts")]
-        assert filter_by_model_type(resources, "staging") == []
+        assert not filter_by_model_type(resources, "staging")
 
 
 class TestDirectEdges:

@@ -309,7 +309,7 @@ class TestSignatureValidation:
 class TestEmptyEntries:
     def test_no_custom_entries(self, tmp_path):
         config = _config_with_custom(tmp_path, [])
-        assert load_custom_rules(config) == []
+        assert not load_custom_rules(config)
 
 
 class TestEndToEndWithConfig:

@@ -38,7 +38,7 @@ class TestChainedViews:
             ),
         ]
 
-        assert chained_views([child], rels, default_config) == []
+        assert not chained_views([child], rels, default_config)
 
     def test_clean_non_view_chain(
         self, make_resource, make_relationship, default_config
@@ -53,7 +53,7 @@ class TestChainedViews:
             ),
         ]
 
-        assert chained_views([child], rels, default_config) == []
+        assert not chained_views([child], rels, default_config)
 
 
 class TestExposureParentMaterializations:

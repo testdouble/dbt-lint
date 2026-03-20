@@ -60,7 +60,7 @@ class TestDirectJoinToSource:
             ),
         ]
 
-        assert direct_join_to_source([child], rels, default_config) == []
+        assert not direct_join_to_source([child], rels, default_config)
 
 
 class TestDownstreamDependsOnSource:
@@ -94,7 +94,7 @@ class TestDownstreamDependsOnSource:
             ),
         ]
 
-        assert downstream_depends_on_source([m], rels, default_config) == []
+        assert not downstream_depends_on_source([m], rels, default_config)
 
 
 class TestStagingDependsOnStaging:
@@ -217,7 +217,7 @@ class TestDuplicateSources:
             schema_name="raw",
         )
 
-        assert duplicate_sources([s1, s2], [], default_config) == []
+        assert not duplicate_sources([s1, s2], [], default_config)
 
 
 class TestUnusedSources:
@@ -246,7 +246,7 @@ class TestUnusedSources:
             ),
         ]
 
-        assert unused_sources([s], rels, default_config) == []
+        assert not unused_sources([s], rels, default_config)
 
 
 class TestMultipleSourcesJoined:
@@ -335,7 +335,7 @@ class TestModelFanout:
             ),
         ]
 
-        assert model_fanout([parent], rels, default_config) == []
+        assert not model_fanout([parent], rels, default_config)
 
 
 class TestTooManyJoins:
@@ -368,7 +368,7 @@ class TestTooManyJoins:
             ),
         ]
 
-        assert too_many_joins([child], rels, default_config) == []
+        assert not too_many_joins([child], rels, default_config)
 
 
 class TestRejoiningUpstreamConcepts:
@@ -414,7 +414,7 @@ class TestRejoiningUpstreamConcepts:
             ),
         ]
 
-        assert rejoining_upstream_concepts([downstream], rels, default_config) == []
+        assert not rejoining_upstream_concepts([downstream], rels, default_config)
 
 
 class TestStagingModelTooManyParents:
@@ -466,7 +466,7 @@ class TestStagingModelTooManyParents:
             ),
         ]
 
-        assert staging_model_too_many_parents([stg], rels, default_config) == []
+        assert not staging_model_too_many_parents([stg], rels, default_config)
 
     def test_ignores_non_staging_models(
         self, make_resource, make_relationship, default_config
@@ -491,7 +491,7 @@ class TestStagingModelTooManyParents:
             ),
         ]
 
-        assert staging_model_too_many_parents([mart], rels, default_config) == []
+        assert not staging_model_too_many_parents([mart], rels, default_config)
 
     def test_respects_custom_threshold(
         self, make_resource, make_relationship, default_config
@@ -520,7 +520,7 @@ class TestStagingModelTooManyParents:
             ),
         ]
 
-        assert staging_model_too_many_parents([stg], rels, default_config) == []
+        assert not staging_model_too_many_parents([stg], rels, default_config)
 
 
 class TestIntermediateFanout:
@@ -569,7 +569,7 @@ class TestIntermediateFanout:
             ),
         ]
 
-        assert intermediate_fanout([inter], rels, default_config) == []
+        assert not intermediate_fanout([inter], rels, default_config)
 
     def test_ignores_non_intermediate(
         self, make_resource, make_relationship, default_config
@@ -594,7 +594,7 @@ class TestIntermediateFanout:
             ),
         ]
 
-        assert intermediate_fanout([mart], rels, default_config) == []
+        assert not intermediate_fanout([mart], rels, default_config)
 
     def test_respects_custom_threshold(
         self, make_resource, make_relationship, default_config
@@ -615,7 +615,7 @@ class TestIntermediateFanout:
             for i in range(2)
         ]
 
-        assert intermediate_fanout([inter], rels, default_config) == []
+        assert not intermediate_fanout([inter], rels, default_config)
 
 
 class TestDuplicateMartConcepts:
@@ -678,7 +678,7 @@ class TestDuplicateMartConcepts:
 
         vs = duplicate_mart_concepts(resources, [], default_config)
 
-        assert vs == []
+        assert not vs
 
     def test_clean_different_entities(self, make_resource, default_config):
         """Different entities in different dirs are not duplicates."""
@@ -699,7 +699,7 @@ class TestDuplicateMartConcepts:
 
         vs = duplicate_mart_concepts(resources, [], default_config)
 
-        assert vs == []
+        assert not vs
 
     def test_ignores_non_marts(self, make_resource, default_config):
         resources = [
@@ -719,4 +719,4 @@ class TestDuplicateMartConcepts:
 
         vs = duplicate_mart_concepts(resources, [], default_config)
 
-        assert vs == []
+        assert not vs

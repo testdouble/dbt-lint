@@ -118,7 +118,7 @@ class TestColumnDocumentationCoverage:
 
         result = column_documentation_coverage([r], [], default_config)
 
-        assert result == []
+        assert not result
 
     def test_zero_coverage_flagged(self, make_resource, default_config):
         default_config.params["column_documentation_coverage_target"] = 100
@@ -160,7 +160,7 @@ class TestColumnDocumentationCoverage:
 
         result = column_documentation_coverage([r], [], default_config)
 
-        assert result == []
+        assert not result
 
     def test_partial_coverage_below_custom_target(self, make_resource, default_config):
         default_config.params["column_documentation_coverage_target"] = 80
@@ -184,7 +184,7 @@ class TestColumnDocumentationCoverage:
 
         result = column_documentation_coverage([r], [], default_config)
 
-        assert result == []
+        assert not result
 
     def test_sources_skipped(self, make_resource, default_config):
         default_config.params["column_documentation_coverage_target"] = 100
@@ -195,7 +195,7 @@ class TestColumnDocumentationCoverage:
 
         result = column_documentation_coverage([r], [], default_config)
 
-        assert result == []
+        assert not result
 
     def test_exposures_skipped(self, make_resource, default_config):
         default_config.params["column_documentation_coverage_target"] = 100
@@ -203,7 +203,7 @@ class TestColumnDocumentationCoverage:
 
         result = column_documentation_coverage([r], [], default_config)
 
-        assert result == []
+        assert not result
 
     def test_violation_uses_from_resource(self, make_resource, default_config):
         default_config.params["column_documentation_coverage_target"] = 100

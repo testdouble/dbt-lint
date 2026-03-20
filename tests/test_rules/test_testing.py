@@ -128,7 +128,7 @@ class TestMissingRelationshipTests:
 
         vs = missing_relationship_tests([child], rels, default_config)
 
-        assert vs == []
+        assert not vs
 
     def test_ignores_staging_models(
         self, make_resource, make_relationship, default_config
@@ -151,7 +151,7 @@ class TestMissingRelationshipTests:
 
         vs = missing_relationship_tests([child], rels, default_config)
 
-        assert vs == []
+        assert not vs
 
     def test_ignores_models_with_no_model_parents(self, make_resource, default_config):
         child = make_resource(
@@ -163,4 +163,4 @@ class TestMissingRelationshipTests:
 
         vs = missing_relationship_tests([child], [], default_config)
 
-        assert vs == []
+        assert not vs

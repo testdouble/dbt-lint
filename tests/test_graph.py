@@ -10,18 +10,18 @@ from dbt_linter.models import DirectEdge
 
 class TestEmptyInputs:
     def test_no_resources_no_edges(self):
-        assert build_relationships([], []) == []
+        assert not build_relationships([], [])
 
     def test_resources_no_edges(self, make_resource):
         resources = [
             make_resource(resource_id="model.pkg.a"),
             make_resource(resource_id="model.pkg.b"),
         ]
-        assert build_relationships(resources, []) == []
+        assert not build_relationships(resources, [])
 
     def test_no_resources_with_edges(self):
         edges = [DirectEdge(parent="model.pkg.a", child="model.pkg.b")]
-        assert build_relationships([], edges) == []
+        assert not build_relationships([], edges)
 
 
 class TestSingleEdge:
@@ -105,12 +105,12 @@ class TestMissingResourceInEdge:
     def test_edge_with_unknown_parent_skipped(self, make_resource):
         b = make_resource(resource_id="model.pkg.b")
         edges = [DirectEdge(parent="model.pkg.unknown", child="model.pkg.b")]
-        assert build_relationships([b], edges) == []
+        assert not build_relationships([b], edges)
 
     def test_edge_with_unknown_child_skipped(self, make_resource):
         a = make_resource(resource_id="model.pkg.a")
         edges = [DirectEdge(parent="model.pkg.a", child="model.pkg.unknown")]
-        assert build_relationships([a], edges) == []
+        assert not build_relationships([a], edges)
 
     def test_partial_graph_with_valid_and_invalid_edges(self, make_resource):
         a = make_resource(resource_id="model.pkg.a")

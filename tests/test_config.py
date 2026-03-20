@@ -22,7 +22,7 @@ class TestDefaults:
 
     def test_defaults_has_prefixes(self):
         assert DEFAULTS["staging_prefixes"] == ["stg_"]
-        assert DEFAULTS["marts_prefixes"] == []
+        assert not DEFAULTS["marts_prefixes"]
 
     def test_defaults_has_materializations(self):
         assert DEFAULTS["staging_allowed_materializations"] == ["view"]
@@ -37,7 +37,7 @@ class TestDefaults:
         assert DEFAULTS["exclude"] is None
 
     def test_defaults_rules_is_empty(self):
-        assert DEFAULTS["rules"] == {}
+        assert not DEFAULTS["rules"]
 
 
 class TestLoadConfig:
@@ -105,7 +105,7 @@ class TestRuleConfig:
         rc = config.rule_config("modeling/source-fanout")
         assert rc.enabled is True
         assert rc.severity == "warn"
-        assert rc.exclude_resources == []
+        assert not rc.exclude_resources
         assert rc.params is config.params
 
     def test_severity_override(self, tmp_path: Path):
@@ -242,7 +242,7 @@ class TestLoadBaseline:
     def test_empty_file(self, tmp_path: Path):
         baseline = tmp_path / "baseline.yml"
         baseline.write_text("")
-        assert load_baseline(baseline) == {}
+        assert not load_baseline(baseline)
 
     def test_strips_non_allowed_keys(self, tmp_path: Path):
         baseline = tmp_path / "baseline.yml"

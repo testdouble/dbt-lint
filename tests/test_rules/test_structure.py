@@ -432,7 +432,7 @@ class TestColumnNamingConventions:
 
         result = column_naming_conventions([r], [], default_config)
 
-        assert result == []
+        assert not result
 
     def test_forbidden_suffix_flagged(self, make_resource, default_config):
         default_config.params["column_naming_conventions"] = {
@@ -470,7 +470,7 @@ class TestColumnNamingConventions:
 
         result = column_naming_conventions([r], [], default_config)
 
-        assert result == []
+        assert not result
 
     def test_boolean_prefix_flagged(self, make_resource, default_config):
         default_config.params["column_naming_conventions"] = {
@@ -507,7 +507,7 @@ class TestColumnNamingConventions:
 
         result = column_naming_conventions([r], [], default_config)
 
-        assert result == []
+        assert not result
 
     def test_boolean_prefix_ignores_non_boolean(self, make_resource, default_config):
         default_config.params["column_naming_conventions"] = {
@@ -525,7 +525,7 @@ class TestColumnNamingConventions:
 
         result = column_naming_conventions([r], [], default_config)
 
-        assert result == []
+        assert not result
 
     def test_type_suffix_flagged(self, make_resource, default_config):
         default_config.params["column_naming_conventions"] = {
@@ -562,7 +562,7 @@ class TestColumnNamingConventions:
 
         result = column_naming_conventions([r], [], default_config)
 
-        assert result == []
+        assert not result
 
     def test_multiple_violations_same_resource(self, make_resource, default_config):
         default_config.params["column_naming_conventions"] = {
@@ -605,7 +605,7 @@ class TestColumnNamingConventions:
 
         result = column_naming_conventions([r], [], default_config)
 
-        assert result == []
+        assert not result
 
     def test_violation_uses_from_resource(self, make_resource, default_config):
         """Violations use Violation.from_resource (rule_id/severity empty)."""

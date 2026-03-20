@@ -136,7 +136,7 @@ class TestJsonReport:
 
     def test_empty_violations_returns_empty_list(self):
         result = report([], output_format="json")
-        assert json.loads(result) == []
+        assert not json.loads(result)
 
     def test_single_violation_structure(self):
         violations = [_violation()]

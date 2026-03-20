@@ -197,7 +197,7 @@ class TestExtractSkipRules:
 
 class TestColumnsToTuple:
     def test_empty_dict(self):
-        assert _columns_to_tuple({}) == ()
+        assert not _columns_to_tuple({})
 
     def test_single_column(self):
         cols = {
@@ -456,7 +456,7 @@ class TestSourceToResource:
 
     def test_source_empty_config(self, source_node):
         r = _source_to_resource(source_node)
-        assert r.config == {}
+        assert not r.config
 
     def test_source_columns(self, source_node):
         source_node["columns"] = {
@@ -468,7 +468,7 @@ class TestSourceToResource:
 
     def test_source_no_columns(self, source_node):
         r = _source_to_resource(source_node)
-        assert r.columns == ()
+        assert not r.columns
 
 
 class TestExposureToResource:
@@ -498,13 +498,13 @@ class TestExposureToResource:
         assert r.is_public is False
         assert r.number_of_columns == 0
         assert r.raw_code == ""
-        assert r.config == {}
-        assert r.columns == ()
+        assert not r.config
+        assert not r.columns
 
 
 class TestExtractEdges:
     def test_empty_parent_map(self):
-        assert _extract_edges({}) == []
+        assert not _extract_edges({})
 
     def test_single_edge(self):
         parent_map = {"model.pkg.stg_orders": ["source.pkg.stripe.orders"]}

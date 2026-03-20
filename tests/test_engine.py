@@ -294,7 +294,7 @@ class TestEngineExclusion:
 
         result = evaluate(resources, [], config, rules=[_make_rule()])
 
-        assert result.violations == []
+        assert not result.violations
 
     def test_meta_skip_excludes_resource(self, make_resource):
         skipped = make_resource(skip_rules=frozenset([STUB_PER_RESOURCE_ID]))

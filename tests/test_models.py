@@ -7,7 +7,7 @@ from dbt_linter.models import ColumnInfo, DirectEdge, Relationship, Resource, Vi
 
 class TestResource:
     def test_construction(self):
-        r = Resource(
+        resource = Resource(
             resource_id="model.pkg.stg_orders",
             resource_name="stg_orders",
             resource_type="model",
@@ -33,13 +33,13 @@ class TestResource:
             config={"materialized": "view"},
             columns=(),
         )
-        assert r.resource_id == "model.pkg.stg_orders"
-        assert r.resource_type == "model"
-        assert r.model_type == "staging"
-        assert r.tags == ("daily",)
-        assert r.skip_rules == frozenset()
-        assert r.raw_code == "SELECT * FROM {{ ref('raw_orders') }}"
-        assert r.config == {"materialized": "view"}
+        assert resource.resource_id == "model.pkg.stg_orders"
+        assert resource.resource_type == "model"
+        assert resource.model_type == "staging"
+        assert resource.tags == ("daily",)
+        assert resource.skip_rules == frozenset()
+        assert resource.raw_code == "SELECT * FROM {{ ref('raw_orders') }}"
+        assert resource.config == {"materialized": "view"}
 
     def test_frozen(self, make_resource):
         resource = make_resource()
@@ -55,7 +55,7 @@ class TestResource:
 
     def test_non_model_defaults(self):
         """Sources and exposures use empty strings for model-only fields."""
-        r = Resource(
+        resource = Resource(
             resource_id="source.pkg.raw.orders",
             resource_name="orders",
             resource_type="source",
@@ -81,9 +81,9 @@ class TestResource:
             config={},
             columns=(),
         )
-        assert r.model_type == ""
-        assert r.materialization == ""
-        assert r.is_freshness_enabled is True
+        assert resource.model_type == ""
+        assert resource.materialization == ""
+        assert resource.is_freshness_enabled is True
 
 
 class TestRelationship:
@@ -123,20 +123,20 @@ class TestRelationship:
 
 class TestColumnInfo:
     def test_construction(self):
-        c = ColumnInfo(name="order_id", data_type="integer", is_described=True)
-        assert c.name == "order_id"
-        assert c.data_type == "integer"
-        assert c.is_described is True
+        column = ColumnInfo(name="order_id", data_type="integer", is_described=True)
+        assert column.name == "order_id"
+        assert column.data_type == "integer"
+        assert column.is_described is True
 
     def test_frozen(self):
-        c = ColumnInfo(name="id", data_type="", is_described=False)
+        column = ColumnInfo(name="id", data_type="", is_described=False)
         with pytest.raises(AttributeError):
-            c.name = "other"  # type: ignore[misc]
+            column.name = "other"  # type: ignore[misc]
 
 
 class TestViolation:
     def test_construction(self):
-        v = Violation(
+        violation = Violation(
             rule_id="modeling/root-models",
             resource_id="model.pkg.orphan",
             resource_name="orphan",
@@ -144,12 +144,12 @@ class TestViolation:
             severity="warn",
             file_path="models/orphan.sql",
         )
-        assert v.rule_id == "modeling/root-models"
-        assert v.severity == "warn"
-        assert v.file_path == "models/orphan.sql"
+        assert violation.rule_id == "modeling/root-models"
+        assert violation.severity == "warn"
+        assert violation.file_path == "models/orphan.sql"
 
     def test_from_resource(self):
-        r = Resource(
+        resource = Resource(
             resource_id="model.pkg.stg_orders",
             resource_name="stg_orders",
             resource_type="model",
@@ -175,17 +175,19 @@ class TestViolation:
             config={},
             columns=(),
         )
-        v = Violation.from_resource(r, "stg_orders: uses SELECT DISTINCT")
-        assert v.resource_id == "model.pkg.stg_orders"
-        assert v.resource_name == "stg_orders"
-        assert v.file_path == "models/staging/stg_orders.sql"
-        assert v.message == "stg_orders: uses SELECT DISTINCT"
-        assert v.rule_id == ""
-        assert v.severity == ""
+        violation = Violation.from_resource(
+            resource, "stg_orders: uses SELECT DISTINCT"
+        )
+        assert violation.resource_id == "model.pkg.stg_orders"
+        assert violation.resource_name == "stg_orders"
+        assert violation.file_path == "models/staging/stg_orders.sql"
+        assert violation.message == "stg_orders: uses SELECT DISTINCT"
+        assert violation.rule_id == ""
+        assert violation.severity == ""
 
 
 class TestDirectEdge:
     def test_construction(self):
-        e = DirectEdge(parent="source.pkg.raw.orders", child="model.pkg.stg_orders")
-        assert e.parent == "source.pkg.raw.orders"
-        assert e.child == "model.pkg.stg_orders"
+        edge = DirectEdge(parent="source.pkg.raw.orders", child="model.pkg.stg_orders")
+        assert edge.parent == "source.pkg.raw.orders"
+        assert edge.child == "model.pkg.stg_orders"

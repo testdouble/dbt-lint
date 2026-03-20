@@ -20,10 +20,10 @@ class TestChainedViews:
             ),
         ]
 
-        vs = chained_views([child], rels, default_config)
+        violations = chained_views([child], rels, default_config)
 
-        assert len(vs) == 1
-        assert "depth 6" in vs[0].message
+        assert len(violations) == 1
+        assert "depth 6" in violations[0].message
 
     def test_clean_below_threshold(
         self, make_resource, make_relationship, default_config
@@ -80,9 +80,11 @@ class TestExposureParentMaterializations:
             ),
         ]
 
-        vs = exposure_parent_materializations([exposure, parent], rels, default_config)
+        violations = exposure_parent_materializations(
+            [exposure, parent], rels, default_config
+        )
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
     def test_flags_exposure_depending_on_source(
         self, make_resource, make_relationship, default_config
@@ -107,9 +109,11 @@ class TestExposureParentMaterializations:
             ),
         ]
 
-        vs = exposure_parent_materializations([exposure, src], rels, default_config)
+        violations = exposure_parent_materializations(
+            [exposure, src], rels, default_config
+        )
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
     def test_clean_exposure_depending_on_table(
         self, make_resource, make_relationship, default_config
@@ -133,6 +137,8 @@ class TestExposureParentMaterializations:
             ),
         ]
 
-        vs = exposure_parent_materializations([exposure, parent], rels, default_config)
+        violations = exposure_parent_materializations(
+            [exposure, parent], rels, default_config
+        )
 
-        assert len(vs) == 0
+        assert len(violations) == 0

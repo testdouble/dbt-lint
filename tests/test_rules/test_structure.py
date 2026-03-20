@@ -17,96 +17,96 @@ from dbt_linter.rules.structure import (
 
 class TestModelNamingConventions:
     def test_flags_staging_without_prefix(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="staging",
             resource_name="orders",
         )
 
-        v = model_naming_conventions(r, default_config)
+        violation = model_naming_conventions(resource, default_config)
 
-        assert "should start with" in v.message
+        assert "should start with" in violation.message
 
     def test_clean_staging_with_prefix(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="staging",
             resource_name="stg_orders",
         )
 
-        assert model_naming_conventions(r, default_config) is None
+        assert model_naming_conventions(resource, default_config) is None
 
     def test_clean_marts_with_fct_prefix(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="marts",
             resource_name="fct_orders",
         )
 
-        assert model_naming_conventions(r, default_config) is None
+        assert model_naming_conventions(resource, default_config) is None
 
     def test_clean_marts_with_dim_prefix(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="marts",
             resource_name="dim_customers",
         )
 
-        assert model_naming_conventions(r, default_config) is None
+        assert model_naming_conventions(resource, default_config) is None
 
     def test_ignores_sources(self, make_resource, default_config):
-        r = make_resource(resource_type="source", model_type="")
+        resource = make_resource(resource_type="source", model_type="")
 
-        assert model_naming_conventions(r, default_config) is None
+        assert model_naming_conventions(resource, default_config) is None
 
     def test_clean_marts_plain_name_with_empty_default(
         self, make_resource, default_config
     ):
         """With empty marts_prefixes (default), any name passes."""
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="marts",
             resource_name="orders",
         )
 
-        assert model_naming_conventions(r, default_config) is None
+        assert model_naming_conventions(resource, default_config) is None
 
     def test_flags_marts_without_prefix_when_overridden(
         self, make_resource, default_config
     ):
         """With explicit marts_prefixes, plain name is flagged."""
         default_config.params["marts_prefixes"] = ["fct_", "dim_"]
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="marts",
             resource_name="orders",
         )
 
-        v = model_naming_conventions(r, default_config)
+        violation = model_naming_conventions(resource, default_config)
 
-        assert "should start with" in v.message
+        assert "should start with" in violation.message
 
 
 class TestModelDirectories:
     def test_flags_staging_model_in_wrong_dir(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="staging",
             file_path="models/marts/stg_orders.sql",
         )
 
-        v = model_directories(r, default_config)
+        violation = model_directories(resource, default_config)
 
-        assert "expected in staging/" in v.message
+        assert "expected in staging/" in violation.message
 
     def test_clean_staging_in_staging_dir(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="staging",
             file_path="models/staging/stg_orders.sql",
         )
 
-        assert model_directories(r, default_config) is None
+        assert model_directories(resource, default_config) is None
 
     def test_folder_name_as_list(self, make_resource, default_config):
         """When folder_name is a list, any matching dir passes."""
@@ -114,193 +114,193 @@ class TestModelDirectories:
             "intermediate",
             "transformed_intermediate",
         ]
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="intermediate",
             file_path="models/transformed_intermediate/int_orders.sql",
         )
 
-        assert model_directories(r, default_config) is None
+        assert model_directories(resource, default_config) is None
 
     def test_folder_name_as_list_flags_mismatch(self, make_resource, default_config):
         default_config.params["intermediate_folder_name"] = [
             "intermediate",
             "transformed_intermediate",
         ]
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="intermediate",
             file_path="models/reporting/int_orders.sql",
         )
 
-        v = model_directories(r, default_config)
+        violation = model_directories(resource, default_config)
 
-        assert "expected in" in v.message
+        assert "expected in" in violation.message
 
 
 class TestSourceDirectories:
     def test_flags_source_not_in_staging(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="source",
             file_path="models/marts/sources.yml",
         )
 
-        v = source_directories(r, default_config)
+        violation = source_directories(resource, default_config)
 
-        assert "source YAML expected in staging/" in v.message
+        assert "source YAML expected in staging/" in violation.message
 
     def test_clean_source_in_staging(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="source",
             file_path="models/staging/raw/sources.yml",
         )
 
-        assert source_directories(r, default_config) is None
+        assert source_directories(resource, default_config) is None
 
     def test_ignores_models(self, make_resource, default_config):
-        r = make_resource(resource_type="model")
+        resource = make_resource(resource_type="model")
 
-        assert source_directories(r, default_config) is None
+        assert source_directories(resource, default_config) is None
 
 
 class TestStagingMaterialization:
     def test_flags_staging_table(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="staging",
             materialization="table",
         )
 
-        v = staging_materialization(r, default_config)
+        violation = staging_materialization(resource, default_config)
 
-        assert "table not allowed for staging" in v.message
+        assert "table not allowed for staging" in violation.message
 
     def test_clean_staging_view(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="staging",
             materialization="view",
         )
 
-        assert staging_materialization(r, default_config) is None
+        assert staging_materialization(resource, default_config) is None
 
 
 class TestIntermediateMaterialization:
     def test_flags_intermediate_table(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="intermediate",
             materialization="table",
         )
 
-        v = intermediate_materialization(r, default_config)
+        violation = intermediate_materialization(resource, default_config)
 
-        assert "table not allowed for intermediate" in v.message
+        assert "table not allowed for intermediate" in violation.message
 
     def test_clean_intermediate_ephemeral(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="intermediate",
             materialization="ephemeral",
         )
 
-        assert intermediate_materialization(r, default_config) is None
+        assert intermediate_materialization(resource, default_config) is None
 
 
 class TestMartsMaterialization:
     def test_flags_marts_view(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="marts",
             materialization="view",
         )
 
-        v = marts_materialization(r, default_config)
+        violation = marts_materialization(resource, default_config)
 
-        assert "view not allowed for marts" in v.message
+        assert "view not allowed for marts" in violation.message
 
     def test_clean_marts_table(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="marts",
             materialization="table",
         )
 
-        assert marts_materialization(r, default_config) is None
+        assert marts_materialization(resource, default_config) is None
 
 
 class TestModelNameFormat:
     def test_clean_snake_case(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             resource_name="stg_orders",
         )
 
-        assert model_name_format(r, default_config) is None
+        assert model_name_format(resource, default_config) is None
 
     def test_clean_with_numbers(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             resource_name="stg_orders_v2",
         )
 
-        assert model_name_format(r, default_config) is None
+        assert model_name_format(resource, default_config) is None
 
     def test_flags_uppercase(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             resource_name="Stg_Orders",
         )
 
-        v = model_name_format(r, default_config)
+        violation = model_name_format(resource, default_config)
 
-        assert "snake_case" in v.message
+        assert "snake_case" in violation.message
 
     def test_flags_dots(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             resource_name="stg.orders",
         )
 
-        v = model_name_format(r, default_config)
+        violation = model_name_format(resource, default_config)
 
-        assert "snake_case" in v.message
+        assert "snake_case" in violation.message
 
     def test_flags_hyphens(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             resource_name="stg-orders",
         )
 
-        v = model_name_format(r, default_config)
+        violation = model_name_format(resource, default_config)
 
-        assert "snake_case" in v.message
+        assert "snake_case" in violation.message
 
     def test_flags_leading_number(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             resource_name="1_orders",
         )
 
-        v = model_name_format(r, default_config)
+        violation = model_name_format(resource, default_config)
 
-        assert "snake_case" in v.message
+        assert "snake_case" in violation.message
 
     def test_ignores_sources(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="source",
             resource_name="RawOrders",
         )
 
-        assert model_name_format(r, default_config) is None
+        assert model_name_format(resource, default_config) is None
 
     def test_ignores_exposures(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="exposure",
             resource_name="Weekly-Dashboard",
         )
 
-        assert model_name_format(r, default_config) is None
+        assert model_name_format(resource, default_config) is None
 
 
 class TestStagingNamingConvention:
@@ -308,115 +308,115 @@ class TestStagingNamingConvention:
         self, make_resource, default_config
     ):
         """stg_orders is missing the source__entity pattern."""
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="staging",
             resource_name="stg_orders",
         )
 
-        v = staging_naming_convention(r, default_config)
+        violation = staging_naming_convention(resource, default_config)
 
-        assert "missing __ separator" in v.message
+        assert "missing __ separator" in violation.message
 
     def test_clean_staging_with_double_underscore(self, make_resource, default_config):
         """stg_stripe__orders follows the convention."""
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="staging",
             resource_name="stg_stripe__orders",
         )
 
-        assert staging_naming_convention(r, default_config) is None
+        assert staging_naming_convention(resource, default_config) is None
 
     def test_clean_staging_with_nested_underscores(self, make_resource, default_config):
         """stg_google_analytics__page_views is valid."""
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="staging",
             resource_name="stg_google_analytics__page_views",
         )
 
-        assert staging_naming_convention(r, default_config) is None
+        assert staging_naming_convention(resource, default_config) is None
 
     def test_ignores_non_staging(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="marts",
             resource_name="orders",
         )
 
-        assert staging_naming_convention(r, default_config) is None
+        assert staging_naming_convention(resource, default_config) is None
 
     def test_ignores_sources(self, make_resource, default_config):
-        r = make_resource(resource_type="source")
+        resource = make_resource(resource_type="source")
 
-        assert staging_naming_convention(r, default_config) is None
+        assert staging_naming_convention(resource, default_config) is None
 
     def test_ignores_when_no_staging_prefix_matched(
         self, make_resource, default_config
     ):
         """If name doesn't start with any staging prefix, skip
         (model-naming-conventions handles that)."""
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             model_type="staging",
             resource_name="orders",
         )
 
-        assert staging_naming_convention(r, default_config) is None
+        assert staging_naming_convention(resource, default_config) is None
 
 
 class TestYamlFileNaming:
     def test_flags_source_yaml_without_leading_underscore(
         self, make_resource, default_config
     ):
-        r = make_resource(
+        resource = make_resource(
             resource_type="source",
             file_path="models/staging/stripe/sources.yml",
         )
 
-        v = yaml_file_naming(r, default_config)
+        violation = yaml_file_naming(resource, default_config)
 
-        assert "_<directory>__<type>.yml" in v.message
+        assert "_<directory>__<type>.yml" in violation.message
 
     def test_clean_source_yaml_with_convention(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="source",
             file_path="models/staging/stripe/_stripe__sources.yml",
         )
 
-        assert yaml_file_naming(r, default_config) is None
+        assert yaml_file_naming(resource, default_config) is None
 
     def test_flags_model_yaml_without_convention(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             patch_path="project://models/staging/stripe/models.yml",
         )
 
-        v = yaml_file_naming(r, default_config)
+        violation = yaml_file_naming(resource, default_config)
 
-        assert "_<directory>__<type>.yml" in v.message
+        assert "_<directory>__<type>.yml" in violation.message
 
     def test_clean_model_yaml_with_convention(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             patch_path="project://models/staging/stripe/_stripe__models.yml",
         )
 
-        assert yaml_file_naming(r, default_config) is None
+        assert yaml_file_naming(resource, default_config) is None
 
     def test_ignores_model_without_patch_path(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             patch_path="",
         )
 
-        assert yaml_file_naming(r, default_config) is None
+        assert yaml_file_naming(resource, default_config) is None
 
     def test_ignores_exposures(self, make_resource, default_config):
-        r = make_resource(resource_type="exposure")
+        resource = make_resource(resource_type="exposure")
 
-        assert yaml_file_naming(r, default_config) is None
+        assert yaml_file_naming(resource, default_config) is None
 
 
 class TestColumnNamingConventions:
@@ -424,13 +424,13 @@ class TestColumnNamingConventions:
 
     def test_null_config_returns_empty(self, make_resource, default_config):
         """No column_naming_conventions config -> no violations."""
-        r = make_resource(
+        resource = make_resource(
             columns=(
                 ColumnInfo(name="order_count", data_type="integer", is_described=True),
             ),
         )
 
-        result = column_naming_conventions([r], [], default_config)
+        result = column_naming_conventions([resource], [], default_config)
 
         assert not result
 
@@ -438,7 +438,7 @@ class TestColumnNamingConventions:
         default_config.params["column_naming_conventions"] = {
             "forbidden_suffixes": {"_count": "_cnt"},
         }
-        r = make_resource(
+        resource = make_resource(
             columns=(
                 ColumnInfo(
                     name="order_count",
@@ -448,7 +448,7 @@ class TestColumnNamingConventions:
             ),
         )
 
-        result = column_naming_conventions([r], [], default_config)
+        result = column_naming_conventions([resource], [], default_config)
 
         assert len(result) == 1
         assert "_count" in result[0].message
@@ -458,7 +458,7 @@ class TestColumnNamingConventions:
         default_config.params["column_naming_conventions"] = {
             "forbidden_suffixes": {"_count": "_cnt"},
         }
-        r = make_resource(
+        resource = make_resource(
             columns=(
                 ColumnInfo(
                     name="order_cnt",
@@ -468,7 +468,7 @@ class TestColumnNamingConventions:
             ),
         )
 
-        result = column_naming_conventions([r], [], default_config)
+        result = column_naming_conventions([resource], [], default_config)
 
         assert not result
 
@@ -476,7 +476,7 @@ class TestColumnNamingConventions:
         default_config.params["column_naming_conventions"] = {
             "boolean_prefixes": ["is_", "has_"],
         }
-        r = make_resource(
+        resource = make_resource(
             columns=(
                 ColumnInfo(
                     name="active",
@@ -486,7 +486,7 @@ class TestColumnNamingConventions:
             ),
         )
 
-        result = column_naming_conventions([r], [], default_config)
+        result = column_naming_conventions([resource], [], default_config)
 
         assert len(result) == 1
         assert "boolean" in result[0].message
@@ -495,7 +495,7 @@ class TestColumnNamingConventions:
         default_config.params["column_naming_conventions"] = {
             "boolean_prefixes": ["is_", "has_"],
         }
-        r = make_resource(
+        resource = make_resource(
             columns=(
                 ColumnInfo(
                     name="is_active",
@@ -505,7 +505,7 @@ class TestColumnNamingConventions:
             ),
         )
 
-        result = column_naming_conventions([r], [], default_config)
+        result = column_naming_conventions([resource], [], default_config)
 
         assert not result
 
@@ -513,7 +513,7 @@ class TestColumnNamingConventions:
         default_config.params["column_naming_conventions"] = {
             "boolean_prefixes": ["is_", "has_"],
         }
-        r = make_resource(
+        resource = make_resource(
             columns=(
                 ColumnInfo(
                     name="amount",
@@ -523,7 +523,7 @@ class TestColumnNamingConventions:
             ),
         )
 
-        result = column_naming_conventions([r], [], default_config)
+        result = column_naming_conventions([resource], [], default_config)
 
         assert not result
 
@@ -531,7 +531,7 @@ class TestColumnNamingConventions:
         default_config.params["column_naming_conventions"] = {
             "type_suffixes": {"timestamp": "_at"},
         }
-        r = make_resource(
+        resource = make_resource(
             columns=(
                 ColumnInfo(
                     name="created",
@@ -541,7 +541,7 @@ class TestColumnNamingConventions:
             ),
         )
 
-        result = column_naming_conventions([r], [], default_config)
+        result = column_naming_conventions([resource], [], default_config)
 
         assert len(result) == 1
         assert "_at" in result[0].message
@@ -550,7 +550,7 @@ class TestColumnNamingConventions:
         default_config.params["column_naming_conventions"] = {
             "type_suffixes": {"timestamp": "_at"},
         }
-        r = make_resource(
+        resource = make_resource(
             columns=(
                 ColumnInfo(
                     name="created_at",
@@ -560,7 +560,7 @@ class TestColumnNamingConventions:
             ),
         )
 
-        result = column_naming_conventions([r], [], default_config)
+        result = column_naming_conventions([resource], [], default_config)
 
         assert not result
 
@@ -569,7 +569,7 @@ class TestColumnNamingConventions:
             "forbidden_suffixes": {"_count": "_cnt"},
             "type_suffixes": {"timestamp": "_at"},
         }
-        r = make_resource(
+        resource = make_resource(
             columns=(
                 ColumnInfo(
                     name="order_count",
@@ -584,7 +584,7 @@ class TestColumnNamingConventions:
             ),
         )
 
-        result = column_naming_conventions([r], [], default_config)
+        result = column_naming_conventions([resource], [], default_config)
 
         assert len(result) == 2
 
@@ -592,7 +592,7 @@ class TestColumnNamingConventions:
         default_config.params["column_naming_conventions"] = {
             "forbidden_suffixes": {"_count": "_cnt"},
         }
-        r = make_resource(
+        resource = make_resource(
             resource_type="source",
             columns=(
                 ColumnInfo(
@@ -603,7 +603,7 @@ class TestColumnNamingConventions:
             ),
         )
 
-        result = column_naming_conventions([r], [], default_config)
+        result = column_naming_conventions([resource], [], default_config)
 
         assert not result
 
@@ -612,7 +612,7 @@ class TestColumnNamingConventions:
         default_config.params["column_naming_conventions"] = {
             "forbidden_suffixes": {"_count": "_cnt"},
         }
-        r = make_resource(
+        resource = make_resource(
             columns=(
                 ColumnInfo(
                     name="order_count",
@@ -622,7 +622,7 @@ class TestColumnNamingConventions:
             ),
         )
 
-        result = column_naming_conventions([r], [], default_config)
+        result = column_naming_conventions([resource], [], default_config)
 
         assert result[0].rule_id == ""
         assert result[0].severity == ""

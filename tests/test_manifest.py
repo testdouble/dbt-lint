@@ -273,101 +273,101 @@ class TestModelToResource:
         }
 
     def test_basic_fields(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.resource_id == "model.pkg.stg_orders"
-        assert r.resource_name == "stg_orders"
-        assert r.resource_type == "model"
-        assert r.file_path == "models/staging/stripe/stg_orders.sql"
-        assert r.materialization == "view"
-        assert r.schema_name == "staging"
-        assert r.database == "analytics"
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.resource_id == "model.pkg.stg_orders"
+        assert resource.resource_name == "stg_orders"
+        assert resource.resource_type == "model"
+        assert resource.file_path == "models/staging/stripe/stg_orders.sql"
+        assert resource.materialization == "view"
+        assert resource.schema_name == "staging"
+        assert resource.database == "analytics"
 
     def test_model_type_classified(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.model_type == "staging"
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.model_type == "staging"
 
     def test_description_flag(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.is_described is True
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.is_described is True
 
     def test_undescribed_model(self, model_node, test_index):
         model_node["description"] = ""
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.is_described is False
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.is_described is False
 
     def test_column_counts(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.number_of_columns == 2
-        assert r.number_of_documented_columns == 1  # only "id" has description
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.number_of_columns == 2
+        assert resource.number_of_documented_columns == 1  # only "id" has description
 
     def test_hard_coded_references_false(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.hard_coded_references is False
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.hard_coded_references is False
 
     def test_hard_coded_references_true(self, model_node, test_index):
         model_node["raw_code"] = "SELECT * FROM raw.orders"
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.hard_coded_references is True
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.hard_coded_references is True
 
     def test_primary_key_tested(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.is_primary_key_tested is True
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.is_primary_key_tested is True
 
     def test_not_primary_key_tested(self, model_node):
-        r = _model_to_resource(model_node, {}, DEFAULTS)
-        assert r.is_primary_key_tested is False
+        resource = _model_to_resource(model_node, {}, DEFAULTS)
+        assert resource.is_primary_key_tested is False
 
     def test_access_public(self, model_node, test_index):
         model_node["access"] = "public"
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.is_public is True
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.is_public is True
 
     def test_contract_enforced(self, model_node, test_index):
         model_node["contract"]["enforced"] = True
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.is_contract_enforced is True
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.is_contract_enforced is True
 
     def test_tags(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.tags == ("daily",)
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.tags == ("daily",)
 
     def test_skip_rules_from_meta(self, model_node, test_index):
         model_node["config"]["meta"] = {
             "dbt-linter": {"skip": ["modeling/hard-coded-references"]}
         }
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.skip_rules == frozenset({"modeling/hard-coded-references"})
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.skip_rules == frozenset({"modeling/hard-coded-references"})
 
     def test_raw_code(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.raw_code == "SELECT * FROM {{ source('stripe', 'orders') }}"
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.raw_code == "SELECT * FROM {{ source('stripe', 'orders') }}"
 
     def test_config_dict(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.config["materialized"] == "view"
-        assert r.config["tags"] == ["daily"]
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.config["materialized"] == "view"
+        assert resource.config["tags"] == ["daily"]
 
     def test_columns_tuple(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert len(r.columns) == 2
-        names = {c.name for c in r.columns}
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert len(resource.columns) == 2
+        names = {c.name for c in resource.columns}
         assert names == {"id", "amount"}
 
     def test_columns_described_flag(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        by_name = {c.name: c for c in r.columns}
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        by_name = {c.name: c for c in resource.columns}
         assert by_name["id"].is_described is True
         assert by_name["amount"].is_described is False
 
     def test_empty_raw_code(self, model_node, test_index):
         model_node["raw_code"] = ""
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.raw_code == ""
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.raw_code == ""
 
     def test_missing_raw_code(self, model_node, test_index):
         del model_node["raw_code"]
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
-        assert r.raw_code == ""
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
+        assert resource.raw_code == ""
 
     def test_has_relationship_tests(self, model_node):
         test_index = {
@@ -376,14 +376,14 @@ class TestModelToResource:
             ]
         }
 
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
 
-        assert r.has_relationship_tests is True
+        assert resource.has_relationship_tests is True
 
     def test_has_no_relationship_tests(self, model_node, test_index):
-        r = _model_to_resource(model_node, test_index, DEFAULTS)
+        resource = _model_to_resource(model_node, test_index, DEFAULTS)
 
-        assert r.has_relationship_tests is False
+        assert resource.has_relationship_tests is False
 
 
 class TestSourceToResource:
@@ -407,68 +407,68 @@ class TestSourceToResource:
         }
 
     def test_basic_fields(self, source_node):
-        r = _source_to_resource(source_node)
-        assert r.resource_id == "source.pkg.stripe.payments"
-        assert r.resource_name == "payments"
-        assert r.resource_type == "source"
-        assert r.file_path == "models/staging/stripe/_stripe__sources.yml"
+        resource = _source_to_resource(source_node)
+        assert resource.resource_id == "source.pkg.stripe.payments"
+        assert resource.resource_name == "payments"
+        assert resource.resource_type == "source"
+        assert resource.file_path == "models/staging/stripe/_stripe__sources.yml"
 
     def test_source_described(self, source_node):
-        r = _source_to_resource(source_node)
-        assert r.is_described is True
+        resource = _source_to_resource(source_node)
+        assert resource.is_described is True
 
     def test_source_undescribed(self, source_node):
         source_node["description"] = ""
-        r = _source_to_resource(source_node)
-        assert r.is_described is False
+        resource = _source_to_resource(source_node)
+        assert resource.is_described is False
 
     def test_freshness_enabled(self, source_node):
-        r = _source_to_resource(source_node)
-        assert r.is_freshness_enabled is True
+        resource = _source_to_resource(source_node)
+        assert resource.is_freshness_enabled is True
 
     def test_freshness_disabled(self, source_node):
         source_node["freshness"] = {"warn_after": None, "error_after": None}
-        r = _source_to_resource(source_node)
-        assert r.is_freshness_enabled is False
+        resource = _source_to_resource(source_node)
+        assert resource.is_freshness_enabled is False
 
     def test_freshness_null(self, source_node):
         source_node["freshness"] = None
-        r = _source_to_resource(source_node)
-        assert r.is_freshness_enabled is False
+        resource = _source_to_resource(source_node)
+        assert resource.is_freshness_enabled is False
 
     def test_model_type_empty_for_sources(self, source_node):
-        r = _source_to_resource(source_node)
-        assert r.model_type == ""
+        resource = _source_to_resource(source_node)
+        assert resource.model_type == ""
 
     def test_source_meta_contains_source_description(self, source_node):
         """source_description_populated tracks source-level description."""
-        r = _source_to_resource(source_node)
-        assert r.meta["source_description_populated"] is True
+        resource = _source_to_resource(source_node)
+        assert resource.meta["source_description_populated"] is True
 
     def test_source_meta_no_description(self, source_node):
         source_node["source_description"] = ""
-        r = _source_to_resource(source_node)
-        assert r.meta["source_description_populated"] is False
+        resource = _source_to_resource(source_node)
+        assert resource.meta["source_description_populated"] is False
 
     def test_source_empty_raw_code(self, source_node):
-        r = _source_to_resource(source_node)
-        assert r.raw_code == ""
+        resource = _source_to_resource(source_node)
+        assert resource.raw_code == ""
 
     def test_source_empty_config(self, source_node):
-        r = _source_to_resource(source_node)
-        assert not r.config
+        resource = _source_to_resource(source_node)
+        assert not resource.config
 
     def test_source_columns(self, source_node):
         source_node["columns"] = {
             "id": {"name": "id", "description": "PK", "data_type": "integer"}
         }
-        r = _source_to_resource(source_node)
-        assert len(r.columns) == 1
-        assert r.columns[0].name == "id"
+        resource = _source_to_resource(source_node)
+        assert len(resource.columns) == 1
+        assert resource.columns[0].name == "id"
 
     def test_source_no_columns(self, source_node):
-        r = _source_to_resource(source_node)
-        assert not r.columns
+        resource = _source_to_resource(source_node)
+        assert not resource.columns
 
 
 class TestExposureToResource:
@@ -484,22 +484,22 @@ class TestExposureToResource:
         }
 
     def test_basic_fields(self, exposure_node):
-        r = _exposure_to_resource(exposure_node)
-        assert r.resource_id == "exposure.pkg.weekly_report"
-        assert r.resource_name == "weekly_report"
-        assert r.resource_type == "exposure"
-        assert r.file_path == "models/exposures/weekly_report.yml"
+        resource = _exposure_to_resource(exposure_node)
+        assert resource.resource_id == "exposure.pkg.weekly_report"
+        assert resource.resource_name == "weekly_report"
+        assert resource.resource_type == "exposure"
+        assert resource.file_path == "models/exposures/weekly_report.yml"
 
     def test_exposure_defaults(self, exposure_node):
-        r = _exposure_to_resource(exposure_node)
-        assert r.model_type == ""
-        assert r.materialization == ""
-        assert r.is_described is False
-        assert r.is_public is False
-        assert r.number_of_columns == 0
-        assert r.raw_code == ""
-        assert not r.config
-        assert not r.columns
+        resource = _exposure_to_resource(exposure_node)
+        assert resource.model_type == ""
+        assert resource.materialization == ""
+        assert resource.is_described is False
+        assert resource.is_public is False
+        assert resource.number_of_columns == 0
+        assert resource.raw_code == ""
+        assert not resource.config
+        assert not resource.columns
 
 
 class TestExtractEdges:
@@ -620,7 +620,7 @@ class TestParseManifest:
         assert len(resources) == 3  # 1 model + 1 source + 1 exposure
         assert len(edges) == 2
 
-        resource_types = {r.resource_type for r in resources}
+        resource_types = {resource.resource_type for resource in resources}
         assert resource_types == {"model", "source", "exposure"}
 
     def test_model_fields_correct(self, manifest_dict, tmp_path):
@@ -629,7 +629,9 @@ class TestParseManifest:
         config = load_config(None)
         resources, _ = parse_manifest(manifest_path, config)
 
-        model = next(r for r in resources if r.resource_type == "model")
+        model = next(
+            resource for resource in resources if resource.resource_type == "model"
+        )
         assert model.resource_name == "stg_orders"
         assert model.model_type == "staging"
         assert model.is_primary_key_tested is True

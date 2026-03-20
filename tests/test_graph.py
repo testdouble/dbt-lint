@@ -26,15 +26,15 @@ class TestEmptyInputs:
 
 class TestSingleEdge:
     def test_single_direct_relationship(self, make_resource):
-        a = make_resource(
+        node_a = make_resource(
             resource_id="model.pkg.a", model_type="staging", materialization="table"
         )
-        b = make_resource(
+        node_b = make_resource(
             resource_id="model.pkg.b", model_type="marts", materialization="view"
         )
         edges = [DirectEdge(parent="model.pkg.a", child="model.pkg.b")]
 
-        rels = build_relationships([a, b], edges)
+        rels = build_relationships([node_a, node_b], edges)
 
         assert len(rels) == 1
         rel = rels[0]
@@ -88,38 +88,38 @@ class TestLinearChain:
 
 class TestIsolatedNodes:
     def test_node_with_no_edges(self, make_resource):
-        a = make_resource(resource_id="model.pkg.a")
-        b = make_resource(resource_id="model.pkg.b")
-        c = make_resource(resource_id="model.pkg.c")
+        node_a = make_resource(resource_id="model.pkg.a")
+        node_b = make_resource(resource_id="model.pkg.b")
+        node_c = make_resource(resource_id="model.pkg.c")
         edges = [DirectEdge(parent="model.pkg.a", child="model.pkg.b")]
 
-        rels = build_relationships([a, b, c], edges)
+        rels = build_relationships([node_a, node_b, node_c], edges)
 
         ids_in_rels = {(r.parent, r.child) for r in rels}
         assert ("model.pkg.a", "model.pkg.b") in ids_in_rels
-        # c should not appear in any relationship
+        # node_c should not appear in any relationship
         assert all(r.parent != "model.pkg.c" and r.child != "model.pkg.c" for r in rels)
 
 
 class TestMissingResourceInEdge:
     def test_edge_with_unknown_parent_skipped(self, make_resource):
-        b = make_resource(resource_id="model.pkg.b")
+        node_b = make_resource(resource_id="model.pkg.b")
         edges = [DirectEdge(parent="model.pkg.unknown", child="model.pkg.b")]
-        assert not build_relationships([b], edges)
+        assert not build_relationships([node_b], edges)
 
     def test_edge_with_unknown_child_skipped(self, make_resource):
-        a = make_resource(resource_id="model.pkg.a")
+        node_a = make_resource(resource_id="model.pkg.a")
         edges = [DirectEdge(parent="model.pkg.a", child="model.pkg.unknown")]
-        assert not build_relationships([a], edges)
+        assert not build_relationships([node_a], edges)
 
     def test_partial_graph_with_valid_and_invalid_edges(self, make_resource):
-        a = make_resource(resource_id="model.pkg.a")
-        b = make_resource(resource_id="model.pkg.b")
+        node_a = make_resource(resource_id="model.pkg.a")
+        node_b = make_resource(resource_id="model.pkg.b")
         edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),
             DirectEdge(parent="model.pkg.a", child="model.pkg.missing"),
         ]
-        rels = build_relationships([a, b], edges)
+        rels = build_relationships([node_a, node_b], edges)
         assert len(rels) == 1
         assert rels[0].parent == "model.pkg.a"
         assert rels[0].child == "model.pkg.b"
@@ -224,16 +224,16 @@ class TestChainOfViewsBroken:
     """A(table) -> B(table) -> C(view) -> D(table): B breaks the chain for A->C."""
 
     def test_table_intermediate_breaks_chain(self, make_resource):
-        a = make_resource(resource_id="model.pkg.a", materialization="table")
-        b = make_resource(resource_id="model.pkg.b", materialization="table")
-        c = make_resource(resource_id="model.pkg.c", materialization="view")
-        d = make_resource(resource_id="model.pkg.d", materialization="table")
+        node_a = make_resource(resource_id="model.pkg.a", materialization="table")
+        node_b = make_resource(resource_id="model.pkg.b", materialization="table")
+        node_c = make_resource(resource_id="model.pkg.c", materialization="view")
+        node_d = make_resource(resource_id="model.pkg.d", materialization="table")
         edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),
             DirectEdge(parent="model.pkg.b", child="model.pkg.c"),
             DirectEdge(parent="model.pkg.c", child="model.pkg.d"),
         ]
-        rels = build_relationships([a, b, c, d], edges)
+        rels = build_relationships([node_a, node_b, node_c, node_d], edges)
         by_pair = {(r.parent, r.child): r for r in rels}
 
         # A -> B(table) -> C: intermediate B is table -> False
@@ -332,21 +332,22 @@ class TestDeepChain:
     """Linear chain of 20 nodes: verify distance computation at depth."""
 
     def test_deep_distances(self, make_resource):
-        n = 20
-        resources = [make_resource(resource_id=f"model.pkg.n{i}") for i in range(n)]
+        depth = 20
+        resources = [make_resource(resource_id=f"model.pkg.n{i}") for i in range(depth)]
         edges = [
             DirectEdge(parent=f"model.pkg.n{i}", child=f"model.pkg.n{i + 1}")
-            for i in range(n - 1)
+            for i in range(depth - 1)
         ]
 
         rels = build_relationships(resources, edges)
         by_pair = {(r.parent, r.child): r for r in rels}
 
-        # Total relationships: n*(n-1)/2 = 190
-        assert len(rels) == n * (n - 1) // 2
+        # Total relationships: depth*(depth-1)/2 = 190
+        assert len(rels) == depth * (depth - 1) // 2
 
-        # First to last should be distance n-1
-        assert by_pair[("model.pkg.n0", f"model.pkg.n{n - 1}")].distance == n - 1
+        # First to last should be distance depth-1
+        last = f"model.pkg.n{depth - 1}"
+        assert by_pair[("model.pkg.n0", last)].distance == depth - 1
 
         # Spot check a few intermediate distances
         assert by_pair[("model.pkg.n0", "model.pkg.n5")].distance == 5
@@ -354,7 +355,7 @@ class TestDeepChain:
 
 
 class TestDiamondChainOfViewsShortestPath:
-    r"""Diamond where one path has views and other has a table.
+    r"""Diamond where one path has views and other has node_a table.
 
        A
       / \
@@ -367,10 +368,10 @@ class TestDiamondChainOfViewsShortestPath:
     """
 
     def test_mixed_paths(self, make_resource):
-        a = make_resource(resource_id="model.pkg.a", materialization="table")
-        b = make_resource(resource_id="model.pkg.b", materialization="view")
-        c = make_resource(resource_id="model.pkg.c", materialization="table")
-        d = make_resource(resource_id="model.pkg.d", materialization="table")
+        node_a = make_resource(resource_id="model.pkg.a", materialization="table")
+        node_b = make_resource(resource_id="model.pkg.b", materialization="view")
+        node_c = make_resource(resource_id="model.pkg.c", materialization="table")
+        node_d = make_resource(resource_id="model.pkg.d", materialization="table")
         # B listed before C in adjacency, so BFS from A visits B first.
         edges = [
             DirectEdge(parent="model.pkg.a", child="model.pkg.b"),
@@ -379,7 +380,7 @@ class TestDiamondChainOfViewsShortestPath:
             DirectEdge(parent="model.pkg.c", child="model.pkg.d"),
         ]
 
-        rels = build_relationships([a, b, c, d], edges)
+        rels = build_relationships([node_a, node_b, node_c, node_d], edges)
         by_pair = {(r.parent, r.child): r for r in rels}
 
         # A -> D distance is 2 regardless of path

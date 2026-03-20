@@ -43,9 +43,9 @@ class TestDirectJoinToSource:
             ),
         ]
 
-        vs = direct_join_to_source([child], rels, default_config)
+        violations = direct_join_to_source([child], rels, default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
     def test_clean_when_only_model_parents(
         self, make_resource, make_relationship, default_config
@@ -67,7 +67,7 @@ class TestDownstreamDependsOnSource:
     def test_flags_marts_depending_on_source(
         self, make_resource, make_relationship, default_config
     ):
-        m = make_resource(resource_id="model.pkg.fct")
+        model = make_resource(resource_id="model.pkg.fct")
         rels = [
             make_relationship(
                 parent="source.pkg.raw.t",
@@ -78,12 +78,12 @@ class TestDownstreamDependsOnSource:
             ),
         ]
 
-        vs = downstream_depends_on_source([m], rels, default_config)
+        violations = downstream_depends_on_source([model], rels, default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
     def test_clean_for_staging(self, make_resource, make_relationship, default_config):
-        m = make_resource(resource_id="model.pkg.stg")
+        model = make_resource(resource_id="model.pkg.stg")
         rels = [
             make_relationship(
                 parent="source.pkg.raw.t",
@@ -94,7 +94,7 @@ class TestDownstreamDependsOnSource:
             ),
         ]
 
-        assert not downstream_depends_on_source([m], rels, default_config)
+        assert not downstream_depends_on_source([model], rels, default_config)
 
 
 class TestStagingDependsOnStaging:
@@ -110,9 +110,9 @@ class TestStagingDependsOnStaging:
             ),
         ]
 
-        vs = staging_depends_on_staging([], rels, default_config)
+        violations = staging_depends_on_staging([], rels, default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
 
 class TestStagingDependsOnDownstream:
@@ -128,9 +128,9 @@ class TestStagingDependsOnDownstream:
             ),
         ]
 
-        vs = staging_depends_on_downstream([], rels, default_config)
+        violations = staging_depends_on_downstream([], rels, default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
 
 class TestRootModels:
@@ -142,14 +142,14 @@ class TestRootModels:
             resource_type="model",
         )
 
-        vs = root_models([orphan], [], default_config)
+        violations = root_models([orphan], [], default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
     def test_clean_when_model_has_parent(
         self, make_resource, make_relationship, default_config
     ):
-        m = make_resource(resource_id="model.pkg.m", resource_type="model")
+        model = make_resource(resource_id="model.pkg.m", resource_type="model")
         rels = [
             make_relationship(
                 parent="source.pkg.s",
@@ -158,28 +158,28 @@ class TestRootModels:
             ),
         ]
 
-        vs = root_models([m], rels, default_config)
+        violations = root_models([model], rels, default_config)
 
-        assert len(vs) == 0
+        assert len(violations) == 0
 
 
 class TestHardCodedReferences:
     def test_flags_hard_coded(self, make_resource, default_config):
-        r = make_resource(resource_type="model", hard_coded_references=True)
+        resource = make_resource(resource_type="model", hard_coded_references=True)
 
-        v = hard_coded_references(r, default_config)
+        violation = hard_coded_references(resource, default_config)
 
-        assert "hard-coded table references" in v.message
+        assert "hard-coded table references" in violation.message
 
     def test_clean(self, make_resource, default_config):
-        r = make_resource(resource_type="model", hard_coded_references=False)
+        resource = make_resource(resource_type="model", hard_coded_references=False)
 
-        assert hard_coded_references(r, default_config) is None
+        assert hard_coded_references(resource, default_config) is None
 
     def test_ignores_non_models(self, make_resource, default_config):
-        r = make_resource(resource_type="source", hard_coded_references=True)
+        resource = make_resource(resource_type="source", hard_coded_references=True)
 
-        assert hard_coded_references(r, default_config) is None
+        assert hard_coded_references(resource, default_config) is None
 
 
 class TestDuplicateSources:
@@ -199,9 +199,9 @@ class TestDuplicateSources:
             schema_name="raw",
         )
 
-        vs = duplicate_sources([s1, s2], [], default_config)
+        violations = duplicate_sources([s1, s2], [], default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
     def test_clean_when_different_tables(self, make_resource, default_config):
         s1 = make_resource(
@@ -222,19 +222,19 @@ class TestDuplicateSources:
 
 class TestUnusedSources:
     def test_flags_source_with_no_children(self, make_resource, default_config):
-        s = make_resource(
+        source = make_resource(
             resource_id="source.pkg.raw.t",
             resource_type="source",
         )
 
-        vs = unused_sources([s], [], default_config)
+        violations = unused_sources([source], [], default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
     def test_clean_when_source_has_child(
         self, make_resource, make_relationship, default_config
     ):
-        s = make_resource(
+        source = make_resource(
             resource_id="source.pkg.raw.t",
             resource_type="source",
         )
@@ -246,14 +246,14 @@ class TestUnusedSources:
             ),
         ]
 
-        assert not unused_sources([s], rels, default_config)
+        assert not unused_sources([source], rels, default_config)
 
 
 class TestMultipleSourcesJoined:
     def test_flags_model_with_two_source_parents(
         self, make_resource, make_relationship, default_config
     ):
-        m = make_resource(resource_id="model.pkg.m")
+        model = make_resource(resource_id="model.pkg.m")
         rels = [
             make_relationship(
                 parent="source.pkg.a",
@@ -269,16 +269,16 @@ class TestMultipleSourcesJoined:
             ),
         ]
 
-        vs = multiple_sources_joined([m], rels, default_config)
+        violations = multiple_sources_joined([model], rels, default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
 
 class TestSourceFanout:
     def test_flags_source_with_multiple_children(
         self, make_resource, make_relationship, default_config
     ):
-        s = make_resource(
+        source = make_resource(
             resource_id="source.pkg.raw.t",
             resource_type="source",
         )
@@ -295,9 +295,9 @@ class TestSourceFanout:
             ),
         ]
 
-        vs = source_fanout([s], rels, default_config)
+        violations = source_fanout([source], rels, default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
 
 class TestModelFanout:
@@ -314,9 +314,9 @@ class TestModelFanout:
             for i in range(3)  # default threshold is 3
         ]
 
-        vs = model_fanout([parent], rels, default_config)
+        violations = model_fanout([parent], rels, default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
     def test_clean_below_threshold(
         self, make_resource, make_relationship, default_config
@@ -352,9 +352,9 @@ class TestTooManyJoins:
             for i in range(5)  # default threshold is 5
         ]
 
-        vs = too_many_joins([child], rels, default_config)
+        violations = too_many_joins([child], rels, default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
     def test_clean_below_threshold(
         self, make_resource, make_relationship, default_config
@@ -394,12 +394,12 @@ class TestRejoiningUpstreamConcepts:
                 child_resource_type="model",
             ),
         ]
-        c = make_resource(resource_id="model.pkg.c")
+        downstream = make_resource(resource_id="model.pkg.c")
 
-        vs = rejoining_upstream_concepts([c], rels, default_config)
+        violations = rejoining_upstream_concepts([downstream], rels, default_config)
 
-        assert len(vs) == 1
-        assert "rejoins" in vs[0].message
+        assert len(violations) == 1
+        assert "rejoins" in violations[0].message
 
     def test_clean_no_triad(self, make_resource, make_relationship, default_config):
         downstream = make_resource(resource_id="model.pkg.c")
@@ -443,10 +443,10 @@ class TestStagingModelTooManyParents:
             ),
         ]
 
-        vs = staging_model_too_many_parents([stg], rels, default_config)
+        violations = staging_model_too_many_parents([stg], rels, default_config)
 
-        assert len(vs) == 1
-        assert "2 parents" in vs[0].message
+        assert len(violations) == 1
+        assert "2 parents" in violations[0].message
 
     def test_clean_staging_with_one_parent(
         self, make_resource, make_relationship, default_config
@@ -547,10 +547,10 @@ class TestIntermediateFanout:
             ),
         ]
 
-        vs = intermediate_fanout([inter], rels, default_config)
+        violations = intermediate_fanout([inter], rels, default_config)
 
-        assert len(vs) == 1
-        assert "2 dependents" in vs[0].message
+        assert len(violations) == 1
+        assert "2 dependents" in violations[0].message
 
     def test_clean_intermediate_with_one_child(
         self, make_resource, make_relationship, default_config
@@ -638,9 +638,9 @@ class TestDuplicateMartConcepts:
             ),
         ]
 
-        vs = duplicate_mart_concepts(resources, [], default_config)
+        violations = duplicate_mart_concepts(resources, [], default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
     def test_flags_same_entity_different_prefix(self, make_resource, default_config):
         """Plain name duplicates across dirs are flagged."""
@@ -661,9 +661,9 @@ class TestDuplicateMartConcepts:
             ),
         ]
 
-        vs = duplicate_mart_concepts(resources, [], default_config)
+        violations = duplicate_mart_concepts(resources, [], default_config)
 
-        assert len(vs) == 1
+        assert len(violations) == 1
 
     def test_clean_single_instance(self, make_resource, default_config):
         """A single model is not a duplicate."""
@@ -676,9 +676,9 @@ class TestDuplicateMartConcepts:
             ),
         ]
 
-        vs = duplicate_mart_concepts(resources, [], default_config)
+        violations = duplicate_mart_concepts(resources, [], default_config)
 
-        assert not vs
+        assert not violations
 
     def test_clean_different_entities(self, make_resource, default_config):
         """Different entities in different dirs are not duplicates."""
@@ -697,9 +697,9 @@ class TestDuplicateMartConcepts:
             ),
         ]
 
-        vs = duplicate_mart_concepts(resources, [], default_config)
+        violations = duplicate_mart_concepts(resources, [], default_config)
 
-        assert not vs
+        assert not violations
 
     def test_ignores_non_marts(self, make_resource, default_config):
         resources = [
@@ -717,6 +717,6 @@ class TestDuplicateMartConcepts:
             ),
         ]
 
-        vs = duplicate_mart_concepts(resources, [], default_config)
+        violations = duplicate_mart_concepts(resources, [], default_config)
 
-        assert not vs
+        assert not violations

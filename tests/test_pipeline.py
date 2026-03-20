@@ -204,7 +204,9 @@ class TestEndToEndPipeline:
     def test_undocumented_model_violation(self, pipeline):
         _, _, _, violations = pipeline
         undoc = [
-            v for v in violations if v.rule_id == "documentation/undocumented-models"
+            violation
+            for violation in violations
+            if violation.rule_id == "documentation/undocumented-models"
         ]
         assert len(undoc) == 1
         assert undoc[0].resource_id == "model.pkg.fct_orders"
@@ -212,9 +214,9 @@ class TestEndToEndPipeline:
     def test_public_model_without_contract_violation(self, pipeline):
         _, _, _, violations = pipeline
         no_contract = [
-            v
-            for v in violations
-            if v.rule_id == "governance/public-models-without-contract"
+            violation
+            for violation in violations
+            if violation.rule_id == "governance/public-models-without-contract"
         ]
         assert len(no_contract) == 1
         assert no_contract[0].resource_id == "model.pkg.fct_orders"
@@ -222,9 +224,9 @@ class TestEndToEndPipeline:
     def test_undocumented_public_model_violation(self, pipeline):
         _, _, _, violations = pipeline
         undoc_pub = [
-            v
-            for v in violations
-            if v.rule_id == "governance/undocumented-public-models"
+            violation
+            for violation in violations
+            if violation.rule_id == "governance/undocumented-public-models"
         ]
         assert len(undoc_pub) == 1
         assert "fct_orders" in undoc_pub[0].message
@@ -233,9 +235,9 @@ class TestEndToEndPipeline:
         """fct_orders is public, so this rule should NOT fire."""
         _, _, _, violations = pipeline
         priv_exp = [
-            v
-            for v in violations
-            if v.rule_id == "governance/exposures-depend-on-private-models"
+            violation
+            for violation in violations
+            if violation.rule_id == "governance/exposures-depend-on-private-models"
         ]
         assert len(priv_exp) == 0
 
@@ -249,6 +251,6 @@ class TestEndToEndPipeline:
 
     def test_all_violations_have_rule_id_and_severity(self, pipeline):
         _, _, _, violations = pipeline
-        for v in violations:
-            assert v.rule_id, f"Missing rule_id on violation: {v}"
-            assert v.severity, f"Missing severity on violation: {v}"
+        for violation in violations:
+            assert violation.rule_id, f"Missing rule_id on violation: {violation}"
+            assert violation.severity, f"Missing severity on violation: {violation}"

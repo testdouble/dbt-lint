@@ -9,49 +9,49 @@ from dbt_linter.rules.governance import (
 
 class TestPublicModelsWithoutContract:
     def test_flags_public_without_contract(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             is_public=True,
             is_contract_enforced=False,
         )
 
-        v = public_models_without_contract(r, default_config)
+        violation = public_models_without_contract(resource, default_config)
 
-        assert "without contract enforcement" in v.message
+        assert "without contract enforcement" in violation.message
 
     def test_clean_public_with_contract(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             is_public=True,
             is_contract_enforced=True,
         )
 
-        assert public_models_without_contract(r, default_config) is None
+        assert public_models_without_contract(resource, default_config) is None
 
     def test_clean_private_model(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             is_public=False,
             is_contract_enforced=False,
         )
 
-        assert public_models_without_contract(r, default_config) is None
+        assert public_models_without_contract(resource, default_config) is None
 
 
 class TestUndocumentedPublicModels:
     def test_flags_public_missing_description(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             is_public=True,
             is_described=False,
         )
 
-        v = undocumented_public_models(r, default_config)
+        violation = undocumented_public_models(resource, default_config)
 
-        assert "missing description" in v.message
+        assert "missing description" in violation.message
 
     def test_flags_public_missing_column_docs(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             is_public=True,
             is_described=True,
@@ -59,12 +59,12 @@ class TestUndocumentedPublicModels:
             number_of_documented_columns=3,
         )
 
-        v = undocumented_public_models(r, default_config)
+        violation = undocumented_public_models(resource, default_config)
 
-        assert "3/5 columns documented" in v.message
+        assert "3/5 columns documented" in violation.message
 
     def test_clean_fully_documented(self, make_resource, default_config):
-        r = make_resource(
+        resource = make_resource(
             resource_type="model",
             is_public=True,
             is_described=True,
@@ -72,7 +72,7 @@ class TestUndocumentedPublicModels:
             number_of_documented_columns=5,
         )
 
-        assert undocumented_public_models(r, default_config) is None
+        assert undocumented_public_models(resource, default_config) is None
 
 
 class TestExposuresDependOnPrivateModels:
@@ -100,12 +100,12 @@ class TestExposuresDependOnPrivateModels:
             ),
         ]
 
-        vs = exposures_depend_on_private_models(
+        violations = exposures_depend_on_private_models(
             [exposure, parent], rels, default_config
         )
 
-        assert len(vs) == 1
-        assert "fct_orders" in vs[0].message
+        assert len(violations) == 1
+        assert "fct_orders" in violations[0].message
 
     def test_clean_exposure_with_public_parent(
         self, make_resource, make_relationship, default_config
@@ -129,8 +129,8 @@ class TestExposuresDependOnPrivateModels:
             ),
         ]
 
-        vs = exposures_depend_on_private_models(
+        violations = exposures_depend_on_private_models(
             [exposure, parent], rels, default_config
         )
 
-        assert len(vs) == 0
+        assert len(violations) == 0

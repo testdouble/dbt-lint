@@ -10,95 +10,13 @@ from click.testing import CliRunner
 
 from dbt_linter.__main__ import main
 from dbt_linter.rules import get_all_rules
+from helpers import fixture_manifest_dict
 
 
 def _write_manifest(tmp_path: Path) -> Path:
-    """Write a minimal valid manifest that triggers known violations."""
-    manifest = {
-        "metadata": {
-            "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json",
-        },
-        "nodes": {
-            "model.pkg.stg_users": {
-                "unique_id": "model.pkg.stg_users",
-                "name": "stg_users",
-                "resource_type": "model",
-                "original_file_path": "models/staging/stg_users.sql",
-                "raw_code": "select * from {{ ref('raw_users') }}",
-                "description": "Staged users.",
-                "schema": "public",
-                "database": "analytics",
-                "access": "protected",
-                "contract": {"enforced": False},
-                "config": {
-                    "materialized": "view",
-                    "tags": [],
-                    "meta": {},
-                },
-                "columns": {
-                    "user_id": {"name": "user_id", "description": "PK"},
-                },
-            },
-            "model.pkg.fct_orders": {
-                "unique_id": "model.pkg.fct_orders",
-                "name": "fct_orders",
-                "resource_type": "model",
-                "original_file_path": "models/marts/fct_orders.sql",
-                "raw_code": "select * from {{ ref('stg_users') }}",
-                "description": "",
-                "schema": "public",
-                "database": "analytics",
-                "access": "public",
-                "contract": {"enforced": False},
-                "config": {
-                    "materialized": "table",
-                    "tags": [],
-                    "meta": {},
-                },
-                "columns": {
-                    "order_id": {"name": "order_id", "description": ""},
-                },
-            },
-            "test.pkg.unique_stg_users_user_id": {
-                "unique_id": "test.pkg.unique_stg_users_user_id",
-                "name": "unique_stg_users_user_id",
-                "resource_type": "test",
-                "test_metadata": {"name": "unique", "namespace": "dbt"},
-                "attached_node": "model.pkg.stg_users",
-            },
-            "test.pkg.not_null_stg_users_user_id": {
-                "unique_id": "test.pkg.not_null_stg_users_user_id",
-                "name": "not_null_stg_users_user_id",
-                "resource_type": "test",
-                "test_metadata": {"name": "not_null", "namespace": "dbt"},
-                "attached_node": "model.pkg.stg_users",
-            },
-        },
-        "sources": {
-            "source.pkg.raw.users": {
-                "unique_id": "source.pkg.raw.users",
-                "name": "users",
-                "resource_type": "source",
-                "original_file_path": "models/staging/_sources.yml",
-                "source_description": "Raw user data.",
-                "description": "Users table.",
-                "schema": "raw",
-                "database": "analytics",
-                "meta": {},
-                "freshness": {
-                    "warn_after": {"count": 24, "period": "hour"},
-                    "error_after": None,
-                },
-            },
-        },
-        "exposures": {},
-        "parent_map": {
-            "model.pkg.stg_users": ["source.pkg.raw.users"],
-            "model.pkg.fct_orders": ["model.pkg.stg_users"],
-        },
-    }
+    """Write the shared fixture manifest to disk."""
     path = tmp_path / "manifest.json"
-    path.write_text(json.dumps(manifest))
+    path.write_text(json.dumps(fixture_manifest_dict()))
     return path
 
 

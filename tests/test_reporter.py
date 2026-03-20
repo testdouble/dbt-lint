@@ -30,12 +30,12 @@ class TestTextReport:
     """Text output: grouped by category, then rule."""
 
     def test_empty_violations_returns_clean_message(self):
-        result = report([], format="text")
+        result = report([], output_format="text")
         assert "no violations" in result.lower()
 
     def test_single_violation(self):
         violations = [_violation()]
-        result = report(violations, format="text")
+        result = report(violations, output_format="text")
         assert "documentation" in result.lower()
         assert "undocumented-models" in result
         assert "stg_users" in result
@@ -49,7 +49,7 @@ class TestTextReport:
                 message="m2: public without contract",
             ),
         ]
-        result = report(violations, format="text")
+        result = report(violations, output_format="text")
         # Both categories should appear as section headers
         assert "documentation" in result.lower()
         assert "governance" in result.lower()
@@ -74,7 +74,7 @@ class TestTextReport:
                 resource_id="model.pkg.m3",
             ),
         ]
-        result = report(violations, format="text")
+        result = report(violations, output_format="text")
         lines = result.split("\n")
         # Both rule IDs from documentation category should appear
         assert any("undocumented-models" in line for line in lines)
@@ -82,7 +82,7 @@ class TestTextReport:
 
     def test_severity_shown_for_errors(self):
         violations = [_violation(severity="error")]
-        result = report(violations, format="text")
+        result = report(violations, output_format="text")
         assert "error" in result.lower()
 
     def test_summary_line_with_counts(self):
@@ -95,7 +95,7 @@ class TestTextReport:
                 message="m2: missing description",
             ),
         ]
-        result = report(violations, format="text")
+        result = report(violations, output_format="text")
         assert "Found 2 violations" in result
 
     def test_summary_includes_category_breakdown(self):
@@ -113,7 +113,7 @@ class TestTextReport:
                 resource_id="model.pkg.m3",
             ),
         ]
-        result = report(violations, format="text")
+        result = report(violations, output_format="text")
         assert "documentation (2)" in result
         assert "governance (1)" in result
 
@@ -126,7 +126,7 @@ class TestTextReport:
                 message="m2: missing description",
             ),
         ]
-        result = report(violations, format="text")
+        result = report(violations, output_format="text")
         assert "m1" in result
         assert "m2" in result
 
@@ -135,12 +135,12 @@ class TestJsonReport:
     """JSON output: list of violation objects."""
 
     def test_empty_violations_returns_empty_list(self):
-        result = report([], format="json")
+        result = report([], output_format="json")
         assert json.loads(result) == []
 
     def test_single_violation_structure(self):
         violations = [_violation()]
-        result = json.loads(report(violations, format="json"))
+        result = json.loads(report(violations, output_format="json"))
         assert len(result) == 1
         obj = result[0]
         assert obj["rule_id"] == "documentation/undocumented-models"
@@ -155,14 +155,14 @@ class TestJsonReport:
             _violation(resource_name="m1"),
             _violation(resource_name="m2", resource_id="model.pkg.m2"),
         ]
-        result = json.loads(report(violations, format="json"))
+        result = json.loads(report(violations, output_format="json"))
         assert len(result) == 2
         names = {obj["resource_name"] for obj in result}
         assert names == {"m1", "m2"}
 
     def test_json_roundtrips_special_characters(self):
         violations = [_violation(message='has "quotes" and\nnewlines')]
-        result = report(violations, format="json")
+        result = report(violations, output_format="json")
         parsed = json.loads(result)
         assert len(parsed) == 1
         assert parsed[0]["message"] == 'has "quotes" and\nnewlines'
@@ -173,14 +173,14 @@ class TestGitHubAnnotations:
 
     def test_warning_annotation_format(self):
         violations = [_violation(severity="warn")]
-        result = report(violations, format="text", github_annotations=True)
+        result = report(violations, output_format="text", github_annotations=True)
         assert "::warning file=models/staging/stg_users.sql" in result
         assert "title=documentation/undocumented-models" in result
         assert "::stg_users: missing description" in result
 
     def test_error_annotation_format(self):
         violations = [_violation(severity="error")]
-        result = report(violations, format="text", github_annotations=True)
+        result = report(violations, output_format="text", github_annotations=True)
         assert "::error file=models/staging/stg_users.sql" in result
 
     def test_multiple_annotations(self):
@@ -193,13 +193,13 @@ class TestGitHubAnnotations:
                 message="m2: issue",
             ),
         ]
-        result = report(violations, format="text", github_annotations=True)
+        result = report(violations, output_format="text", github_annotations=True)
         assert result.count("::warning") == 1
         assert result.count("::error") == 1
 
     def test_annotations_precede_text_output(self):
         violations = [_violation()]
-        result = report(violations, format="text", github_annotations=True)
+        result = report(violations, output_format="text", github_annotations=True)
         lines = result.split("\n")
         annotation_idx = next(
             i for i, line in enumerate(lines) if line.startswith("::")
@@ -214,11 +214,11 @@ class TestGitHubAnnotations:
 
     def test_no_annotations_without_flag(self):
         violations = [_violation()]
-        result = report(violations, format="text", github_annotations=False)
+        result = report(violations, output_format="text", github_annotations=False)
         assert "::" not in result
 
     def test_empty_violations_no_annotations(self):
-        result = report([], format="text", github_annotations=True)
+        result = report([], output_format="text", github_annotations=True)
         assert "::" not in result
 
 

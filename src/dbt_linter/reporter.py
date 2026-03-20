@@ -10,7 +10,7 @@ from dbt_linter.models import Violation
 
 def report(
     violations: list[Violation],
-    format: str = "text",
+    output_format: str = "text",
     github_annotations: bool = False,
     excluded: int = 0,
 ) -> str:
@@ -18,14 +18,14 @@ def report(
 
     Args:
         violations: List of violations to report.
-        format: Output format ("text" or "json").
+        output_format: Output format ("text" or "json").
         github_annotations: If True, also emit ::error/::warning lines.
         excluded: Number of violations suppressed via config.
 
     Returns:
         Formatted string.
     """
-    if format == "json":
+    if output_format == "json":
         return _format_json(violations)
 
     parts: list[str] = []

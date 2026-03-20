@@ -192,7 +192,7 @@ def main(
     github_annotations = os.environ.get("GITHUB_ACTIONS") == "true"
     output = report(
         violations,
-        format=output_format,
+        output_format=output_format,
         github_annotations=github_annotations,
         excluded=result.excluded,
     )

@@ -178,6 +178,7 @@ def _model_to_resource(
             1 for c in columns_dict.values() if c.get("description", "")
         ),
         is_freshness_enabled=False,
+        number_of_tests=len(tests),
         is_primary_key_tested=_is_primary_key_tested(
             tests, params["primary_key_test_macros"]
         ),
@@ -223,6 +224,7 @@ def _source_to_resource(source: dict) -> Resource:
         number_of_columns=0,
         number_of_documented_columns=0,
         is_freshness_enabled=is_freshness_enabled,
+        number_of_tests=0,
         is_primary_key_tested=False,
         has_relationship_tests=False,
         patch_path="",
@@ -253,6 +255,7 @@ def _exposure_to_resource(exposure: dict) -> Resource:
         number_of_columns=0,
         number_of_documented_columns=0,
         is_freshness_enabled=False,
+        number_of_tests=0,
         is_primary_key_tested=False,
         has_relationship_tests=False,
         patch_path="",

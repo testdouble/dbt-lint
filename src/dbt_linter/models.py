@@ -33,6 +33,7 @@ class Resource:
     number_of_columns: int
     number_of_documented_columns: int
     is_freshness_enabled: bool
+    number_of_tests: int
     is_primary_key_tested: bool
     has_relationship_tests: bool
     patch_path: str

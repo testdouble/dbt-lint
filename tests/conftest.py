@@ -32,6 +32,7 @@ def make_resource():
             "number_of_columns": 5,
             "number_of_documented_columns": 5,
             "is_freshness_enabled": False,
+            "number_of_tests": 1,
             "is_primary_key_tested": True,
             "has_relationship_tests": False,
             "patch_path": "",

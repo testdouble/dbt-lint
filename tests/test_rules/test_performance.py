@@ -3,6 +3,7 @@
 from dbt_linter.rules.performance import (
     chained_views,
     exposure_parent_materializations,
+    incremental_missing_unique_key,
 )
 
 
@@ -142,3 +143,50 @@ class TestExposureParentMaterializations:
         )
 
         assert len(violations) == 0
+
+
+class TestIncrementalMissingUniqueKey:
+    def test_flags_incremental_without_unique_key(self, make_resource, default_config):
+        resource = make_resource(
+            materialization="incremental",
+            config={},
+        )
+
+        result = incremental_missing_unique_key(resource, default_config)
+
+        assert "unique_key" in result.message
+
+    def test_clean_incremental_with_unique_key(self, make_resource, default_config):
+        resource = make_resource(
+            materialization="incremental",
+            config={"unique_key": "id"},
+        )
+
+        assert incremental_missing_unique_key(resource, default_config) is None
+
+    def test_clean_incremental_with_unique_key_list(
+        self, make_resource, default_config
+    ):
+        resource = make_resource(
+            materialization="incremental",
+            config={"unique_key": ["id", "date"]},
+        )
+
+        assert incremental_missing_unique_key(resource, default_config) is None
+
+    def test_skips_non_incremental_models(self, make_resource, default_config):
+        resource = make_resource(
+            materialization="table",
+            config={},
+        )
+
+        assert incremental_missing_unique_key(resource, default_config) is None
+
+    def test_skips_non_model_resources(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="source",
+            materialization="",
+            config={},
+        )
+
+        assert incremental_missing_unique_key(resource, default_config) is None

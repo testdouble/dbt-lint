@@ -1,4 +1,4 @@
-"""Performance rules: chained views, exposure materializations."""
+"""Performance rules: chained views, exposure materializations, incremental config."""
 
 from __future__ import annotations
 
@@ -122,3 +122,43 @@ def exposure_parent_materializations(
                 )
             )
     return violations
+
+
+@rule(
+    id="performance/incremental-missing-unique-key",
+    description="Incremental model without unique_key config.",
+    rationale=(
+        "Incremental models should define a unique_key."
+        "\n\n"
+        "Without unique_key, incremental runs append new rows rather "
+        "than upserting. This leads to duplicate rows when source data "
+        "is reprocessed or late-arriving. Setting unique_key enables "
+        "merge/upsert behavior on most adapters."
+    ),
+    remediation=(
+        "Add unique_key to the model config: "
+        "{{ config(materialized='incremental', unique_key='id') }}. "
+        "For composite keys, pass a list: unique_key=['id', 'date']."
+    ),
+    exceptions=(
+        "Append-only event logs or insert-only patterns where "
+        "duplicates are handled downstream."
+    ),
+    examples=(
+        "Violation: {{ config(materialized='incremental') }} with no unique_key",
+        "Pass: {{ config(materialized='incremental', unique_key='id') }}",
+    ),
+)
+def incremental_missing_unique_key(
+    resource: Resource, config: RuleConfig
+) -> Violation | None:
+    if resource.resource_type != "model":
+        return None
+    if resource.materialization != "incremental":
+        return None
+    if resource.config.get("unique_key"):
+        return None
+    return Violation.from_resource(
+        resource,
+        f"{resource.resource_id}: incremental model missing unique_key config",
+    )

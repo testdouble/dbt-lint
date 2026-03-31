@@ -7,6 +7,7 @@ from dbt_linter.rules.modeling import (
     duplicate_sources,
     hard_coded_references,
     intermediate_fanout,
+    mart_depends_on_mart,
     model_fanout,
     multiple_sources_joined,
     rejoining_upstream_concepts,
@@ -617,6 +618,124 @@ class TestIntermediateFanout:
         ]
 
         assert not intermediate_fanout([inter], rels, default_config)
+
+
+class TestMartDependsOnMart:
+    def test_flags_mart_to_mart_dependency(
+        self, make_resource, make_relationship, default_config
+    ):
+        parent = make_resource(
+            resource_id="model.pkg.dim_customers",
+            resource_type="model",
+            resource_name="dim_customers",
+            model_type="marts",
+        )
+        child = make_resource(
+            resource_id="model.pkg.fct_orders",
+            resource_type="model",
+            resource_name="fct_orders",
+            model_type="marts",
+        )
+        rels = [
+            make_relationship(
+                parent="model.pkg.dim_customers",
+                child="model.pkg.fct_orders",
+                parent_resource_type="model",
+                child_resource_type="model",
+                parent_model_type="marts",
+                child_model_type="marts",
+            ),
+        ]
+
+        violations = mart_depends_on_mart([parent, child], rels, default_config)
+
+        assert len(violations) == 1
+        assert "dim_customers" in violations[0].message
+        assert "fct_orders" in violations[0].message
+
+    def test_clean_mart_depends_on_intermediate(
+        self, make_resource, make_relationship, default_config
+    ):
+        parent = make_resource(
+            resource_id="model.pkg.int_orders",
+            resource_type="model",
+            model_type="intermediate",
+        )
+        child = make_resource(
+            resource_id="model.pkg.fct_orders",
+            resource_type="model",
+            model_type="marts",
+        )
+        rels = [
+            make_relationship(
+                parent="model.pkg.int_orders",
+                child="model.pkg.fct_orders",
+                parent_resource_type="model",
+                child_resource_type="model",
+                parent_model_type="intermediate",
+                child_model_type="marts",
+            ),
+        ]
+
+        assert not mart_depends_on_mart([parent, child], rels, default_config)
+
+    def test_clean_staging_depends_on_staging(
+        self, make_resource, make_relationship, default_config
+    ):
+        rels = [
+            make_relationship(
+                parent="model.pkg.stg_a",
+                child="model.pkg.stg_b",
+                parent_model_type="staging",
+                child_model_type="staging",
+            ),
+        ]
+
+        assert not mart_depends_on_mart([], rels, default_config)
+
+    def test_flags_multiple_mart_to_mart_edges(
+        self, make_resource, make_relationship, default_config
+    ):
+        dim = make_resource(
+            resource_id="model.pkg.dim_customers",
+            resource_type="model",
+            resource_name="dim_customers",
+            model_type="marts",
+        )
+        fct = make_resource(
+            resource_id="model.pkg.fct_orders",
+            resource_type="model",
+            resource_name="fct_orders",
+            model_type="marts",
+        )
+        rpt = make_resource(
+            resource_id="model.pkg.rpt_summary",
+            resource_type="model",
+            resource_name="rpt_summary",
+            model_type="marts",
+        )
+        rels = [
+            make_relationship(
+                parent="model.pkg.dim_customers",
+                child="model.pkg.fct_orders",
+                parent_resource_type="model",
+                child_resource_type="model",
+                parent_model_type="marts",
+                child_model_type="marts",
+            ),
+            make_relationship(
+                parent="model.pkg.fct_orders",
+                child="model.pkg.rpt_summary",
+                parent_resource_type="model",
+                child_resource_type="model",
+                parent_model_type="marts",
+                child_model_type="marts",
+            ),
+        ]
+
+        violations = mart_depends_on_mart([dim, fct, rpt], rels, default_config)
+
+        assert len(violations) == 2
 
 
 class TestDuplicateMartConcepts:

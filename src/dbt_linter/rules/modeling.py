@@ -674,6 +674,56 @@ def intermediate_fanout(
 
 
 @rule(
+    id="modeling/mart-depends-on-mart",
+    description="Mart models depending on other mart models.",
+    rationale=(
+        "Building one mart on another mart requires careful consideration."
+        "\n\n"
+        "Mart-to-mart dependencies create tight coupling between "
+        "consumer-facing models. Changes to a parent mart can break "
+        "downstream marts without intermediate layers to absorb the impact. "
+        "Consider whether the child should depend on an intermediate instead."
+    ),
+    remediation=(
+        "Extract shared logic into an intermediate model. Have both "
+        "marts depend on the intermediate rather than on each other."
+    ),
+    exceptions=(
+        "Intentionally layered marts where one builds directly on "
+        "another (e.g., a reporting mart that aggregates a detail mart)."
+    ),
+)
+def mart_depends_on_mart(
+    resources: list[Resource],
+    relationships: list[Relationship],
+    config: RuleConfig,
+) -> list[Violation]:
+    edges = direct_edges(relationships)
+    resources_by_id = {r.resource_id: r for r in resources}
+
+    violations = []
+    for edge in edges:
+        if edge.parent_model_type == "marts" and edge.child_model_type == "marts":
+            child = resources_by_id.get(edge.child)
+            parent = resources_by_id.get(edge.parent)
+            violations.append(
+                Violation(
+                    rule_id="modeling/mart-depends-on-mart",
+                    resource_id=edge.child,
+                    resource_name=(child.resource_name if child else edge.child),
+                    message=(
+                        f"{child.resource_name if child else edge.child}:"
+                        f" mart depends on mart"
+                        f" {parent.resource_name if parent else edge.parent}"
+                    ),
+                    severity=config.severity,
+                    file_path=child.file_path if child else "",
+                )
+            )
+    return violations
+
+
+@rule(
     id="modeling/duplicate-mart-concepts",
     description="Same entity modeled in multiple mart subdirectories.",
     rationale=(

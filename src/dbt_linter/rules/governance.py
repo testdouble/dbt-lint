@@ -90,6 +90,38 @@ def undocumented_public_models(
 
 
 @rule(
+    id="governance/intermediate-public-access",
+    description="Intermediate models with public access.",
+    rationale=(
+        "Intermediate models should not have public access."
+        "\n\n"
+        "Intermediates are internal building blocks, not exposed to end users. "
+        "They should be materialized ephemerally or as views in a restricted "
+        "schema. Public access on an intermediate suggests a misconfigured "
+        "access level or a model that should be promoted to a mart."
+    ),
+    remediation=(
+        "Remove the access: public setting from the intermediate model. "
+        "If the model needs to be consumed externally, promote it to a "
+        "mart with appropriate contracts and documentation."
+    ),
+)
+def intermediate_public_access(
+    resource: Resource, config: RuleConfig
+) -> Violation | None:
+    if (
+        resource.resource_type == "model"
+        and resource.model_type == "intermediate"
+        and resource.is_public
+    ):
+        return Violation.from_resource(
+            resource,
+            f"{resource.resource_name}: intermediate model has public access",
+        )
+    return None
+
+
+@rule(
     id="governance/exposures-depend-on-private-models",
     description="Exposures with non-public model parents.",
     rationale=(

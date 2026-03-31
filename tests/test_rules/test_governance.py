@@ -2,6 +2,7 @@
 
 from dbt_linter.rules.governance import (
     exposures_depend_on_private_models,
+    intermediate_public_access,
     public_models_without_contract,
     undocumented_public_models,
 )
@@ -76,6 +77,48 @@ class TestUndocumentedPublicModels:
         )
 
         assert undocumented_public_models(resource, default_config) is None
+
+
+class TestIntermediatePublicAccess:
+    def test_flags_public_intermediate(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="model",
+            model_type="intermediate",
+            is_public=True,
+        )
+
+        violation = intermediate_public_access(resource, default_config)
+
+        assert violation is not None
+        assert "intermediate" in violation.message
+        assert "public" in violation.message
+
+    def test_clean_private_intermediate(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="model",
+            model_type="intermediate",
+            is_public=False,
+        )
+
+        assert intermediate_public_access(resource, default_config) is None
+
+    def test_clean_public_mart(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="model",
+            model_type="marts",
+            is_public=True,
+        )
+
+        assert intermediate_public_access(resource, default_config) is None
+
+    def test_skips_non_model(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="source",
+            model_type="intermediate",
+            is_public=True,
+        )
+
+        assert intermediate_public_access(resource, default_config) is None
 
 
 class TestExposuresDependOnPrivateModels:

@@ -2,6 +2,7 @@
 
 from dbt_linter.models import ColumnInfo
 from dbt_linter.rules.structure import (
+    check_yaml_colocation,
     column_naming_conventions,
     intermediate_materialization,
     marts_materialization,
@@ -166,6 +167,59 @@ class TestSourceDirectories:
         resource = make_resource(resource_type="model")
 
         assert source_directories(resource, default_config) is None
+
+
+class TestYamlColocation:
+    def test_flags_model_with_yaml_in_different_directory(
+        self, make_resource, default_config
+    ):
+        resource = make_resource(
+            resource_type="model",
+            file_path="models/staging/stripe/stg_payments.sql",
+            patch_path="project://models/marts/finance/models.yml",
+        )
+
+        violation = check_yaml_colocation(resource, default_config)
+
+        assert violation is not None
+        assert "models/staging/stripe" in violation.message
+        assert "models/marts/finance" in violation.message
+
+    def test_clean_when_yaml_colocated(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="model",
+            file_path="models/staging/stripe/stg_payments.sql",
+            patch_path="project://models/staging/stripe/_stripe__models.yml",
+        )
+
+        assert check_yaml_colocation(resource, default_config) is None
+
+    def test_skips_model_without_patch_path(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="model",
+            file_path="models/staging/stripe/stg_payments.sql",
+            patch_path="",
+        )
+
+        assert check_yaml_colocation(resource, default_config) is None
+
+    def test_skips_non_model_resources(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="source",
+            file_path="models/staging/stripe/sources.yml",
+            patch_path="project://models/marts/sources.yml",
+        )
+
+        assert check_yaml_colocation(resource, default_config) is None
+
+    def test_handles_nested_subdirectories(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="model",
+            file_path="models/staging/stripe/v2/stg_payments.sql",
+            patch_path="project://models/staging/stripe/v2/_v2__models.yml",
+        )
+
+        assert check_yaml_colocation(resource, default_config) is None
 
 
 class TestStagingMaterialization:

@@ -180,19 +180,31 @@ def source_directories(resource: Resource, config: RuleConfig) -> Violation | No
         "Test YAML should be colocated with the model it tests."
         "\n\n"
         "Each subdirectory should contain one YAML file with tests and "
-        "docs for all models in that directory."
-        "\n\n"
-        "Placeholder rule, not yet implemented."
+        "docs for all models in that directory. When YAML lives elsewhere, "
+        "the relationship between model and its tests is invisible in the "
+        "file tree."
     ),
     remediation=("Move test YAML into the same directory as the model(s) it tests."),
 )
-def test_directories(
-    resources: list[Resource],
-    relationships: list[Relationship],
-    config: RuleConfig,
-) -> list[Violation]:
-    # Unimplemented: checks test YAML colocation with tested models.
-    return []
+def check_yaml_colocation(resource: Resource, config: RuleConfig) -> Violation | None:
+    if resource.resource_type != "model" or not resource.patch_path:
+        return None
+    yaml_path = resource.patch_path.split("://", 1)[-1]
+    model_dir = resource.file_path.rsplit("/", 1)[0]
+    yaml_dir = yaml_path.rsplit("/", 1)[0]
+    if model_dir == yaml_dir:
+        return None
+    return Violation(
+        rule_id="structure/test-directories",
+        resource_id=resource.resource_id,
+        resource_name=resource.resource_name,
+        message=(
+            f"{resource.resource_name}: YAML in {yaml_dir}/"
+            f" but model is in {model_dir}/"
+        ),
+        severity=config.severity,
+        file_path=resource.file_path,
+    )
 
 
 @rule(

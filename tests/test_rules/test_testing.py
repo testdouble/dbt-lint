@@ -5,6 +5,7 @@ from dbt_linter.rules.testing import (
     missing_primary_key_tests,
     missing_relationship_tests,
     sources_without_freshness,
+    untested_models,
 )
 
 
@@ -174,3 +175,39 @@ class TestMissingRelationshipTests:
         violations = missing_relationship_tests([child], [], default_config)
 
         assert not violations
+
+
+class TestUntestedModels:
+    def test_flags_model_with_zero_tests(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="model",
+            number_of_tests=0,
+        )
+
+        result = untested_models(resource, default_config)
+
+        assert "no tests" in result.message
+
+    def test_clean_model_with_tests(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="model",
+            number_of_tests=3,
+        )
+
+        assert untested_models(resource, default_config) is None
+
+    def test_skips_sources(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="source",
+            number_of_tests=0,
+        )
+
+        assert untested_models(resource, default_config) is None
+
+    def test_skips_exposures(self, make_resource, default_config):
+        resource = make_resource(
+            resource_type="exposure",
+            number_of_tests=0,
+        )
+
+        assert untested_models(resource, default_config) is None

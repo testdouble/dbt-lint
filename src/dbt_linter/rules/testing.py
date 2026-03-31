@@ -1,4 +1,4 @@
-"""Testing rules: PK tests, freshness, test coverage."""
+"""Testing rules: PK tests, freshness, test coverage, untested models."""
 
 from __future__ import annotations
 
@@ -188,3 +188,31 @@ def check_test_coverage(
                 )
             )
     return violations
+
+
+@rule(
+    id="testing/untested-models",
+    description="Models with no generic tests.",
+    rationale=(
+        "Every model should have at least one generic test."
+        "\n\n"
+        "Models without any tests can accumulate data quality issues "
+        "that propagate silently through the DAG. While "
+        "testing/missing-primary-key-tests checks specifically for PK "
+        "uniqueness, this rule catches models that have been added to "
+        "the project but never wired into the testing YAML at all."
+    ),
+    remediation=(
+        "Add at minimum a unique + not_null test on the primary key "
+        "column in the model's YAML file."
+    ),
+)
+def untested_models(resource: Resource, config: RuleConfig) -> Violation | None:
+    if resource.resource_type != "model":
+        return None
+    if resource.number_of_tests > 0:
+        return None
+    return Violation.from_resource(
+        resource,
+        f"{resource.resource_name}: model has no tests",
+    )

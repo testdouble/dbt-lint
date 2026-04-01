@@ -44,7 +44,7 @@ def _validate_rule_signature(fn, rule_id: str) -> None:
     )
 
 
-def rule(
+def rule(  # noqa: PLR0913
     id: str,
     description: str,
     *,
@@ -131,7 +131,7 @@ def generate_rules_index() -> list[RuleInfo]:
 
 def get_all_rules() -> list[RuleDef]:
     """Discover all decorated rule functions across rule modules."""
-    from dbt_linter.rules import (
+    from dbt_linter.rules import (  # noqa: PLC0415
         documentation,
         governance,
         modeling,

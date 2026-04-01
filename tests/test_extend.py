@@ -1,6 +1,6 @@
 """Tests for the public API facade: dbt_linter.extend."""
 
-import dbt_linter.extend as extend
+from dbt_linter import extend
 
 
 class TestAllExports:

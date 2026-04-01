@@ -11,6 +11,8 @@ from typing import Any
 from dbt_linter.config import Config
 from dbt_linter.models import ColumnInfo, DirectEdge, Resource
 
+MIN_MANIFEST_SCHEMA_VERSION = 11
+
 
 def _check_schema_version(manifest: dict) -> None:
     """Validate manifest schema version is v11+. Exits if older or missing."""
@@ -20,10 +22,12 @@ def _check_schema_version(manifest: dict) -> None:
         sys.exit("Error: manifest.json missing metadata.dbt_schema_version")
 
     match = re.search(r"/v(\d+)", version_url)
-    if not match or int(match.group(1)) < 11:
+    if not match or int(match.group(1)) < MIN_MANIFEST_SCHEMA_VERSION:
         sys.exit(
-            f"Error: manifest schema {version_url} is below v11. "
-            "dbt-linter requires dbt 1.6+ (manifest v11+)."
+            f"Error: manifest schema {version_url} is below"
+            f" v{MIN_MANIFEST_SCHEMA_VERSION}."
+            f" dbt-linter requires dbt 1.6+"
+            f" (manifest v{MIN_MANIFEST_SCHEMA_VERSION}+)."
         )
 
 

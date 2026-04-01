@@ -6,6 +6,9 @@ from dbt_linter.config import RuleConfig
 from dbt_linter.models import Relationship, Resource, Violation
 from dbt_linter.rules import direct_edges, group_by, rule
 
+MIN_DUPLICATE_MART_NAMES = 2
+MIN_PARENTS_FOR_DEPENDENCY_TRIAD = 2
+
 
 @rule(
     id="modeling/direct-join-to-source",
@@ -751,7 +754,7 @@ def duplicate_mart_concepts(
 
     violations = []
     for name, group in by_name.items():
-        if len(group) < 2:
+        if len(group) < MIN_DUPLICATE_MART_NAMES:
             continue
         dirs = {r.file_path.rsplit("/", 1)[0] for r in group}
         if len(dirs) > 1:
@@ -813,7 +816,7 @@ def rejoining_upstream_concepts(
 
     for child_id, child_edges in by_child.items():
         parent_ids = {e.parent for e in child_edges}
-        if len(parent_ids) < 2:
+        if len(parent_ids) < MIN_PARENTS_FOR_DEPENDENCY_TRIAD:
             continue
 
         # For each parent of child, check if that parent also has

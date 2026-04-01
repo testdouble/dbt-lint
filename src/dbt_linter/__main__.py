@@ -145,7 +145,7 @@ def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
     default=None,
     help="Write output to file instead of stdout (use with --generate-baseline).",
 )
-def main(
+def main(  # noqa: PLR0913
     manifest: Path | None,
     config: Path | None,
     output_format: str,

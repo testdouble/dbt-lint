@@ -43,7 +43,10 @@ class TestDefaults:
 class TestLoadConfig:
     def test_load_defaults_when_no_file(self):
         config = load_config(None)
-        assert config.params["models_fanout_threshold"] == 3
+        assert (
+            config.params["models_fanout_threshold"]
+            == DEFAULTS["models_fanout_threshold"]
+        )
 
     def test_load_from_yaml(self, tmp_path: Path):
         config_file = tmp_path / "dbt_linter.yml"
@@ -57,7 +60,10 @@ class TestLoadConfig:
         assert config.params["models_fanout_threshold"] == 5
         assert config.params["too_many_joins_threshold"] == 10
         # Non-overridden defaults preserved
-        assert config.params["chained_views_threshold"] == 5
+        assert (
+            config.params["chained_views_threshold"]
+            == DEFAULTS["chained_views_threshold"]
+        )
 
     def test_load_with_rule_overrides(self, tmp_path: Path):
         config_file = tmp_path / "dbt_linter.yml"
@@ -96,7 +102,10 @@ class TestLoadConfig:
         config_file = tmp_path / "dbt_linter.yml"
         config_file.write_text("")
         config = load_config(config_file)
-        assert config.params["models_fanout_threshold"] == 3
+        assert (
+            config.params["models_fanout_threshold"]
+            == DEFAULTS["models_fanout_threshold"]
+        )
 
 
 class TestRuleConfig:

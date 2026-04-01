@@ -12,6 +12,8 @@ from dbt_linter.__main__ import main
 from dbt_linter.rules import get_all_rules
 from helpers import fixture_manifest_dict
 
+EXIT_COMMAND_SYNTAX_ERROR = 2
+
 
 def _write_manifest(tmp_path: Path) -> Path:
     """Write the shared fixture manifest to disk."""
@@ -32,14 +34,14 @@ class TestCliBasic:
     def test_missing_manifest_exits_2(self, tmp_path):
         runner = CliRunner()
         result = runner.invoke(main, [str(tmp_path / "nonexistent.json")])
-        assert result.exit_code == 2
+        assert result.exit_code == EXIT_COMMAND_SYNTAX_ERROR
 
     def test_invalid_manifest_exits_2(self, tmp_path):
         bad = tmp_path / "bad.json"
         bad.write_text("not json")
         runner = CliRunner()
         result = runner.invoke(main, [str(bad)])
-        assert result.exit_code == 2
+        assert result.exit_code == EXIT_COMMAND_SYNTAX_ERROR
 
 
 class TestCliFormats:
@@ -301,7 +303,7 @@ class TestCliListRules:
     def test_manifest_still_required_without_flag(self):
         runner = CliRunner()
         result = runner.invoke(main, [])
-        assert result.exit_code == 2
+        assert result.exit_code == EXIT_COMMAND_SYNTAX_ERROR
 
 
 class TestCliGenerateBaseline:

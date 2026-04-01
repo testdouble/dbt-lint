@@ -1,6 +1,6 @@
 """Unit tests for rule engine: dispatch, exclusion, finalization, fail-fast."""
 
-from dbt_linter.config import Config
+from dbt_linter.config import DEFAULTS, Config
 from dbt_linter.engine import evaluate
 from dbt_linter.models import Violation
 from dbt_linter.rules import RuleDef
@@ -36,7 +36,7 @@ def _make_rule(
 ) -> RuleDef:
     return RuleDef(
         id=rule_id,
-        category=rule_id.split("/")[0],
+        category=rule_id.split("/", maxsplit=1)[0],
         description=f"stub {rule_id}",
         fn=fn,
         is_per_resource=is_per_resource,
@@ -45,7 +45,6 @@ def _make_rule(
 
 def _default_config(**rule_overrides) -> Config:
     """Build a Config directly, without touching YAML or DEFAULTS."""
-    from dbt_linter.config import DEFAULTS
 
     return Config(
         params={**DEFAULTS},

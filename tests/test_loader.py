@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from dbt_linter.config import Config, CustomRuleEntry, load_config
+from dbt_linter.config import DEFAULTS, Config, CustomRuleEntry, load_config
 from dbt_linter.loader import (
     _synthetic_module_name,
     load_custom_rules,
@@ -22,8 +22,6 @@ def _write_rule_file(path: Path, content: str) -> None:
 
 def _config_with_custom(tmp_path: Path, entries: list[CustomRuleEntry]) -> Config:
     """Build a Config with custom rule entries rooted at tmp_path."""
-    from dbt_linter.config import DEFAULTS
-
     return Config(
         params={**DEFAULTS},
         include=None,
@@ -258,8 +256,6 @@ class TestValidationErrors:
             load_custom_rules(config)
 
     def test_no_config_dir_raises(self):
-        from dbt_linter.config import DEFAULTS
-
         config = Config(
             params={**DEFAULTS},
             include=None,

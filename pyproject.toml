@@ -33,4 +33,25 @@ testpaths = ["tests"]
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "D300"]
+select = [
+  "B",     # flake8-bugbear
+  "SIM",   # flake8-simplify
+  "I",     # isort
+  "E",     # pycodestyle-errors
+  "D300",  # pydocstyle: tripple-single-quotes
+  "F",     # pyflakes
+  "PLC",   # pylint-convention
+  "PLE",   # pylint-error
+  "PLR",   # pylint-refactor
+  "PLW",   # pylint-warning
+  "UP",    # pyupgrade
+  "RUF",   # ruff
+]
+extend-ignore = [
+  "E501", # pycodestyle: line-too-long
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+  "PLR2004", # pylint: magic-value-comparison
+]

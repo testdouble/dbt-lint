@@ -95,8 +95,8 @@ class TestSignatureDetection:
 class TestGroupBy:
     def test_groups_items(self):
         items = [("a", 1), ("b", 2), ("a", 3)]
-        result = group_by(items, key=lambda x: x[0])
-        assert result == {"a": [("a", 1), ("a", 3)], "b": [("b", 2)]}
+        grouped = group_by(items, key=lambda x: x[0])
+        assert grouped == {"a": [("a", 1), ("a", 3)], "b": [("b", 2)]}
 
     def test_empty_input(self):
         assert not group_by([], key=lambda x: x)
@@ -109,9 +109,9 @@ class TestFilterByModelType:
             make_resource(model_type="marts"),
             make_resource(model_type="staging"),
         ]
-        result = filter_by_model_type(resources, "staging")
-        assert len(result) == 2
-        assert all(r.model_type == "staging" for r in result)
+        filtered = filter_by_model_type(resources, "staging")
+        assert len(filtered) == 2
+        assert all(r.model_type == "staging" for r in filtered)
 
     def test_no_matches(self, make_resource):
         resources = [make_resource(model_type="marts")]
@@ -125,6 +125,6 @@ class TestDirectEdges:
             make_relationship(distance=2),
             make_relationship(distance=1),
         ]
-        result = direct_edges(rels)
-        assert len(result) == 2
-        assert all(r.distance == 1 for r in result)
+        filtered = direct_edges(rels)
+        assert len(filtered) == 2
+        assert all(r.distance == 1 for r in filtered)

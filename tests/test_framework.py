@@ -8,6 +8,7 @@ from dbt_linter.rules import (
     direct_edges,
     filter_by_model_type,
     group_by,
+    resources_by_id,
     rule,
 )
 
@@ -116,6 +117,24 @@ class TestFilterByModelType:
     def test_no_matches(self, make_resource):
         resources = [make_resource(model_type="marts")]
         assert not filter_by_model_type(resources, "staging")
+
+
+class TestResourcesById:
+    def test_indexes_by_id(self, make_resource):
+        orders = make_resource(resource_id="model.pkg.orders")
+        customers = make_resource(resource_id="model.pkg.customers")
+        by_id = resources_by_id([orders, customers])
+        assert by_id["model.pkg.orders"] is orders
+        assert by_id["model.pkg.customers"] is customers
+
+    def test_empty_input(self):
+        assert resources_by_id([]) == {}
+
+    def test_duplicate_ids_last_wins(self, make_resource):
+        original = make_resource(resource_id="model.pkg.orders", resource_name="first")
+        replacement = make_resource(resource_id="model.pkg.orders", resource_name="second")
+        by_id = resources_by_id([original, replacement])
+        assert by_id["model.pkg.orders"].resource_name == "second"
 
 
 class TestDirectEdges:

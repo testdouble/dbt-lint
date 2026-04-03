@@ -173,3 +173,8 @@ def direct_edges(
 ) -> list[Relationship]:
     """Filter to distance=1 relationships."""
     return [r for r in relationships if r.distance == 1]
+
+
+def resources_by_id(resources: list[Resource]) -> dict[str, Resource]:
+    """Index resources by resource_id. Last wins on duplicate IDs."""
+    return {r.resource_id: r for r in resources}

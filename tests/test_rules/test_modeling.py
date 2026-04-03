@@ -99,9 +99,7 @@ class TestDownstreamDependsOnSource:
 
 
 class TestStagingDependsOnStaging:
-    def test_flags_staging_to_staging(
-        self, make_resource, make_relationship, default_config
-    ):
+    def test_flags_staging_to_staging(self, make_relationship, default_config):
         rels = [
             make_relationship(
                 parent="model.pkg.stg_a",
@@ -117,9 +115,7 @@ class TestStagingDependsOnStaging:
 
 
 class TestStagingDependsOnDownstream:
-    def test_flags_staging_depending_on_marts(
-        self, make_resource, make_relationship, default_config
-    ):
+    def test_flags_staging_depending_on_marts(self, make_relationship, default_config):
         rels = [
             make_relationship(
                 parent="model.pkg.fct_x",

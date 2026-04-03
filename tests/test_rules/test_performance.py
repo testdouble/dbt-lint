@@ -154,6 +154,7 @@ class TestIncrementalMissingUniqueKey:
 
         result = incremental_missing_unique_key(resource, default_config)
 
+        assert result is not None
         assert "unique_key" in result.message
 
     def test_clean_incremental_with_unique_key(self, make_resource, default_config):

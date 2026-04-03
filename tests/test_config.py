@@ -59,7 +59,6 @@ class TestLoadConfig:
         config = load_config(config_file)
         assert config.params["models_fanout_threshold"] == 5
         assert config.params["too_many_joins_threshold"] == 10
-        # Non-overridden defaults preserved
         assert (
             config.params["chained_views_threshold"]
             == DEFAULTS["chained_views_threshold"]
@@ -289,38 +288,40 @@ class TestMatchesPathFilter:
         assert matches_path_filter("models/staging/stg_orders.sql", None, None) is True
 
     def test_include_matches(self):
-        result = matches_path_filter(
-            "models/staging/stg_orders.sql", "models/staging", None
+        assert (
+            matches_path_filter("models/staging/stg_orders.sql", "models/staging", None)
+            is True
         )
-        assert result is True
 
     def test_include_no_match(self):
-        result = matches_path_filter(
-            "models/marts/fct_orders.sql", "models/staging", None
+        assert (
+            matches_path_filter("models/marts/fct_orders.sql", "models/staging", None)
+            is False
         )
-        assert result is False
 
     def test_exclude_matches(self):
-        result = matches_path_filter(
-            "models/staging/stg_legacy.sql",
-            None,
-            "models/staging/stg_legacy",
+        assert (
+            matches_path_filter(
+                "models/staging/stg_legacy.sql", None, "models/staging/stg_legacy"
+            )
+            is False
         )
-        assert result is False
 
     def test_exclude_no_match(self):
-        result = matches_path_filter(
-            "models/staging/stg_orders.sql", None, "models/marts"
+        assert (
+            matches_path_filter("models/staging/stg_orders.sql", None, "models/marts")
+            is True
         )
-        assert result is True
 
     def test_include_and_exclude(self):
-        result = matches_path_filter(
-            "models/staging/stg_legacy.sql",
-            "models/staging",
-            "models/staging/stg_legacy",
+        assert (
+            matches_path_filter(
+                "models/staging/stg_legacy.sql",
+                "models/staging",
+                "models/staging/stg_legacy",
+            )
+            is False
         )
-        assert result is False
 
     def test_regex_pattern(self):
         pattern = r"models/staging/stg_\w+\.sql"

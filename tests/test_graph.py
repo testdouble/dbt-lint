@@ -97,7 +97,6 @@ class TestIsolatedNodes:
 
         ids_in_rels = {(r.parent, r.child) for r in rels}
         assert ("model.pkg.a", "model.pkg.b") in ids_in_rels
-        # node_c should not appear in any relationship
         assert all(r.parent != "model.pkg.c" and r.child != "model.pkg.c" for r in rels)
 
 

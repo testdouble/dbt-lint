@@ -130,7 +130,9 @@ def documentation_coverage(
 ) -> list[Violation]:
     target = config.params.get("documentation_coverage_target", 100)
     violations = []
-    model_types = sorted({r.model_type for r in resources if r.resource_type == "model"})
+    model_types = sorted(
+        {r.model_type for r in resources if r.resource_type == "model"}
+    )
 
     for model_type in model_types:
         models = filter_by_model_type(

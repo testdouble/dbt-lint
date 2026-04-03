@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import types
 from pathlib import Path
 
 from dbt_linter.config import Config
@@ -24,7 +25,7 @@ def _synthetic_module_name(source_path: Path, config_dir: Path) -> str:
     return "dbt_linter_custom." + ".".join(parts)
 
 
-def _import_module(source_path: Path, module_name: str):
+def _import_module(source_path: Path, module_name: str) -> types.ModuleType:
     """Import a Python file as a module with the given synthetic name."""
     if module_name in sys.modules:
         return sys.modules[module_name]

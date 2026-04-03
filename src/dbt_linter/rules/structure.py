@@ -158,7 +158,8 @@ def source_directories(resource: Resource, config: RuleConfig) -> Violation | No
     if resource.resource_type != "source":
         return None
     staging_folder = config.params.get("staging_folder_name", "staging")
-    if f"/{staging_folder}/" not in f"/{resource.file_path}":
+    path = f"/{resource.file_path}"
+    if f"/{staging_folder}/" not in path:
         return Violation(
             rule_id="structure/source-directories",
             resource_id=resource.resource_id,

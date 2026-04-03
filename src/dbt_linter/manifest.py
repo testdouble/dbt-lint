@@ -160,7 +160,7 @@ def _model_to_resource(
     file_path = node["original_file_path"]
     node_config = node.get("config", {})
     meta = node_config.get("meta", {})
-    columns_dict = node.get("columns", {})
+    columns = _columns_to_tuple(node.get("columns", {}))
     tests = test_index.get(unique_id, [])
     raw_code = node.get("raw_code", "")
 
@@ -177,10 +177,8 @@ def _model_to_resource(
         is_public=node.get("access") == "public",
         is_contract_enforced=bool(node.get("contract", {}).get("enforced")),
         hard_coded_references=_has_hard_coded_references(raw_code),
-        number_of_columns=len(columns_dict),
-        number_of_documented_columns=sum(
-            1 for c in columns_dict.values() if c.get("description", "")
-        ),
+        number_of_columns=len(columns),
+        number_of_documented_columns=sum(1 for c in columns if c.is_described),
         is_freshness_enabled=False,
         number_of_tests=len(tests),
         is_primary_key_tested=_is_primary_key_tested(
@@ -193,7 +191,7 @@ def _model_to_resource(
         skip_rules=_extract_skip_rules(meta),
         raw_code=raw_code,
         config=node_config,
-        columns=_columns_to_tuple(columns_dict),
+        columns=columns,
     )
 
 

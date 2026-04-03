@@ -100,8 +100,8 @@ def load_config(path: Path | None) -> Config:
     """Load config from YAML file, falling back to defaults."""
     raw = (yaml.safe_load(path.read_text()) or {}) if path is not None else {}
 
-    merged = {**DEFAULTS, **raw}
-    rule_overrides = merged.pop("rules", {})
+    params = {**DEFAULTS, **raw}
+    rule_overrides = params.pop("rules", {})
 
     # Separate custom rule entries (those with source:) from built-in overrides.
     # Both types get their overrides stored in all_overrides for rule_config().
@@ -127,9 +127,9 @@ def load_config(path: Path | None) -> Config:
     config_dir = path.parent if path is not None else None
 
     return Config(
-        params=merged,
-        include=merged.get("include"),
-        exclude=merged.get("exclude"),
+        params=params,
+        include=params.get("include"),
+        exclude=params.get("exclude"),
         config_dir=config_dir,
         _rule_overrides=all_overrides,
         _custom_rule_entries=custom_entries,

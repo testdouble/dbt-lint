@@ -28,10 +28,9 @@ def evaluate(
     rules: list[RuleDef] | None = None,
 ) -> EvaluationResult:
     """Run all enabled rules and collect violations."""
-    if rules is not None:
-        all_rules = rules
-    else:
-        all_rules = get_all_rules() + load_custom_rules(config)
+    all_rules = (
+        rules if rules is not None else get_all_rules() + load_custom_rules(config)
+    )
     result = EvaluationResult()
     for rule_def in all_rules:
         rule_config = config.rule_config(rule_def.id)

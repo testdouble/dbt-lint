@@ -21,7 +21,6 @@ DEFAULTS: dict[str, Any] = {
     "too_many_joins_threshold": 5,
     "chained_views_threshold": 5,
     # Model types and prefixes
-    "model_types": ["base", "staging", "intermediate", "marts", "other"],
     "staging_prefixes": ["stg_"],
     "intermediate_prefixes": ["int_"],
     "marts_prefixes": [],
@@ -39,7 +38,6 @@ DEFAULTS: dict[str, Any] = {
     # Include/exclude (regex on original_file_path)
     "include": None,
     "exclude": None,
-    "exclude_packages": [],
     # Testing
     "primary_key_test_macros": [
         ["dbt.test_unique", "dbt.test_not_null"],

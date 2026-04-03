@@ -306,16 +306,15 @@ def mart_depends_on_mart(
     for edge in edges:
         if edge.parent_model_type == "marts" and edge.child_model_type == "marts":
             child = by_id.get(edge.child)
-            parent = by_id.get(edge.parent)
             violations.append(
                 Violation(
                     rule_id="modeling/mart-depends-on-mart",
                     resource_id=edge.child,
                     resource_name=resolve_name(by_id, edge.child),
                     message=(
-                        f"{child.resource_name if child else edge.child}:"
+                        f"{resolve_name(by_id, edge.child)}:"
                         f" mart depends on mart"
-                        f" {parent.resource_name if parent else edge.parent}"
+                        f" {resolve_name(by_id, edge.parent)}"
                     ),
                     severity=config.severity,
                     file_path=child.file_path if child else "",

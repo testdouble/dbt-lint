@@ -165,7 +165,7 @@ def check_test_coverage(
     target = config.params.get("test_coverage_target", 100)
     violations = []
     model_types = sorted(
-        {r.model_type for r in resources if r.resource_type == "model"}
+        {r.model_type for r in resources if r.resource_type == "model" and r.model_type}
     )
 
     for model_type in model_types:

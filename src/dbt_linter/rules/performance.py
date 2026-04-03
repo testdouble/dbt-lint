@@ -160,5 +160,5 @@ def incremental_missing_unique_key(
         return None
     return Violation.from_resource(
         resource,
-        f"{resource.resource_id}: incremental model missing unique_key config",
+        f"{resource.resource_name}: incremental model missing unique_key config",
     )

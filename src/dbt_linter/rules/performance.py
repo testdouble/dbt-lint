@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dbt_linter.config import RuleConfig
 from dbt_linter.models import Relationship, Resource, Violation
-from dbt_linter.rules import direct_edges, resources_by_id, rule
+from dbt_linter.rules import direct_edges, resolve_name, resources_by_id, rule
 
 
 @rule(
@@ -53,7 +53,7 @@ def chained_views(
                 Violation(
                     rule_id="performance/chained-views",
                     resource_id=rel.child,
-                    resource_name=(child.resource_name if child else rel.child),
+                    resource_name=resolve_name(by_id, rel.child),
                     message=(
                         f"{rel.child}: view chain depth {rel.distance}"
                         f" exceeds threshold {threshold}"
@@ -111,7 +111,7 @@ def exposure_parent_materializations(
                 Violation(
                     rule_id="performance/exposure-parent-materializations",
                     resource_id=edge.child,
-                    resource_name=(exposure.resource_name if exposure else edge.child),
+                    resource_name=resolve_name(by_id, edge.child),
                     message=(
                         f"{edge.child}: exposure depends on"
                         f" {parent.resource_name}"

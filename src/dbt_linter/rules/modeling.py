@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dbt_linter.config import RuleConfig
 from dbt_linter.models import Relationship, Resource, Violation
-from dbt_linter.rules import direct_edges, group_by, resources_by_id, rule
+from dbt_linter.rules import direct_edges, group_by, resolve_name, resources_by_id, rule
 
 MIN_DUPLICATE_MART_NAMES = 2
 MIN_PARENTS_FOR_DEPENDENCY_TRIAD = 2
@@ -49,7 +49,7 @@ def direct_join_to_source(
                 Violation(
                     rule_id="modeling/direct-join-to-source",
                     resource_id=child_id,
-                    resource_name=(child.resource_name if child else child_id),
+                    resource_name=resolve_name(by_id, child_id),
                     message=(
                         f"{child_id}: joins both source and model parents directly"
                     ),
@@ -96,7 +96,7 @@ def downstream_depends_on_source(
                 Violation(
                     rule_id="modeling/downstream-depends-on-source",
                     resource_id=edge.child,
-                    resource_name=(child.resource_name if child else edge.child),
+                    resource_name=resolve_name(by_id, edge.child),
                     message=(
                         f"{edge.child}: {edge.child_model_type} model"
                         " depends directly on source"
@@ -140,7 +140,7 @@ def staging_depends_on_staging(
                 Violation(
                     rule_id="modeling/staging-depends-on-staging",
                     resource_id=edge.child,
-                    resource_name=(child.resource_name if child else edge.child),
+                    resource_name=resolve_name(by_id, edge.child),
                     message=(
                         f"{edge.child}: staging model depends"
                         f" on staging model {edge.parent}"
@@ -187,7 +187,7 @@ def staging_depends_on_downstream(
                 Violation(
                     rule_id="modeling/staging-depends-on-downstream",
                     resource_id=edge.child,
-                    resource_name=(child.resource_name if child else edge.child),
+                    resource_name=resolve_name(by_id, edge.child),
                     message=(
                         f"{edge.child}: staging model depends on"
                         f" {edge.parent_model_type} model {edge.parent}"
@@ -403,7 +403,7 @@ def multiple_sources_joined(
                 Violation(
                     rule_id="modeling/multiple-sources-joined",
                     resource_id=child_id,
-                    resource_name=(child.resource_name if child else child_id),
+                    resource_name=resolve_name(by_id, child_id),
                     message=(f"{child_id}: joins {len(parents)} sources directly"),
                     severity=config.severity,
                     file_path=child.file_path if child else "",
@@ -456,7 +456,7 @@ def source_fanout(
                 Violation(
                     rule_id="modeling/source-fanout",
                     resource_id=parent_id,
-                    resource_name=(parent.resource_name if parent else parent_id),
+                    resource_name=resolve_name(by_id, parent_id),
                     message=(f"{parent_id}: fans out to {len(unique_children)} models"),
                     severity=config.severity,
                     file_path=parent.file_path if parent else "",
@@ -507,7 +507,7 @@ def model_fanout(
                 Violation(
                     rule_id="modeling/model-fanout",
                     resource_id=parent_id,
-                    resource_name=(parent.resource_name if parent else parent_id),
+                    resource_name=resolve_name(by_id, parent_id),
                     message=(
                         f"{parent_id}: fans out to"
                         f" {len(unique_children)} dependents"
@@ -556,7 +556,7 @@ def too_many_joins(
                 Violation(
                     rule_id="modeling/too-many-joins",
                     resource_id=child_id,
-                    resource_name=(child.resource_name if child else child_id),
+                    resource_name=resolve_name(by_id, child_id),
                     message=(
                         f"{child_id}: {len(parents)} parents (threshold: {threshold})"
                     ),
@@ -608,7 +608,7 @@ def staging_model_too_many_parents(
                 Violation(
                     rule_id="modeling/staging-model-too-many-parents",
                     resource_id=child_id,
-                    resource_name=(child.resource_name if child else child_id),
+                    resource_name=resolve_name(by_id, child_id),
                     message=(
                         f"{child_id}: staging model has"
                         f" {len(unique_parents)} parents"
@@ -663,7 +663,7 @@ def intermediate_fanout(
                 Violation(
                     rule_id="modeling/intermediate-fanout",
                     resource_id=parent_id,
-                    resource_name=(parent.resource_name if parent else parent_id),
+                    resource_name=resolve_name(by_id, parent_id),
                     message=(
                         f"{parent_id}: intermediate model fans out to"
                         f" {len(unique_children)} dependents"
@@ -713,7 +713,7 @@ def mart_depends_on_mart(
                 Violation(
                     rule_id="modeling/mart-depends-on-mart",
                     resource_id=edge.child,
-                    resource_name=(child.resource_name if child else edge.child),
+                    resource_name=resolve_name(by_id, edge.child),
                     message=(
                         f"{child.resource_name if child else edge.child}:"
                         f" mart depends on mart"
@@ -834,7 +834,7 @@ def rejoining_upstream_concepts(
                     Violation(
                         rule_id="modeling/rejoining-upstream-concepts",
                         resource_id=child_id,
-                        resource_name=(child.resource_name if child else child_id),
+                        resource_name=resolve_name(by_id, child_id),
                         message=(
                             f"{child_id}: rejoins {ancestor_id}"
                             f" (already consumed via {mid_id})"

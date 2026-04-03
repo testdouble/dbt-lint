@@ -178,3 +178,9 @@ def direct_edges(
 def resources_by_id(resources: list[Resource]) -> dict[str, Resource]:
     """Index resources by resource_id. Last wins on duplicate IDs."""
     return {r.resource_id: r for r in resources}
+
+
+def resolve_name(by_id: dict[str, Resource], resource_id: str) -> str:
+    """Return the human-readable name for a resource_id, falling back to the raw ID."""
+    resource = by_id.get(resource_id)
+    return resource.resource_name if resource else resource_id

@@ -8,6 +8,7 @@ from dbt_linter.rules import (
     direct_edges,
     filter_by_model_type,
     group_by,
+    resolve_name,
     resources_by_id,
     rule,
 )
@@ -132,9 +133,24 @@ class TestResourcesById:
 
     def test_duplicate_ids_last_wins(self, make_resource):
         original = make_resource(resource_id="model.pkg.orders", resource_name="first")
-        replacement = make_resource(resource_id="model.pkg.orders", resource_name="second")
+        replacement = make_resource(
+            resource_id="model.pkg.orders", resource_name="second"
+        )
         by_id = resources_by_id([original, replacement])
         assert by_id["model.pkg.orders"].resource_name == "second"
+
+
+class TestResolveName:
+    def test_found_returns_name(self, make_resource):
+        orders = make_resource(resource_id="model.pkg.orders", resource_name="orders")
+        by_id = resources_by_id([orders])
+        assert resolve_name(by_id, "model.pkg.orders") == "orders"
+
+    def test_missing_returns_raw_id(self):
+        assert resolve_name({}, "model.pkg.unknown") == "model.pkg.unknown"
+
+    def test_empty_dict(self):
+        assert resolve_name({}, "anything") == "anything"
 
 
 class TestDirectEdges:

@@ -237,8 +237,9 @@ class TestColumnsToTuple:
         assert result[0].name == "order_id"
 
 
-def _model_node():
-    """Shared model node fixture data for TestModelToResource* classes."""
+@pytest.fixture
+def model_node():
+    """Shared model node fixture for TestModelToResource* classes."""
     return {
         "unique_id": "model.pkg.stg_orders",
         "name": "stg_orders",
@@ -263,8 +264,9 @@ def _model_node():
     }
 
 
-def _test_index():
-    """Shared test index fixture data for TestModelToResource* classes."""
+@pytest.fixture
+def test_index():
+    """Shared test index fixture for TestModelToResource* classes."""
     return {
         "model.pkg.stg_orders": [
             {"name": "unique", "namespace": "dbt", "kwargs": {}},
@@ -275,14 +277,6 @@ def _test_index():
 
 class TestModelToResourceFields:
     """Basic model fields: identity, classification, access, metadata."""
-
-    @pytest.fixture
-    def model_node(self):
-        return _model_node()
-
-    @pytest.fixture
-    def test_index(self):
-        return _test_index()
 
     def test_basic_fields(self, model_node, test_index):
         resource = _model_to_resource(model_node, test_index, DEFAULTS)
@@ -332,14 +326,6 @@ class TestModelToResourceFields:
 class TestModelToResourceConversion:
     """Data conversion: raw code, config, columns, hard-coded references."""
 
-    @pytest.fixture
-    def model_node(self):
-        return _model_node()
-
-    @pytest.fixture
-    def test_index(self):
-        return _test_index()
-
     def test_hard_coded_references_false(self, model_node, test_index):
         resource = _model_to_resource(model_node, test_index, DEFAULTS)
         assert resource.hard_coded_references is False
@@ -383,14 +369,6 @@ class TestModelToResourceConversion:
 
 class TestModelToResourceTests:
     """Test-related fields: column counts, PK tests, relationship tests."""
-
-    @pytest.fixture
-    def model_node(self):
-        return _model_node()
-
-    @pytest.fixture
-    def test_index(self):
-        return _test_index()
 
     def test_column_counts(self, model_node, test_index):
         resource = _model_to_resource(model_node, test_index, DEFAULTS)

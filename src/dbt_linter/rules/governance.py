@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dbt_linter.config import RuleConfig
 from dbt_linter.models import Relationship, Resource, Violation
-from dbt_linter.rules import direct_edges, group_by, rule
+from dbt_linter.rules import direct_edges, group_by, resources_by_id, rule
 
 
 @rule(
@@ -146,18 +146,18 @@ def exposures_depend_on_private_models(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
     edges = direct_edges(relationships)
     exposure_edges = [e for e in edges if e.child_resource_type == "exposure"]
 
     violations = []
     by_exposure = group_by(exposure_edges, key=lambda e: e.child)
     for exposure_id, parents in by_exposure.items():
-        exposure = resources_by_id.get(exposure_id)
+        exposure = by_id.get(exposure_id)
         if not exposure:
             continue
         for edge in parents:
-            parent = resources_by_id.get(edge.parent)
+            parent = by_id.get(edge.parent)
             if parent and parent.resource_type == "model" and not parent.is_public:
                 violations.append(
                     Violation(

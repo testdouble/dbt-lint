@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dbt_linter.config import RuleConfig
 from dbt_linter.models import Relationship, Resource, Violation
-from dbt_linter.rules import direct_edges, group_by, rule
+from dbt_linter.rules import direct_edges, group_by, resources_by_id, rule
 
 MIN_DUPLICATE_MART_NAMES = 2
 MIN_PARENTS_FOR_DEPENDENCY_TRIAD = 2
@@ -40,11 +40,11 @@ def direct_join_to_source(
     by_child = group_by(model_children, key=lambda e: e.child)
 
     violations = []
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
     for child_id, parents in by_child.items():
         parent_types = {e.parent_resource_type for e in parents}
         if "source" in parent_types and "model" in parent_types:
-            child = resources_by_id.get(child_id)
+            child = by_id.get(child_id)
             violations.append(
                 Violation(
                     rule_id="modeling/direct-join-to-source",
@@ -83,7 +83,7 @@ def downstream_depends_on_source(
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     violations = []
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
 
     for edge in edges:
         if (
@@ -91,7 +91,7 @@ def downstream_depends_on_source(
             and edge.child_resource_type == "model"
             and edge.child_model_type in ("intermediate", "marts")
         ):
-            child = resources_by_id.get(edge.child)
+            child = by_id.get(edge.child)
             violations.append(
                 Violation(
                     rule_id="modeling/downstream-depends-on-source",
@@ -131,11 +131,11 @@ def staging_depends_on_staging(
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     violations = []
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
 
     for edge in edges:
         if edge.parent_model_type == "staging" and edge.child_model_type == "staging":
-            child = resources_by_id.get(edge.child)
+            child = by_id.get(edge.child)
             violations.append(
                 Violation(
                     rule_id="modeling/staging-depends-on-staging",
@@ -175,14 +175,14 @@ def staging_depends_on_downstream(
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     violations = []
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
 
     for edge in edges:
         if edge.child_model_type == "staging" and edge.parent_model_type in (
             "intermediate",
             "marts",
         ):
-            child = resources_by_id.get(edge.child)
+            child = by_id.get(edge.child)
             violations.append(
                 Violation(
                     rule_id="modeling/staging-depends-on-downstream",
@@ -395,10 +395,10 @@ def multiple_sources_joined(
     by_child = group_by(source_edges, key=lambda e: e.child)
 
     violations = []
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
     for child_id, parents in by_child.items():
         if len(parents) > 1:
-            child = resources_by_id.get(child_id)
+            child = by_id.get(child_id)
             violations.append(
                 Violation(
                     rule_id="modeling/multiple-sources-joined",
@@ -447,11 +447,11 @@ def source_fanout(
     by_parent = group_by(source_edges, key=lambda e: e.parent)
 
     violations = []
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
     for parent_id, children in by_parent.items():
         unique_children = {e.child for e in children}
         if len(unique_children) > 1:
-            parent = resources_by_id.get(parent_id)
+            parent = by_id.get(parent_id)
             violations.append(
                 Violation(
                     rule_id="modeling/source-fanout",
@@ -498,11 +498,11 @@ def model_fanout(
     by_parent = group_by(model_edges, key=lambda e: e.parent)
 
     violations = []
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
     for parent_id, children in by_parent.items():
         unique_children = {e.child for e in children}
         if len(unique_children) >= threshold:
-            parent = resources_by_id.get(parent_id)
+            parent = by_id.get(parent_id)
             violations.append(
                 Violation(
                     rule_id="modeling/model-fanout",
@@ -548,10 +548,10 @@ def too_many_joins(
     by_child = group_by(model_children, key=lambda e: e.child)
 
     violations = []
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
     for child_id, parents in by_child.items():
         if len(parents) >= threshold:
-            child = resources_by_id.get(child_id)
+            child = by_id.get(child_id)
             violations.append(
                 Violation(
                     rule_id="modeling/too-many-joins",
@@ -599,11 +599,11 @@ def staging_model_too_many_parents(
     by_child = group_by(staging_edges, key=lambda e: e.child)
 
     violations = []
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
     for child_id, parents in by_child.items():
         unique_parents = {e.parent for e in parents}
         if len(unique_parents) > threshold:
-            child = resources_by_id.get(child_id)
+            child = by_id.get(child_id)
             violations.append(
                 Violation(
                     rule_id="modeling/staging-model-too-many-parents",
@@ -654,11 +654,11 @@ def intermediate_fanout(
     by_parent = group_by(inter_edges, key=lambda e: e.parent)
 
     violations = []
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
     for parent_id, children in by_parent.items():
         unique_children = {e.child for e in children}
         if len(unique_children) > threshold:
-            parent = resources_by_id.get(parent_id)
+            parent = by_id.get(parent_id)
             violations.append(
                 Violation(
                     rule_id="modeling/intermediate-fanout",
@@ -702,13 +702,13 @@ def mart_depends_on_mart(
     config: RuleConfig,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
 
     violations = []
     for edge in edges:
         if edge.parent_model_type == "marts" and edge.child_model_type == "marts":
-            child = resources_by_id.get(edge.child)
-            parent = resources_by_id.get(edge.parent)
+            child = by_id.get(edge.child)
+            parent = by_id.get(edge.parent)
             violations.append(
                 Violation(
                     rule_id="modeling/mart-depends-on-mart",
@@ -812,7 +812,7 @@ def rejoining_upstream_concepts(
     by_child = group_by(edges, key=lambda e: e.child)
 
     violations = []
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
 
     for child_id, child_edges in by_child.items():
         parent_ids = {e.parent for e in child_edges}
@@ -829,7 +829,7 @@ def rejoining_upstream_concepts(
         for mid_id, mid_parents in parent_parents.items():
             shared = parent_ids & mid_parents
             for ancestor_id in shared:
-                child = resources_by_id.get(child_id)
+                child = by_id.get(child_id)
                 violations.append(
                     Violation(
                         rule_id="modeling/rejoining-upstream-concepts",

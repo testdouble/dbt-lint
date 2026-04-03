@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dbt_linter.config import RuleConfig
 from dbt_linter.models import Relationship, Resource, Violation
-from dbt_linter.rules import direct_edges, rule
+from dbt_linter.rules import direct_edges, resources_by_id, rule
 
 
 @rule(
@@ -37,7 +37,7 @@ def chained_views(
     config: RuleConfig,
 ) -> list[Violation]:
     threshold = config.params.get("chained_views_threshold", 5)
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
     violations = []
     seen = set()
 
@@ -48,7 +48,7 @@ def chained_views(
             and rel.child not in seen
         ):
             seen.add(rel.child)
-            child = resources_by_id.get(rel.child)
+            child = by_id.get(rel.child)
             violations.append(
                 Violation(
                     rule_id="performance/chained-views",
@@ -93,20 +93,20 @@ def exposure_parent_materializations(
     relationships: list[Relationship],
     config: RuleConfig,
 ) -> list[Violation]:
-    resources_by_id = {r.resource_id: r for r in resources}
+    by_id = resources_by_id(resources)
     edges = direct_edges(relationships)
     exposure_edges = [e for e in edges if e.child_resource_type == "exposure"]
 
     violations = []
     for edge in exposure_edges:
-        parent = resources_by_id.get(edge.parent)
+        parent = by_id.get(edge.parent)
         if not parent:
             continue
         if parent.resource_type == "source" or parent.materialization in (
             "view",
             "ephemeral",
         ):
-            exposure = resources_by_id.get(edge.child)
+            exposure = by_id.get(edge.child)
             violations.append(
                 Violation(
                     rule_id="performance/exposure-parent-materializations",

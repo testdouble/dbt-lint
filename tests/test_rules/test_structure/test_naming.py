@@ -1,16 +1,13 @@
-"""Tests for structure rules."""
+"""Tests for structure naming rules."""
 
 from dbt_linter.models import ColumnInfo
 from dbt_linter.rules.structure import (
     check_yaml_colocation,
     column_naming_conventions,
-    intermediate_materialization,
-    marts_materialization,
     model_directories,
     model_name_format,
     model_naming_conventions,
     source_directories,
-    staging_materialization,
     staging_naming_convention,
     yaml_file_naming,
 )
@@ -220,75 +217,6 @@ class TestYamlColocation:
         )
 
         assert check_yaml_colocation(resource, default_config) is None
-
-
-class TestStagingMaterialization:
-    def test_flags_staging_table(self, make_resource, default_config):
-        resource = make_resource(
-            resource_type="model",
-            model_type="staging",
-            materialization="table",
-        )
-
-        violation = staging_materialization(resource, default_config)
-
-        assert violation is not None
-        assert "table not allowed for staging" in violation.message
-
-    def test_clean_staging_view(self, make_resource, default_config):
-        resource = make_resource(
-            resource_type="model",
-            model_type="staging",
-            materialization="view",
-        )
-
-        assert staging_materialization(resource, default_config) is None
-
-
-class TestIntermediateMaterialization:
-    def test_flags_intermediate_table(self, make_resource, default_config):
-        resource = make_resource(
-            resource_type="model",
-            model_type="intermediate",
-            materialization="table",
-        )
-
-        violation = intermediate_materialization(resource, default_config)
-
-        assert violation is not None
-        assert "table not allowed for intermediate" in violation.message
-
-    def test_clean_intermediate_ephemeral(self, make_resource, default_config):
-        resource = make_resource(
-            resource_type="model",
-            model_type="intermediate",
-            materialization="ephemeral",
-        )
-
-        assert intermediate_materialization(resource, default_config) is None
-
-
-class TestMartsMaterialization:
-    def test_flags_marts_view(self, make_resource, default_config):
-        resource = make_resource(
-            resource_type="model",
-            model_type="marts",
-            materialization="view",
-        )
-
-        violation = marts_materialization(resource, default_config)
-
-        assert violation is not None
-        assert "view not allowed for marts" in violation.message
-
-    def test_clean_marts_table(self, make_resource, default_config):
-        resource = make_resource(
-            resource_type="model",
-            model_type="marts",
-            materialization="table",
-        )
-
-        assert marts_materialization(resource, default_config) is None
 
 
 class TestModelNameFormat:

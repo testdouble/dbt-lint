@@ -148,8 +148,8 @@ def missing_relationship_tests(
         "testing/missing-primary-key-tests to get an actionable list of "
         "which models need tests."
         "\n\n"
-        "Configurable via test_coverage_target (default: 100) and "
-        "model_types (list of model types to check)."
+        "Configurable via test_coverage_target (default: 100). "
+        "Model types are derived from the manifest."
     ),
     remediation=(
         "Apply generic tests in YAML or create singular tests. At "
@@ -164,7 +164,7 @@ def check_test_coverage(
 ) -> list[Violation]:
     target = config.params.get("test_coverage_target", 100)
     violations = []
-    model_types = config.params.get("model_types", [])
+    model_types = sorted({r.model_type for r in resources if r.resource_type == "model"})
 
     for model_type in model_types:
         models = filter_by_model_type(

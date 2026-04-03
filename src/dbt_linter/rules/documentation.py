@@ -114,8 +114,8 @@ def undocumented_source_tables(
         "Useful for incremental adoption: set a lower target initially and "
         "ratchet up over time."
         "\n\n"
-        "Configurable via documentation_coverage_target (default: 100) and "
-        "model_types (list of model types to check)."
+        "Configurable via documentation_coverage_target (default: 100). "
+        "Model types are derived from the manifest."
     ),
     remediation=(
         "Add descriptions to undocumented models. Use {{ doc() }} "
@@ -130,7 +130,7 @@ def documentation_coverage(
 ) -> list[Violation]:
     target = config.params.get("documentation_coverage_target", 100)
     violations = []
-    model_types = config.params.get("model_types", [])
+    model_types = sorted({r.model_type for r in resources if r.resource_type == "model"})
 
     for model_type in model_types:
         models = filter_by_model_type(

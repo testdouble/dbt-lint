@@ -15,6 +15,10 @@ from dbt_linter.loader import (
 )
 
 
+def _entry(rule_id: str, source: str) -> CustomRuleEntry:
+    return CustomRuleEntry(rule_id=rule_id, source=source, overrides={})
+
+
 def _write_rule_file(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(textwrap.dedent(content))
@@ -60,13 +64,7 @@ class TestLoadCustomRulesPerResource:
 
         config = _config_with_custom(
             tmp_path,
-            [
-                CustomRuleEntry(
-                    rule_id="custom/flag-all",
-                    source="custom_rules/flag_all.py",
-                    overrides={},
-                )
-            ],
+            [_entry("custom/flag-all", "custom_rules/flag_all.py")],
         )
         rules = load_custom_rules(config)
         assert len(rules) == 1
@@ -94,13 +92,7 @@ class TestLoadCustomRulesPerResource:
 
         config = _config_with_custom(
             tmp_path,
-            [
-                CustomRuleEntry(
-                    rule_id="custom/agg",
-                    source="agg.py",
-                    overrides={},
-                )
-            ],
+            [_entry("custom/agg", "agg.py")],
         )
         rules = load_custom_rules(config)
         assert len(rules) == 1
@@ -128,16 +120,8 @@ class TestIdempotence:
         config = _config_with_custom(
             tmp_path,
             [
-                CustomRuleEntry(
-                    rule_id="custom/rule-a",
-                    source="multi.py",
-                    overrides={},
-                ),
-                CustomRuleEntry(
-                    rule_id="custom/rule-b",
-                    source="multi.py",
-                    overrides={},
-                ),
+                _entry("custom/rule-a", "multi.py"),
+                _entry("custom/rule-b", "multi.py"),
             ],
         )
 
@@ -155,13 +139,7 @@ class TestValidationErrors:
     def test_file_not_found(self, tmp_path):
         config = _config_with_custom(
             tmp_path,
-            [
-                CustomRuleEntry(
-                    rule_id="custom/missing",
-                    source="nonexistent.py",
-                    overrides={},
-                )
-            ],
+            [_entry("custom/missing", "nonexistent.py")],
         )
         with pytest.raises(FileNotFoundError, match="file not found"):
             load_custom_rules(config)
@@ -172,13 +150,7 @@ class TestValidationErrors:
 
         config = _config_with_custom(
             tmp_path,
-            [
-                CustomRuleEntry(
-                    rule_id="custom/empty",
-                    source="empty.py",
-                    overrides={},
-                )
-            ],
+            [_entry("custom/empty", "empty.py")],
         )
         with pytest.raises(ValueError, match="no @rule function found"):
             load_custom_rules(config)
@@ -198,13 +170,7 @@ class TestValidationErrors:
 
         config = _config_with_custom(
             tmp_path,
-            [
-                CustomRuleEntry(
-                    rule_id="custom/expected-name",
-                    source="wrong_id.py",
-                    overrides={},
-                )
-            ],
+            [_entry("custom/expected-name", "wrong_id.py")],
         )
         with pytest.raises(ValueError, match="no matching"):
             load_custom_rules(config)
@@ -227,13 +193,7 @@ class TestValidationErrors:
 
         config = _config_with_custom(
             tmp_path,
-            [
-                CustomRuleEntry(
-                    rule_id="modeling/too-many-joins",
-                    source="collision.py",
-                    overrides={},
-                )
-            ],
+            [_entry("modeling/too-many-joins", "collision.py")],
         )
         with pytest.raises(ValueError, match="conflicts with built-in"):
             load_custom_rules(config)
@@ -244,13 +204,7 @@ class TestValidationErrors:
 
         config = _config_with_custom(
             tmp_path,
-            [
-                CustomRuleEntry(
-                    rule_id="custom/bad",
-                    source="bad_syntax.py",
-                    overrides={},
-                )
-            ],
+            [_entry("custom/bad", "bad_syntax.py")],
         )
         with pytest.raises(ImportError, match="Failed to load custom rule"):
             load_custom_rules(config)
@@ -262,13 +216,7 @@ class TestValidationErrors:
             exclude=None,
             config_dir=None,
             _rule_overrides={},
-            _custom_rule_entries=[
-                CustomRuleEntry(
-                    rule_id="custom/x",
-                    source="x.py",
-                    overrides={},
-                )
-            ],
+            _custom_rule_entries=[_entry("custom/x", "x.py")],
         )
         with pytest.raises(ValueError, match="require a config file"):
             load_custom_rules(config)
@@ -290,13 +238,7 @@ class TestSignatureValidation:
 
         config = _config_with_custom(
             tmp_path,
-            [
-                CustomRuleEntry(
-                    rule_id="custom/bad-sig",
-                    source="bad_sig.py",
-                    overrides={},
-                )
-            ],
+            [_entry("custom/bad-sig", "bad_sig.py")],
         )
         with pytest.raises(ImportError, match="@rule error"):
             load_custom_rules(config)

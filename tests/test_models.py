@@ -1,6 +1,6 @@
 """Tests for Violation dataclass logic."""
 
-from dbt_linter.models import Violation
+from dbt_lint.models import Violation
 
 
 class TestViolation:

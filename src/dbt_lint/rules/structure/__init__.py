@@ -1,11 +1,11 @@
 """Structure rules: naming, directories, materializations, column conventions."""
 
-from dbt_linter.rules.structure.materialization import (
+from dbt_lint.rules.structure.materialization import (
     intermediate_materialization,
     marts_materialization,
     staging_materialization,
 )
-from dbt_linter.rules.structure.naming import (
+from dbt_lint.rules.structure.naming import (
     check_yaml_colocation,
     column_naming_conventions,
     model_directories,

@@ -1,7 +1,7 @@
 """Tests for structure naming rules."""
 
-from dbt_linter.models import ColumnInfo
-from dbt_linter.rules.structure import (
+from dbt_lint.models import ColumnInfo
+from dbt_lint.rules.structure import (
     check_yaml_colocation,
     column_naming_conventions,
     model_directories,

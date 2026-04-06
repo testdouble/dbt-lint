@@ -1,6 +1,6 @@
 """Tests for structure materialization rules."""
 
-from dbt_linter.rules.structure import (
+from dbt_lint.rules.structure import (
     intermediate_materialization,
     marts_materialization,
     staging_materialization,

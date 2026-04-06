@@ -1,4 +1,4 @@
-"""Shared test helpers (non-fixture) for the dbt-linter test suite."""
+"""Shared test helpers (non-fixture) for the dbt-lint test suite."""
 
 
 def fixture_manifest_dict() -> dict:

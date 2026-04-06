@@ -128,7 +128,7 @@ toml = [
 ]
 
 [[package]]
-name = "dbt-linter"
+name = "dbt-lint"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

@@ -1,6 +1,6 @@
 """Tests for modeling dependency hygiene rules."""
 
-from dbt_linter.rules.modeling import (
+from dbt_lint.rules.modeling import (
     duplicate_sources,
     hard_coded_references,
     multiple_sources_joined,

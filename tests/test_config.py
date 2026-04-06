@@ -3,7 +3,7 @@
 import textwrap
 from pathlib import Path
 
-from dbt_linter.config import (
+from dbt_lint.config import (
     DEFAULTS,
     load_baseline,
     load_config,
@@ -49,7 +49,7 @@ class TestLoadConfig:
         )
 
     def test_load_from_yaml(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             models_fanout_threshold: 5
@@ -65,7 +65,7 @@ class TestLoadConfig:
         )
 
     def test_load_with_rule_overrides(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -84,7 +84,7 @@ class TestLoadConfig:
         assert rc2.enabled is False
 
     def test_load_with_exclude_resources(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -98,7 +98,7 @@ class TestLoadConfig:
         assert "source.pkg.raw.legacy_*" in rc.exclude_resources
 
     def test_empty_yaml_file(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text("")
         config = load_config(config_file)
         assert (
@@ -117,7 +117,7 @@ class TestRuleConfig:
         assert rc.params is config.params
 
     def test_severity_override(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -143,7 +143,7 @@ class TestMergeBaseline:
         assert merged._rule_overrides == config._rule_overrides
 
     def test_adds_exclude_resources_to_existing_rule(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -171,7 +171,7 @@ class TestMergeBaseline:
         assert rc.exclude_resources == ["model.pkg.d"]
 
     def test_enabled_false_overrides(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -187,7 +187,7 @@ class TestMergeBaseline:
         assert rc.severity == "error"
 
     def test_preserves_main_severity(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -210,7 +210,7 @@ class TestMergeBaseline:
         assert config._rule_overrides == original_overrides
 
     def test_preserves_custom_rule_entries(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:

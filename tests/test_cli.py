@@ -8,8 +8,8 @@ from pathlib import Path
 import yaml
 from click.testing import CliRunner
 
-from dbt_linter.__main__ import main
-from dbt_linter.rules import get_all_rules
+from dbt_lint.__main__ import main
+from dbt_lint.rules import get_all_rules
 from helpers import fixture_manifest_dict
 
 EXIT_COMMAND_SYNTAX_ERROR = 2
@@ -377,7 +377,7 @@ def _write_custom_rule(tmp_path: Path) -> Path:
     """Write a minimal custom rule that flags models containing SELECT *."""
     rule_file = tmp_path / "no_select_star.py"
     rule_file.write_text(
-        "from dbt_linter.extend import Resource, RuleConfig, Violation, rule\n"
+        "from dbt_lint.extend import Resource, RuleConfig, Violation, rule\n"
         "\n"
         '@rule(id="custom/no-select-star", description="Model uses SELECT *.")\n'
         "def no_select_star(resource: Resource, config: RuleConfig)"

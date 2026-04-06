@@ -1,12 +1,12 @@
 """Modeling rules: DAG structure, layer boundaries, dependency hygiene."""
 
-from dbt_linter.rules.modeling.dependency_hygiene import (
+from dbt_lint.rules.modeling.dependency_hygiene import (
     duplicate_sources,
     hard_coded_references,
     multiple_sources_joined,
     unused_sources,
 )
-from dbt_linter.rules.modeling.graph_structure import (
+from dbt_lint.rules.modeling.graph_structure import (
     duplicate_mart_concepts,
     intermediate_fanout,
     mart_depends_on_mart,
@@ -16,7 +16,7 @@ from dbt_linter.rules.modeling.graph_structure import (
     staging_model_too_many_parents,
     too_many_joins,
 )
-from dbt_linter.rules.modeling.layer_boundaries import (
+from dbt_lint.rules.modeling.layer_boundaries import (
     direct_join_to_source,
     downstream_depends_on_source,
     root_models,

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 
-from dbt_linter.extend import Resource, RuleConfig, Violation, rule
+from dbt_lint.extend import Resource, RuleConfig, Violation, rule
 
 # Match SELECT DISTINCT but not COUNT(DISTINCT or similar function(DISTINCT.
 # Handles whitespace/newlines between SELECT and DISTINCT.

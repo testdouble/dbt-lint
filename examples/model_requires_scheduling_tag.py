@@ -7,7 +7,7 @@ provided.
 
 from __future__ import annotations
 
-from dbt_linter.extend import Resource, RuleConfig, Violation, rule
+from dbt_lint.extend import Resource, RuleConfig, Violation, rule
 
 _SCHEDULING_TAGS = (
     "scheduled_update",

@@ -2,7 +2,7 @@
 
 import pytest
 
-from dbt_linter.config import DEFAULTS, RuleConfig
+from dbt_lint.config import DEFAULTS, RuleConfig
 
 
 @pytest.fixture

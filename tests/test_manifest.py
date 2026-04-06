@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from dbt_linter.config import DEFAULTS, load_config
-from dbt_linter.manifest import (
+from dbt_lint.config import DEFAULTS, load_config
+from dbt_lint.manifest import (
     _classify_model_type,
     _columns_to_tuple,
     _exposure_to_resource,
@@ -18,7 +18,7 @@ from dbt_linter.manifest import (
     _source_to_resource,
     parse_manifest,
 )
-from dbt_linter.models import ColumnInfo, DirectEdge
+from dbt_lint.models import ColumnInfo, DirectEdge
 
 
 class TestClassifyModelType:
@@ -170,12 +170,12 @@ class TestExtractSkipRules:
     def test_no_meta(self):
         assert _extract_skip_rules({}) == frozenset()
 
-    def test_no_dbt_linter_key(self):
+    def test_no_dbt_lint_key(self):
         assert _extract_skip_rules({"other": "value"}) == frozenset()
 
     def test_skip_list(self):
         meta = {
-            "dbt-linter": {
+            "dbt-lint": {
                 "skip": [
                     "modeling/hard-coded-references",
                     "structure/model-naming-conventions",
@@ -187,11 +187,11 @@ class TestExtractSkipRules:
         )
 
     def test_empty_skip_list(self):
-        meta = {"dbt-linter": {"skip": []}}
+        meta = {"dbt-lint": {"skip": []}}
         assert _extract_skip_rules(meta) == frozenset()
 
     def test_missing_skip_key(self):
-        meta = {"dbt-linter": {"other": True}}
+        meta = {"dbt-lint": {"other": True}}
         assert _extract_skip_rules(meta) == frozenset()
 
 
@@ -317,7 +317,7 @@ class TestModelToResourceFields:
 
     def test_skip_rules_from_meta(self, model_node, test_index):
         model_node["config"]["meta"] = {
-            "dbt-linter": {"skip": ["modeling/hard-coded-references"]}
+            "dbt-lint": {"skip": ["modeling/hard-coded-references"]}
         }
         resource = _model_to_resource(model_node, test_index, DEFAULTS)
         assert resource.skip_rules == frozenset({"modeling/hard-coded-references"})

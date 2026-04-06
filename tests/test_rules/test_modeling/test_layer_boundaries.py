@@ -1,6 +1,6 @@
 """Tests for modeling layer boundary rules."""
 
-from dbt_linter.rules.modeling import (
+from dbt_lint.rules.modeling import (
     direct_join_to_source,
     downstream_depends_on_source,
     root_models,

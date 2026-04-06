@@ -7,22 +7,22 @@ import sys
 import types
 from pathlib import Path
 
-from dbt_linter.config import Config
-from dbt_linter.rules import RuleDef, get_all_rules
+from dbt_lint.config import Config
+from dbt_lint.rules import RuleDef, get_all_rules
 
 
 def _synthetic_module_name(source_path: Path, config_dir: Path) -> str:
     """Derive a stable synthetic module name from the file path.
 
     custom_rules/modeling/select_distinct.py
-    -> dbt_linter_custom.modeling.select_distinct
+    -> dbt_lint_custom.modeling.select_distinct
     """
     try:
         relative = source_path.relative_to(config_dir)
     except ValueError:
         relative = source_path
     parts = relative.with_suffix("").parts
-    return "dbt_linter_custom." + ".".join(parts)
+    return "dbt_lint_custom." + ".".join(parts)
 
 
 def _import_module(source_path: Path, module_name: str) -> types.ModuleType:

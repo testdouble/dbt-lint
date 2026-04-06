@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, get_type_hints
 
-from dbt_linter.models import Relationship, Resource
+from dbt_lint.models import Relationship, Resource
 
 # Valid per-resource params (resource, config) and aggregate (resources,
 # relationships, config). We check type hints to distinguish them.
@@ -131,7 +131,7 @@ def generate_rules_index() -> list[RuleInfo]:
 
 def get_all_rules() -> list[RuleDef]:
     """Discover all decorated rule functions across rule modules."""
-    from dbt_linter.rules import (  # noqa: PLC0415
+    from dbt_lint.rules import (  # noqa: PLC0415
         documentation,
         governance,
         modeling,

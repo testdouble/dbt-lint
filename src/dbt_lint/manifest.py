@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from dbt_linter.config import Config
-from dbt_linter.models import ColumnInfo, DirectEdge, Resource
+from dbt_lint.config import Config
+from dbt_lint.models import ColumnInfo, DirectEdge, Resource
 
 MIN_MANIFEST_SCHEMA_VERSION = 11
 
@@ -26,7 +26,7 @@ def _check_schema_version(manifest: dict) -> None:
         sys.exit(
             f"Error: manifest schema {version_url} is below"
             f" v{MIN_MANIFEST_SCHEMA_VERSION}."
-            f" dbt-linter requires dbt 1.6+"
+            f" dbt-lint requires dbt 1.6+"
             f" (manifest v{MIN_MANIFEST_SCHEMA_VERSION}+)."
         )
 
@@ -134,9 +134,9 @@ def _has_relationship_tests(tests: list[dict]) -> bool:
 
 
 def _extract_skip_rules(meta: dict) -> frozenset[str]:
-    """Extract skip rules from meta.dbt-linter.skip list."""
-    linter_meta = meta.get("dbt-linter", {})
-    return frozenset(linter_meta.get("skip", []))
+    """Extract skip rules from meta.dbt-lint.skip list."""
+    lint_meta = meta.get("dbt-lint", {})
+    return frozenset(lint_meta.get("skip", []))
 
 
 def _columns_to_tuple(columns_dict: dict) -> tuple[ColumnInfo, ...]:

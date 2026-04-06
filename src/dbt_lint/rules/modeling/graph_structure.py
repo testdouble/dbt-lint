@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dbt_linter.config import RuleConfig
-from dbt_linter.models import Relationship, Resource, Violation
-from dbt_linter.rules import direct_edges, group_by, resolve_name, resources_by_id, rule
+from dbt_lint.config import RuleConfig
+from dbt_lint.models import Relationship, Resource, Violation
+from dbt_lint.rules import direct_edges, group_by, resolve_name, resources_by_id, rule
 
 MIN_DUPLICATE_MART_NAMES = 2
 MIN_PARENTS_FOR_DEPENDENCY_TRIAD = 2

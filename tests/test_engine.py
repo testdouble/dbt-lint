@@ -1,9 +1,9 @@
 """Unit tests for rule engine: dispatch, exclusion, finalization, fail-fast."""
 
-from dbt_linter.config import DEFAULTS, Config
-from dbt_linter.engine import evaluate
-from dbt_linter.models import Violation
-from dbt_linter.rules import RuleDef
+from dbt_lint.config import DEFAULTS, Config
+from dbt_lint.engine import evaluate
+from dbt_lint.models import Violation
+from dbt_lint.rules import RuleDef
 
 # ---------------------------------------------------------------------------
 # Stub helpers for isolated engine tests

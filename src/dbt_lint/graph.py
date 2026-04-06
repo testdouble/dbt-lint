@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 
-from dbt_linter.models import DirectEdge, Relationship, Resource
+from dbt_lint.models import DirectEdge, Relationship, Resource
 
 
 def build_relationships(

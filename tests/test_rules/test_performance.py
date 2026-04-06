@@ -1,6 +1,6 @@
 """Tests for performance rules."""
 
-from dbt_linter.rules.performance import (
+from dbt_lint.rules.performance import (
     chained_views,
     exposure_parent_materializations,
     incremental_missing_unique_key,

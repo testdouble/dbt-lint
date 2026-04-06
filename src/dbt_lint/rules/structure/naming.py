@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from dbt_linter.config import RuleConfig
-from dbt_linter.models import Relationship, Resource, Violation
-from dbt_linter.rules import rule
+from dbt_lint.config import RuleConfig
+from dbt_lint.models import Relationship, Resource, Violation
+from dbt_lint.rules import rule
 
 _SNAKE_CASE = re.compile(r"^[a-z][a-z0-9_]*$")
 

@@ -9,8 +9,8 @@ import pytest
 # Add examples/ to sys.path so test files can import rule modules directly.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dbt_linter.config import DEFAULTS, RuleConfig
-from dbt_linter.models import Relationship, Resource
+from dbt_lint.config import DEFAULTS, RuleConfig
+from dbt_lint.models import Relationship, Resource
 
 
 @pytest.fixture

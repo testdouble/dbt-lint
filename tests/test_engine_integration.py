@@ -3,8 +3,8 @@
 import textwrap
 from pathlib import Path
 
-from dbt_linter.config import load_config
-from dbt_linter.engine import EvaluationResult, evaluate
+from dbt_lint.config import load_config
+from dbt_lint.engine import EvaluationResult, evaluate
 
 UNDOCUMENTED = "documentation/undocumented-models"
 
@@ -68,7 +68,7 @@ class TestEvaluateIntegration:
         assert len(fanout) == 1
 
     def test_disabled_rule_skipped(self, tmp_path: Path, make_resource):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -98,7 +98,7 @@ class TestEvaluateIntegration:
         assert len(doc_violations) == 0
 
     def test_exclude_resources_glob(self, tmp_path: Path, make_resource):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -127,7 +127,7 @@ class TestEvaluateIntegration:
         assert doc_violations[0].resource_id == "model.pkg.stg_orders"
 
     def test_severity_override(self, tmp_path: Path, make_resource):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -179,7 +179,7 @@ class TestEvaluateIntegration:
             ),
         ]
         # Exclude the source that fans out
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:

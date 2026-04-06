@@ -1,6 +1,6 @@
 """Tests for modeling graph structure rules."""
 
-from dbt_linter.rules.modeling import (
+from dbt_lint.rules.modeling import (
     duplicate_mart_concepts,
     intermediate_fanout,
     mart_depends_on_mart,

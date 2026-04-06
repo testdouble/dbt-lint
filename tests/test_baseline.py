@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import yaml
 
-from dbt_linter.baseline import generate_baseline
+from dbt_lint.baseline import generate_baseline
 
 
 class TestGenerateBaseline:

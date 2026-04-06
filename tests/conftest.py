@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from dbt_linter.models import Relationship, Resource, Violation
+from dbt_lint.models import Relationship, Resource, Violation
 
 
 @pytest.fixture

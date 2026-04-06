@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 
-from dbt_linter.config import Config, RuleConfig, matches_path_filter
-from dbt_linter.loader import load_custom_rules
-from dbt_linter.models import Relationship, Resource, Violation
-from dbt_linter.rules import RuleDef, get_all_rules
+from dbt_lint.config import Config, RuleConfig, matches_path_filter
+from dbt_lint.loader import load_custom_rules
+from dbt_lint.models import Relationship, Resource, Violation
+from dbt_lint.rules import RuleDef, get_all_rules
 
 
 @dataclass

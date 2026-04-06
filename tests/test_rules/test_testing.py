@@ -1,6 +1,6 @@
 """Tests for testing rules."""
 
-from dbt_linter.rules.testing import (
+from dbt_lint.rules.testing import (
     check_test_coverage,
     missing_primary_key_tests,
     missing_relationship_tests,

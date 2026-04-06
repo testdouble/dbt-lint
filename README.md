@@ -1,6 +1,6 @@
-# dbt-linter
+# dbt-lint
 
-Manifest-only semantic linter for dbt projects. Analyzes `manifest.json` to enforce DAG structure, naming conventions, test coverage, documentation standards, and governance rules. No dbt runtime or warehouse connection required.
+Manifest-only semantic lint tool for dbt projects. Analyzes `manifest.json` to enforce DAG structure, naming conventions, test coverage, documentation standards, and governance rules. No dbt runtime or warehouse connection required.
 
 ## Contents
 
@@ -26,7 +26,7 @@ Manifest-only semantic linter for dbt projects. Analyzes `manifest.json` to enfo
 brew install uv
 
 # Add to a dbt project
-uv add git+https://github.com/yourusername/dbt-linter.git
+uv add git+https://github.com/yourusername/dbt-lint.git
 
 # Or install from a local clone
 uv pip install -e .
@@ -44,7 +44,7 @@ dbt-lint target/manifest.json
 dbt-lint <manifest.json> [OPTIONS]
 
 Options:
-  --config PATH           Path to dbt_linter.yml config file
+  --config PATH           Path to dbt_lint.yml config file
   --format [text|json]    Output format (default: text)
   --select TEXT           Only run these rule IDs (repeatable)
   --exclude TEXT          Skip these rule IDs (repeatable)
@@ -60,11 +60,11 @@ Exit codes: `0` clean, `1` violations found, `2` tool error.
 
 ### GitHub Actions
 
-In GitHub Actions runs, dbt-linter automatically emits inline annotations on PR diffs.
+In GitHub Actions runs, dbt-lint automatically emits inline annotations on PR diffs.
 
 ```yaml
 - name: Lint dbt project
-  run: dbt-lint target/manifest.json --config dbt_linter.yml
+  run: dbt-lint target/manifest.json --config dbt_lint.yml
 ```
 
 ## Rules
@@ -144,7 +144,7 @@ In GitHub Actions runs, dbt-linter automatically emits inline annotations on PR 
 
 ## Configuration
 
-Create `dbt_linter.yml` to override defaults. All settings are optional.
+Create `dbt_lint.yml` to override defaults. All settings are optional.
 
 ```yaml
 # Thresholds
@@ -220,7 +220,7 @@ Opt out of specific rules on individual resources via `meta`:
 models:
   - name: stg_legacy_orders
     meta:
-      dbt-linter:
+      dbt-lint:
         skip:
           - modeling/hard-coded-references
           - structure/model-naming-conventions
@@ -232,12 +232,12 @@ Write project-specific rules in Python using the same `@rule` decorator as built
 
 ### Writing a rule
 
-Import from `dbt_linter.extend` and decorate a function with `@rule`:
+Import from `dbt_lint.extend` and decorate a function with `@rule`:
 
 ```python
 # custom_rules/avoid_select_distinct.py
 import re
-from dbt_linter.extend import Resource, RuleConfig, Violation, rule
+from dbt_lint.extend import Resource, RuleConfig, Violation, rule
 
 _SELECT_DISTINCT = re.compile(r"\bSELECT\s+DISTINCT\b", re.IGNORECASE | re.DOTALL)
 
@@ -263,7 +263,7 @@ Two signatures are supported:
 
 The decorator validates the signature at import time.
 
-### Public API (`dbt_linter.extend`)
+### Public API (`dbt_lint.extend`)
 
 | Export | Purpose |
 |---|---|
@@ -279,7 +279,7 @@ The decorator validates the signature at import time.
 
 ### Registering in config
 
-Add a `source:` key to the rule entry in `dbt_linter.yml`. The path is relative to the config file.
+Add a `source:` key to the rule entry in `dbt_lint.yml`. The path is relative to the config file.
 
 ```yaml
 rules:
@@ -320,7 +320,7 @@ uv run pytest
 
 ## Scope
 
-dbt-linter analyzes the compiled manifest. It does not lint SQL syntax or YAML formatting. For those layers:
+dbt-lint analyzes the compiled manifest. It does not lint SQL syntax or YAML formatting. For those layers:
 
 - SQL: [sqlfluff](https://sqlfluff.com/)
 - YAML: [yamllint](https://yamllint.readthedocs.io/)

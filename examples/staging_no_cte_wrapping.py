@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from dbt_linter.extend import Resource, RuleConfig, Violation, rule
+from dbt_lint.extend import Resource, RuleConfig, Violation, rule
 
 # Match WITH as the first SQL keyword, allowing leading whitespace,
 # comments, and Jinja blocks before it.

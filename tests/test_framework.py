@@ -1,8 +1,8 @@
 """Unit tests for @rule decorator, signature detection, and helpers."""
 
-from dbt_linter.config import RuleConfig
-from dbt_linter.models import Relationship, Resource, Violation
-from dbt_linter.rules import (
+from dbt_lint.config import RuleConfig
+from dbt_lint.models import Relationship, Resource, Violation
+from dbt_lint.rules import (
     RuleDef,
     RuleMeta,
     direct_edges,

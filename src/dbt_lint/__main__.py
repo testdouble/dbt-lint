@@ -11,19 +11,19 @@ from pathlib import Path
 
 import click
 
-from dbt_linter.baseline import generate_baseline
-from dbt_linter.config import (
+from dbt_lint.baseline import generate_baseline
+from dbt_lint.config import (
     BASELINE_FILENAME,
     load_baseline,
     load_config,
     merge_baseline,
 )
-from dbt_linter.engine import evaluate
-from dbt_linter.graph import build_relationships
-from dbt_linter.manifest import parse_manifest
-from dbt_linter.models import Violation
-from dbt_linter.reporter import report
-from dbt_linter.rules import generate_rules_index
+from dbt_lint.engine import evaluate
+from dbt_lint.graph import build_relationships
+from dbt_lint.manifest import parse_manifest
+from dbt_lint.models import Violation
+from dbt_lint.reporter import report
+from dbt_lint.rules import generate_rules_index
 
 
 def _handle_list_rules(output_format: str) -> None:
@@ -85,7 +85,7 @@ def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
     "--config",
     type=click.Path(exists=True, path_type=Path),
     default=None,
-    help="Path to dbt_linter.yml config file.",
+    help="Path to dbt_lint.yml config file.",
 )
 @click.option(
     "--format",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from dbt_linter.reporter import report
+from dbt_lint.reporter import report
 
 
 class TestTextReport:

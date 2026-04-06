@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dbt_linter.config import RuleConfig
-from dbt_linter.models import Resource, Violation
-from dbt_linter.rules import rule
+from dbt_lint.config import RuleConfig
+from dbt_lint.models import Resource, Violation
+from dbt_lint.rules import rule
 
 
 def _check_materialization(

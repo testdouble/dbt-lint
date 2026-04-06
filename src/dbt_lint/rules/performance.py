@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dbt_linter.config import RuleConfig
-from dbt_linter.models import Relationship, Resource, Violation
-from dbt_linter.rules import direct_edges, resolve_name, resources_by_id, rule
+from dbt_lint.config import RuleConfig
+from dbt_lint.models import Relationship, Resource, Violation
+from dbt_lint.rules import direct_edges, resolve_name, resources_by_id, rule
 
 
 @rule(

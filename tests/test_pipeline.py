@@ -10,10 +10,10 @@ import json
 
 import pytest
 
-from dbt_linter.config import load_config
-from dbt_linter.engine import evaluate
-from dbt_linter.graph import build_relationships
-from dbt_linter.manifest import parse_manifest
+from dbt_lint.config import load_config
+from dbt_lint.engine import evaluate
+from dbt_lint.graph import build_relationships
+from dbt_lint.manifest import parse_manifest
 from helpers import fixture_manifest_dict
 
 

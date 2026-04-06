@@ -1,6 +1,6 @@
 """Integration tests: rule registry discovery and rules index generation."""
 
-from dbt_linter.rules import RuleInfo, generate_rules_index, get_all_rules
+from dbt_lint.rules import RuleInfo, generate_rules_index, get_all_rules
 
 
 class TestGetAllRules:

@@ -1,6 +1,6 @@
 """Tests for governance rules."""
 
-from dbt_linter.rules.governance import (
+from dbt_lint.rules.governance import (
     exposures_depend_on_private_models,
     intermediate_public_access,
     public_models_without_contract,

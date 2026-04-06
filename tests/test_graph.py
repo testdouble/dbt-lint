@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from dbt_linter.graph import build_relationships
-from dbt_linter.models import DirectEdge
+from dbt_lint.graph import build_relationships
+from dbt_lint.models import DirectEdge
 
 
 class TestEmptyInputs:

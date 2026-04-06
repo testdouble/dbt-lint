@@ -1,7 +1,7 @@
 """Tests for documentation rules."""
 
-from dbt_linter.models import ColumnInfo
-from dbt_linter.rules.documentation import (
+from dbt_lint.models import ColumnInfo
+from dbt_lint.rules.documentation import (
     column_documentation_coverage,
     documentation_coverage,
     undocumented_models,

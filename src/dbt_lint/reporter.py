@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 
-from dbt_linter.models import Violation
+from dbt_lint.models import Violation
 
 
 def report(

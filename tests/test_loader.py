@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from dbt_linter.config import DEFAULTS, Config, CustomRuleEntry, load_config
-from dbt_linter.loader import (
+from dbt_lint.config import DEFAULTS, Config, CustomRuleEntry, load_config
+from dbt_lint.loader import (
     _synthetic_module_name,
     load_custom_rules,
 )
@@ -40,12 +40,12 @@ class TestSyntheticModuleName:
     def test_relative_path(self, tmp_path):
         source = tmp_path / "custom_rules" / "modeling" / "select_distinct.py"
         name = _synthetic_module_name(source, tmp_path)
-        assert name == "dbt_linter_custom.custom_rules.modeling.select_distinct"
+        assert name == "dbt_lint_custom.custom_rules.modeling.select_distinct"
 
     def test_flat_file(self, tmp_path):
         source = tmp_path / "my_rule.py"
         name = _synthetic_module_name(source, tmp_path)
-        assert name == "dbt_linter_custom.my_rule"
+        assert name == "dbt_lint_custom.my_rule"
 
 
 class TestLoadCustomRulesPerResource:
@@ -54,7 +54,7 @@ class TestLoadCustomRulesPerResource:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_linter.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
 
             @rule(id="custom/flag-all", description="Flags everything.")
             def flag_all(resource: Resource, config: RuleConfig) -> Violation | None:
@@ -76,7 +76,7 @@ class TestLoadCustomRulesPerResource:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_linter.extend import (
+            from dbt_lint.extend import (
                 Resource, Relationship, RuleConfig, Violation, rule,
             )
 
@@ -105,7 +105,7 @@ class TestIdempotence:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_linter.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
 
             @rule(id="custom/rule-a", description="Rule A.")
             def rule_a(resource: Resource, config: RuleConfig) -> Violation | None:
@@ -126,7 +126,7 @@ class TestIdempotence:
         )
 
         # Clean up any prior import
-        mod_name = "dbt_linter_custom.multi"
+        mod_name = "dbt_lint_custom.multi"
         sys.modules.pop(mod_name, None)
 
         rules = load_custom_rules(config)
@@ -160,7 +160,7 @@ class TestValidationErrors:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_linter.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
 
             @rule(id="custom/other-name", description="Wrong.")
             def other(resource: Resource, config: RuleConfig) -> Violation | None:
@@ -180,7 +180,7 @@ class TestValidationErrors:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_linter.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
 
             @rule(
                 id="modeling/too-many-joins",
@@ -228,7 +228,7 @@ class TestSignatureValidation:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_linter.extend import Resource, rule
+            from dbt_lint.extend import Resource, rule
 
             @rule(id="custom/bad-sig", description="Bad.")
             def bad(resource: Resource):
@@ -252,12 +252,12 @@ class TestEmptyEntries:
 
 class TestEndToEndWithConfig:
     def test_config_loading_separates_custom_entries(self, tmp_path):
-        config_file = tmp_path / "dbt_linter.yml"
+        config_file = tmp_path / "dbt_lint.yml"
         rule_file = tmp_path / "custom_rules" / "my_rule.py"
         _write_rule_file(
             rule_file,
             """\
-            from dbt_linter.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
 
             @rule(id="custom/my-rule", description="My rule.")
             def my_rule(resource: Resource, config: RuleConfig) -> Violation | None:

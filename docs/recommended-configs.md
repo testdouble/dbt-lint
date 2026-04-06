@@ -1,17 +1,17 @@
 # Recommended companion configs
 
-dbt-linter handles manifest-level semantic analysis: DAG structure, naming conventions, test coverage, documentation, governance. It does not lint SQL syntax or YAML formatting. The tools below cover those layers.
+dbt-lint handles manifest-level semantic analysis: DAG structure, naming conventions, test coverage, documentation, governance. It does not lint SQL syntax or YAML formatting. The tools below cover those layers.
 
 Each tool owns a distinct scope with no overlap.
 
 | Concern | Tool |
 |---|---|
-| DAG structure, layer boundaries | dbt-linter |
-| Model/column naming conventions | dbt-linter |
-| Test coverage, primary keys, freshness | dbt-linter |
-| Documentation coverage | dbt-linter |
-| Governance, contracts | dbt-linter |
-| Project-specific patterns | dbt-linter (custom rules) |
+| DAG structure, layer boundaries | dbt-lint |
+| Model/column naming conventions | dbt-lint |
+| Test coverage, primary keys, freshness | dbt-lint |
+| Documentation coverage | dbt-lint |
+| Governance, contracts | dbt-lint |
+| Project-specific patterns | dbt-lint (custom rules) |
 | SQL formatting and style | SQLFluff (or sqlfmt) |
 | SQL quality (SELECT *, subqueries, dead CTEs) | SQLFluff |
 | YAML formatting | yamllint |
@@ -23,7 +23,7 @@ Each tool owns a distinct scope with no overlap.
 
 SQL formatting and quality. Install: `pip install sqlfluff sqlfluff-templater-dbt`
 
-The config below follows dbt best practices defaults. Adjust dialect, capitalization, and line length to match your project conventions, then use dbt-linter's config overrides for any structural deviations.
+The config below follows dbt best practices defaults. Adjust dialect, capitalization, and line length to match your project conventions, then use dbt-lint's config overrides for any structural deviations.
 
 `.sqlfluff`:
 
@@ -81,7 +81,7 @@ fully_qualify_join_types = both
 [sqlfluff:rules:ambiguous.union]
 # Prefer UNION ALL / UNION DISTINCT over bare UNION
 
-# --- SQL quality (patterns dbt-linter delegates to SQLFluff) ---
+# --- SQL quality (patterns dbt-lint delegates to SQLFluff) ---
 
 # AM04: No SELECT * (expand column lists explicitly)
 # Enabled by default, no config needed.
@@ -145,10 +145,10 @@ Run all three tools in CI. They operate on different artifacts with no overlappi
   run: sqlfluff lint models/
 
 - name: Lint dbt project
-  run: dbt-lint target/manifest.json --config dbt_linter.yml
+  run: dbt-lint target/manifest.json --config dbt_lint.yml
 ```
 
-sqlfluff and yamllint operate on source files. dbt-linter operates on the compiled manifest.
+sqlfluff and yamllint operate on source files. dbt-lint operates on the compiled manifest.
 
 ## Pre-commit hooks
 
@@ -164,7 +164,7 @@ repos:
       - id: check-model-has-description
 ```
 
-Note: dbt-checkpoint hooks overlap with some dbt-linter rules (test coverage, documentation). Use dbt-checkpoint for fast local feedback on commit; use dbt-linter in CI for the full manifest-level analysis that requires a compiled project.
+Note: dbt-checkpoint hooks overlap with some dbt-lint rules (test coverage, documentation). Use dbt-checkpoint for fast local feedback on commit; use dbt-lint in CI for the full manifest-level analysis that requires a compiled project.
 
 ## Build monitoring
 
@@ -175,9 +175,9 @@ Options:
 - dbt Core CLI: check start/completion timestamps and build duration in CLI output.
 - [`dbt_artifacts`](https://github.com/brooklyn-data/dbt_artifacts) package: persist build metadata to your warehouse for custom dashboards.
 
-## Practices outside linter scope
+## Practices outside lint scope
 
-The following dbt best practices are architectural or domain-specific guidance that no static linter can enforce. They are documented here for completeness.
+The following dbt best practices are architectural or domain-specific guidance that no static lint tool can enforce. They are documented here for completeness.
 
 - **Semantic layer / MetricFlow**: entity naming (singular form), dimension/measure configuration, metric type selection. These live in YAML under `semantic_models:` and `metrics:` keys. Review manually or via dbt's built-in `dbt parse` validation.
 - **Near real-time patterns**: incremental strategy selection (merge vs CDC vs microbatch), dynamic table configuration, lambda view architecture. Architectural decisions, not lintable.

@@ -7,7 +7,7 @@ but populate --list-rules output when provided.
 
 from __future__ import annotations
 
-from dbt_linter.extend import Resource, RuleConfig, Violation, rule
+from dbt_lint.extend import Resource, RuleConfig, Violation, rule
 
 
 @rule(

@@ -124,10 +124,15 @@ def load_config(path: Path | None) -> Config:
 
     config_dir = path.parent if path is not None else None
 
+    include = params.get("include")
+    exclude = params.get("exclude")
+    _validate_regex(include, "include")
+    _validate_regex(exclude, "exclude")
+
     return Config(
         params=params,
-        include=params.get("include"),
-        exclude=params.get("exclude"),
+        include=include,
+        exclude=exclude,
         config_dir=config_dir,
         _rule_overrides=all_overrides,
         _custom_rule_entries=custom_entries,
@@ -188,6 +193,17 @@ def load_baseline(path: Path) -> dict[str, dict[str, Any]]:
         if entry:
             sanitized[rule_id] = entry
     return sanitized
+
+
+def _validate_regex(pattern: str | None, field_name: str) -> None:
+    """Validate a regex pattern at config load time."""
+    if pattern is None:
+        return
+    try:
+        re.compile(pattern)
+    except re.error as exc:
+        msg = f"Invalid regex in '{field_name}': {pattern!r} ({exc})"
+        raise ValueError(msg) from exc
 
 
 @lru_cache(maxsize=256)

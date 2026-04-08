@@ -161,7 +161,7 @@ class TestGitHubAnnotations:
         result = report(violations, output_format="text", github_annotations=True)
         assert "::warning file=models/staging/stg_users.sql" in result
         assert "title=documentation/undocumented-models" in result
-        assert "::stg_users: missing description" in result
+        assert "::stg_users%3A missing description" in result
 
     def test_error_annotation_format(self, make_violation):
         violations = [make_violation(severity="error")]
@@ -231,6 +231,22 @@ class TestGitHubAnnotations:
             line for line in result.split("\n") if line.startswith("::")
         ]
         assert "%25" in annotation_lines[0]
+
+    def test_comma_in_file_path_escaped(self, make_violation):
+        violations = [make_violation(file_path="models/a,b.sql")]
+        result = report(violations, output_format="text", github_annotations=True)
+        annotation_lines = [
+            line for line in result.split("\n") if line.startswith("::")
+        ]
+        assert "a%2Cb.sql" in annotation_lines[0]
+
+    def test_colon_in_title_escaped(self, make_violation):
+        violations = [make_violation(rule_id="custom:rule")]
+        result = report(violations, output_format="text", github_annotations=True)
+        annotation_lines = [
+            line for line in result.split("\n") if line.startswith("::")
+        ]
+        assert "title=custom%3Arule" in annotation_lines[0]
 
     def test_annotation_injection_blocked(self, make_violation):
         violations = [make_violation(message="msg\n::error file=injected::payload")]

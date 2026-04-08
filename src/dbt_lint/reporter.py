@@ -106,7 +106,13 @@ def _format_json(violations: list[Violation]) -> str:
 
 def _escape_annotation(value: str) -> str:
     """Escape special characters for GitHub Actions workflow commands."""
-    return value.replace("%", "%25").replace("\n", "%0A").replace("\r", "%0D")
+    return (
+        value.replace("%", "%25")
+        .replace("\n", "%0A")
+        .replace("\r", "%0D")
+        .replace(",", "%2C")
+        .replace(":", "%3A")
+    )
 
 
 def _format_annotations(violations: list[Violation]) -> str:

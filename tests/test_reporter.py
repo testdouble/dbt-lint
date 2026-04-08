@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 
-from dbt_lint.reporter import report
+import pytest
+
+from dbt_lint.models import Violation
+from dbt_lint.reporter import _format_annotations, report
 
 
 class TestTextReport:
@@ -206,57 +209,34 @@ class TestGitHubAnnotations:
         result = report([], output_format="text", github_annotations=True)
         assert "::" not in result
 
-    def test_newline_in_message_escaped(self, make_violation):
-        violations = [make_violation(message="line1\nline2")]
-        result = report(violations, output_format="text", github_annotations=True)
-        annotation_lines = [
-            line for line in result.split("\n") if line.startswith("::")
-        ]
-        assert len(annotation_lines) == 1
-        assert "%0A" in annotation_lines[0]
+    @pytest.mark.parametrize(
+        ("field", "value", "expected"),
+        [
+            ("message", "line1\nline2", "%0A"),
+            ("message", "has\rreturn", "%0D"),
+            ("message", "100% complete", "%25"),
+            ("file_path", "models/a,b.sql", "a%2Cb.sql"),
+            ("rule_id", "custom:rule", "custom%3Arule"),
+        ],
+    )
+    def test_special_characters_escaped(self, make_violation, field, value, expected):
+        violations = [make_violation(**{field: value})]
+        result = _format_annotations(violations)
+        assert "\n" not in result
+        assert expected in result
 
-    def test_carriage_return_in_message_escaped(self, make_violation):
-        violations = [make_violation(message="has\rreturn")]
-        result = report(violations, output_format="text", github_annotations=True)
-        annotation_lines = [
-            line for line in result.split("\n") if line.startswith("::")
-        ]
-        assert len(annotation_lines) == 1
-        assert "%0D" in annotation_lines[0]
-
-    def test_percent_in_message_escaped(self, make_violation):
-        violations = [make_violation(message="100% complete")]
-        result = report(violations, output_format="text", github_annotations=True)
-        annotation_lines = [
-            line for line in result.split("\n") if line.startswith("::")
-        ]
-        assert "%25" in annotation_lines[0]
-
-    def test_comma_in_file_path_escaped(self, make_violation):
-        violations = [make_violation(file_path="models/a,b.sql")]
-        result = report(violations, output_format="text", github_annotations=True)
-        annotation_lines = [
-            line for line in result.split("\n") if line.startswith("::")
-        ]
-        assert "a%2Cb.sql" in annotation_lines[0]
-
-    def test_colon_in_title_escaped(self, make_violation):
-        violations = [make_violation(rule_id="custom:rule")]
-        result = report(violations, output_format="text", github_annotations=True)
-        annotation_lines = [
-            line for line in result.split("\n") if line.startswith("::")
-        ]
-        assert "title=custom%3Arule" in annotation_lines[0]
-
-    def test_annotation_injection_blocked(self, make_violation):
-        violations = [make_violation(message="msg\n::error file=injected::payload")]
-        result = report(violations, output_format="text", github_annotations=True)
-        annotation_section = result.split("\n\n")[0]
-        annotation_lines = [
-            line for line in annotation_section.split("\n") if line.startswith("::")
-        ]
-        assert len(annotation_lines) == 1
-        assert "%0A" in annotation_lines[0]
+    def test_annotation_injection_blocked(self):
+        violation = Violation(
+            rule_id="r/x",
+            resource_id="model.pkg.x",
+            resource_name="x",
+            message="msg\n::error file=injected::payload",
+            severity="warn",
+            file_path="f.sql",
+        )
+        result = _format_annotations([violation])
+        assert result.count("\n") == 0
+        assert "%0A" in result
 
 
 class TestExcludedCount:

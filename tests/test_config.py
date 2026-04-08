@@ -352,4 +352,4 @@ class TestConfigRegexValidation:
         config_file = tmp_path / "dbt_lint.yml"
         config_file.write_text(r"include: 'models/staging/stg_\w+\.sql'" + "\n")
         config = load_config(config_file)
-        assert config.include is not None
+        assert config.include == r"models/staging/stg_\w+\.sql"

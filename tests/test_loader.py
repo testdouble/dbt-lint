@@ -219,11 +219,13 @@ class TestValidationErrors:
         )
         mod_name = "dbt_lint_custom.poison"
         sys.modules.pop(mod_name, None)
+        try:
+            with pytest.raises(ImportError):
+                load_custom_rules(config)
 
-        with pytest.raises(ImportError):
-            load_custom_rules(config)
-
-        assert mod_name not in sys.modules
+            assert mod_name not in sys.modules
+        finally:
+            sys.modules.pop(mod_name, None)
 
     def test_failed_import_retryable(self, tmp_path):
         rule_file = tmp_path / "retry_bad.py"
@@ -235,11 +237,13 @@ class TestValidationErrors:
         )
         mod_name = "dbt_lint_custom.retry_bad"
         sys.modules.pop(mod_name, None)
-
-        with pytest.raises(ImportError):
-            load_custom_rules(config)
-        with pytest.raises(ImportError):
-            load_custom_rules(config)
+        try:
+            with pytest.raises(ImportError):
+                load_custom_rules(config)
+            with pytest.raises(ImportError):
+                load_custom_rules(config)
+        finally:
+            sys.modules.pop(mod_name, None)
 
     def test_no_config_dir_raises(self):
         config = Config(

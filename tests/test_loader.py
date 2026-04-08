@@ -209,6 +209,38 @@ class TestValidationErrors:
         with pytest.raises(ImportError, match="Failed to load custom rule"):
             load_custom_rules(config)
 
+    def test_failed_import_does_not_pollute_sys_modules(self, tmp_path):
+        rule_file = tmp_path / "poison.py"
+        _write_rule_file(rule_file, "raise RuntimeError('boom')\n")
+
+        config = _config_with_custom(
+            tmp_path,
+            [_entry("custom/poison", "poison.py")],
+        )
+        mod_name = "dbt_lint_custom.poison"
+        sys.modules.pop(mod_name, None)
+
+        with pytest.raises(ImportError):
+            load_custom_rules(config)
+
+        assert mod_name not in sys.modules
+
+    def test_failed_import_retryable(self, tmp_path):
+        rule_file = tmp_path / "retry_bad.py"
+        _write_rule_file(rule_file, "raise RuntimeError('boom')\n")
+
+        config = _config_with_custom(
+            tmp_path,
+            [_entry("custom/retry", "retry_bad.py")],
+        )
+        mod_name = "dbt_lint_custom.retry_bad"
+        sys.modules.pop(mod_name, None)
+
+        with pytest.raises(ImportError):
+            load_custom_rules(config)
+        with pytest.raises(ImportError):
+            load_custom_rules(config)
+
     def test_no_config_dir_raises(self):
         config = Config(
             params={**DEFAULTS},

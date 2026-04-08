@@ -12,11 +12,8 @@ dependencies = [
 dbt-lint = "dbt_lint.__main__:main"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/dbt_lint"]
+requires = ["uv_build>=0.9.14,<0.10"]
+build-backend = "uv_build"
 
 [dependency-groups]
 dev = [

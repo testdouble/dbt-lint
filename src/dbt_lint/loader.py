@@ -78,6 +78,12 @@ def load_custom_rules(config: Config) -> list[RuleDef]:
             raise ValueError(msg)
 
         source_path = (config_dir / entry.source).resolve()
+        if not source_path.is_relative_to(config_dir.resolve()):
+            msg = (
+                f"Custom rule {entry.rule_id}: source path {entry.source}"
+                f" resolves outside config directory"
+            )
+            raise ValueError(msg)
         if not source_path.is_file():
             msg = f"Custom rule {entry.rule_id}: file not found: {entry.source}"
             raise FileNotFoundError(msg)

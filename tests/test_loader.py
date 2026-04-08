@@ -253,6 +253,49 @@ class TestValidationErrors:
         with pytest.raises(ValueError, match="require a config file"):
             load_custom_rules(config)
 
+    def test_path_traversal_rejected(self, tmp_path):
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        outside = tmp_path / "outside" / "evil.py"
+        _write_rule_file(
+            outside,
+            """\
+            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+
+            @rule(id="custom/evil", description="Evil.")
+            def evil(resource: Resource, config: RuleConfig) -> Violation | None:
+                return None
+            """,
+        )
+
+        config = _config_with_custom(
+            project_dir,
+            [_entry("custom/evil", "../outside/evil.py")],
+        )
+        with pytest.raises(ValueError, match="outside config directory"):
+            load_custom_rules(config)
+
+    def test_path_traversal_resolving_back_inside(self, tmp_path):
+        rule_file = tmp_path / "custom_rules" / "valid.py"
+        _write_rule_file(
+            rule_file,
+            """\
+            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+
+            @rule(id="custom/valid", description="Valid.")
+            def valid(resource: Resource, config: RuleConfig) -> Violation | None:
+                return None
+            """,
+        )
+
+        config = _config_with_custom(
+            tmp_path,
+            [_entry("custom/valid", "custom_rules/../custom_rules/valid.py")],
+        )
+        rules = load_custom_rules(config)
+        assert len(rules) == 1
+        assert rules[0].id == "custom/valid"
+
 
 class TestSignatureValidation:
     def test_bad_signature_at_decoration_time(self, tmp_path):

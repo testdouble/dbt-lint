@@ -36,7 +36,11 @@ def _import_module(source_path: Path, module_name: str) -> types.ModuleType:
         raise ImportError(msg)
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(module_name, None)
+        raise
     return module
 
 

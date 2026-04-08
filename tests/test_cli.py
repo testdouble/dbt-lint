@@ -108,7 +108,7 @@ class TestCliGitHubAnnotations:
 
     def test_no_annotations_without_env(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
-        runner = CliRunner(env={})
+        runner = CliRunner(env={"GITHUB_ACTIONS": None})
         result = runner.invoke(main, [str(manifest_path), "--format", "text"])
         assert "::warning" not in result.output
         assert "::error" not in result.output

@@ -3,6 +3,8 @@
 import textwrap
 from pathlib import Path
 
+import pytest
+
 from dbt_lint.config import (
     DEFAULTS,
     load_baseline,
@@ -331,3 +333,23 @@ class TestMatchesPathFilter:
         assert (
             matches_path_filter("models/staging/raw_orders.sql", pattern, None) is False
         )
+
+
+class TestConfigRegexValidation:
+    def test_invalid_include_rejected_at_load(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_lint.yml"
+        config_file.write_text("include: '[invalid'\n")
+        with pytest.raises(ValueError, match="Invalid regex"):
+            load_config(config_file)
+
+    def test_invalid_exclude_rejected_at_load(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_lint.yml"
+        config_file.write_text("exclude: '[invalid'\n")
+        with pytest.raises(ValueError, match="Invalid regex"):
+            load_config(config_file)
+
+    def test_valid_regex_accepted(self, tmp_path: Path):
+        config_file = tmp_path / "dbt_lint.yml"
+        config_file.write_text(r"include: 'models/staging/stg_\w+\.sql'" + "\n")
+        config = load_config(config_file)
+        assert config.include is not None

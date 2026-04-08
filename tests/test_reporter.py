@@ -206,6 +206,40 @@ class TestGitHubAnnotations:
         result = report([], output_format="text", github_annotations=True)
         assert "::" not in result
 
+    def test_newline_in_message_escaped(self, make_violation):
+        violations = [make_violation(message="line1\nline2")]
+        result = report(violations, output_format="text", github_annotations=True)
+        annotation_lines = [
+            line for line in result.split("\n") if line.startswith("::")
+        ]
+        assert len(annotation_lines) == 1
+        assert "%0A" in annotation_lines[0]
+
+    def test_carriage_return_in_message_escaped(self, make_violation):
+        violations = [make_violation(message="has\rreturn")]
+        result = report(violations, output_format="text", github_annotations=True)
+        annotation_lines = [
+            line for line in result.split("\n") if line.startswith("::")
+        ]
+        assert len(annotation_lines) == 1
+        assert "%0D" in annotation_lines[0]
+
+    def test_percent_in_message_escaped(self, make_violation):
+        violations = [make_violation(message="100% complete")]
+        result = report(violations, output_format="text", github_annotations=True)
+        annotation_lines = [
+            line for line in result.split("\n") if line.startswith("::")
+        ]
+        assert "%25" in annotation_lines[0]
+
+    def test_annotation_injection_blocked(self, make_violation):
+        violations = [make_violation(message="msg\n::error file=injected::payload")]
+        result = report(violations, output_format="text", github_annotations=True)
+        annotation_lines = [
+            line for line in result.split("\n") if line.startswith("::")
+        ]
+        assert len(annotation_lines) == 1
+
 
 class TestExcludedCount:
     """Excluded violation count in summary output."""

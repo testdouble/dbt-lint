@@ -235,10 +235,12 @@ class TestGitHubAnnotations:
     def test_annotation_injection_blocked(self, make_violation):
         violations = [make_violation(message="msg\n::error file=injected::payload")]
         result = report(violations, output_format="text", github_annotations=True)
+        annotation_section = result.split("\n\n")[0]
         annotation_lines = [
-            line for line in result.split("\n") if line.startswith("::")
+            line for line in annotation_section.split("\n") if line.startswith("::")
         ]
         assert len(annotation_lines) == 1
+        assert "%0A" in annotation_lines[0]
 
 
 class TestExcludedCount:

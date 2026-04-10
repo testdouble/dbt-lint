@@ -1,0 +1,21 @@
+version: 2
+
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    versioning-strategy: lockfile-only
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps): "
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci: "
+    cooldown:
+      default-days: 7

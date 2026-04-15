@@ -90,8 +90,10 @@ class Violation:
         )
 
 
-def strip_patch_prefix(path: str) -> str:
+def strip_patch_prefix(path: str | None) -> str:
     """Strip the 'project://' prefix from a dbt patch_path."""
+    if not path:
+        return ""
     return path.split("://", 1)[-1] if "://" in path else path
 
 

@@ -63,6 +63,7 @@ class TestStripPatchPrefix:
             ("my_project://models/foo.yml", "models/foo.yml"),
             ("models/staging/_staging.yml", "models/staging/_staging.yml"),
             ("", ""),
+            (None, ""),
         ],
     )
     def test_strip_patch_prefix(self, input_path, expected):

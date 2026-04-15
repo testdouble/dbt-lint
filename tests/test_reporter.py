@@ -141,6 +141,67 @@ class TestTextReport:
         assert "m2" in result
 
 
+class TestConciseReport:
+    """Concise output: one line per violation, summary at end."""
+
+    def test_empty_violations(self):
+        result = report([], output_format="concise")
+        assert "no violations" in result.lower()
+
+    def test_single_violation_one_line(self, make_violation):
+        violations = [
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                severity="error",
+                rule_id="documentation/undocumented-models",
+                message="stg_users: missing description",
+            ),
+        ]
+        result = report(violations, output_format="concise")
+        lines = [line for line in result.strip().split("\n") if line]
+        # First line: file_path: [severity] category/rule: message
+        assert lines[0] == (
+            "models/staging/stg_users.sql: [error] documentation/undocumented-models:"
+            " stg_users: missing description"
+        )
+
+    def test_multiple_violations(self, make_violation):
+        violations = [
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                severity="warn",
+                message="stg_users: missing description",
+            ),
+            make_violation(
+                file_path="models/staging/stg_orders.sql",
+                severity="error",
+                resource_id="model.pkg.stg_orders",
+                message="stg_orders: missing description",
+            ),
+        ]
+        result = report(violations, output_format="concise")
+        lines = [line for line in result.strip().split("\n") if line]
+        assert len(lines) == 3  # 2 violations + summary
+
+    def test_summary_line(self, make_violation):
+        violations = [
+            make_violation(severity="warn"),
+            make_violation(
+                severity="error",
+                resource_id="model.pkg.m2",
+                message="m2: issue",
+            ),
+        ]
+        result = report(violations, output_format="concise")
+        assert "Found 2 violations" in result
+
+    def test_empty_file_path(self, make_violation):
+        violations = [make_violation(file_path="")]
+        result = report(violations, output_format="concise")
+        lines = [line for line in result.strip().split("\n") if line]
+        assert lines[0].startswith("(no file):")
+
+
 class TestJsonReport:
     """JSON output: list of violation objects."""
 

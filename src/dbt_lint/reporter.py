@@ -33,8 +33,28 @@ def report(
     if github_annotations:
         parts.append(_format_annotations(violations))
 
-    parts.append(_format_text(violations, excluded=excluded))
+    if output_format == "concise":
+        parts.append(_format_concise(violations, excluded=excluded))
+    else:
+        parts.append(_format_text(violations, excluded=excluded))
     return "\n".join(parts)
+
+
+def _summary(violations: list[Violation], excluded: int) -> str:
+    """Build the 'Found N violations' summary line."""
+    error_count = sum(1 for v in violations if v.severity == "error")
+    warn_count = sum(1 for v in violations if v.severity == "warn")
+    parts = []
+    if error_count:
+        parts.append(f"{error_count} error{'s' if error_count != 1 else ''}")
+    if warn_count:
+        parts.append(f"{warn_count} warning{'s' if warn_count != 1 else ''}")
+    total = len(violations)
+    suffix = "s" if total != 1 else ""
+    line = f"\nFound {total} violation{suffix}: {', '.join(parts)}"
+    if excluded:
+        line += f"\n  {excluded} skipped via config"
+    return line
 
 
 def _format_text(violations: list[Violation], *, excluded: int = 0) -> str:
@@ -67,26 +87,28 @@ def _format_text(violations: list[Violation], *, excluded: int = 0) -> str:
                 if v.patch_path:
                     lines.append(f"            yml: {v.patch_path}")
 
-    # Summary
-    error_count = sum(1 for v in violations if v.severity == "error")
-    warn_count = sum(1 for v in violations if v.severity == "warn")
-    summary_parts = []
-    if error_count:
-        summary_parts.append(f"{error_count} error{'s' if error_count != 1 else ''}")
-    if warn_count:
-        summary_parts.append(f"{warn_count} warning{'s' if warn_count != 1 else ''}")
-    total = len(violations)
-    suffix = "s" if total != 1 else ""
-    severity_summary = ", ".join(summary_parts)
-    lines.append(f"\nFound {total} violation{suffix}: {severity_summary}")
+    lines.append(_summary(violations, excluded))
     category_counts = ", ".join(
         f"{cat} ({sum(len(rules) for rules in by_category[cat].values())})"
         for cat in sorted(by_category)
     )
     lines.append(f"  {category_counts}")
-    if excluded:
-        lines.append(f"  {excluded} skipped via config")
 
+    return "\n".join(lines)
+
+
+def _format_concise(violations: list[Violation], *, excluded: int = 0) -> str:
+    if not violations:
+        if excluded:
+            return f"No violations found. ({excluded} skipped via config)"
+        return "No violations found."
+
+    lines: list[str] = []
+    for v in violations:
+        path = v.file_path or "(no file)"
+        lines.append(f"{path}: [{v.severity}] {v.rule_id}: {v.message}")
+
+    lines.append(_summary(violations, excluded))
     return "\n".join(lines)
 
 

@@ -190,11 +190,17 @@ def main(  # noqa: PLR0913
         sys.exit(0)
 
     github_annotations = os.environ.get("GITHUB_ACTIONS") == "true"
+    use_color = (
+        output_format not in ("json",)
+        and os.environ.get("NO_COLOR") is None
+        and click.get_text_stream("stdout").isatty()
+    )
     output = report(
         violations,
         output_format=output_format,
         github_annotations=github_annotations,
         excluded=result.excluded,
+        color=use_color,
     )
     click.echo(output)
 

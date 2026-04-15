@@ -5,7 +5,11 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 
+import click
+
 from dbt_lint.models import Violation
+
+_SEVERITY_COLORS = {"error": "red", "warn": "yellow"}
 
 
 def report(
@@ -13,14 +17,16 @@ def report(
     output_format: str = "text",
     github_annotations: bool = False,
     excluded: int = 0,
+    color: bool = False,
 ) -> str:
     """Format violations for output.
 
     Args:
         violations: List of violations to report.
-        output_format: Output format ("text" or "json").
+        output_format: Output format ("text", "concise", "grouped", or "json").
         github_annotations: If True, also emit ::error/::warning lines.
         excluded: Number of violations suppressed via config.
+        color: If True, apply ANSI color to severity tags and headers.
 
     Returns:
         Formatted string.
@@ -34,12 +40,19 @@ def report(
         parts.append(_format_annotations(violations))
 
     if output_format == "concise":
-        parts.append(_format_concise(violations, excluded=excluded))
+        parts.append(_format_concise(violations, excluded=excluded, color=color))
     elif output_format == "grouped":
-        parts.append(_format_grouped(violations, excluded=excluded))
+        parts.append(_format_grouped(violations, excluded=excluded, color=color))
     else:
-        parts.append(_format_text(violations, excluded=excluded))
+        parts.append(_format_text(violations, excluded=excluded, color=color))
     return "\n".join(parts)
+
+
+def _style_severity(severity: str, *, color: bool) -> str:
+    tag = f"[{severity}]"
+    if not color:
+        return tag
+    return click.style(tag, fg=_SEVERITY_COLORS.get(severity))
 
 
 def _summary(violations: list[Violation], excluded: int) -> str:
@@ -59,7 +72,9 @@ def _summary(violations: list[Violation], excluded: int) -> str:
     return line
 
 
-def _format_text(violations: list[Violation], *, excluded: int = 0) -> str:
+def _format_text(
+    violations: list[Violation], *, excluded: int = 0, color: bool = False
+) -> str:
     if not violations:
         if excluded:
             return f"No violations found. ({excluded} skipped via config)"
@@ -74,7 +89,8 @@ def _format_text(violations: list[Violation], *, excluded: int = 0) -> str:
 
     lines: list[str] = []
     for category in sorted(by_category):
-        lines.append(f"\n{category}")
+        cat_header = click.style(category, bold=True) if color else category
+        lines.append(f"\n{cat_header}")
         lines.append("=" * len(category))
         for rule_id in sorted(by_category[category]):
             rule_violations = by_category[category][rule_id]
@@ -83,7 +99,7 @@ def _format_text(violations: list[Violation], *, excluded: int = 0) -> str:
             lines.append(f"\n  {header}")
             lines.append(f"  {'-' * len(header)}")
             for v in rule_violations:
-                severity_tag = f"[{v.severity}]"
+                severity_tag = _style_severity(v.severity, color=color)
                 lines.append(f"    {severity_tag} {v.message}")
                 lines.append(f"            --> {v.file_path}")
                 if v.patch_path:
@@ -99,7 +115,9 @@ def _format_text(violations: list[Violation], *, excluded: int = 0) -> str:
     return "\n".join(lines)
 
 
-def _format_concise(violations: list[Violation], *, excluded: int = 0) -> str:
+def _format_concise(
+    violations: list[Violation], *, excluded: int = 0, color: bool = False
+) -> str:
     if not violations:
         if excluded:
             return f"No violations found. ({excluded} skipped via config)"
@@ -108,13 +126,16 @@ def _format_concise(violations: list[Violation], *, excluded: int = 0) -> str:
     lines: list[str] = []
     for v in violations:
         path = v.file_path or "(no file)"
-        lines.append(f"{path}: [{v.severity}] {v.rule_id}: {v.message}")
+        severity_tag = _style_severity(v.severity, color=color)
+        lines.append(f"{path}: {severity_tag} {v.rule_id}: {v.message}")
 
     lines.append(_summary(violations, excluded))
     return "\n".join(lines)
 
 
-def _format_grouped(violations: list[Violation], *, excluded: int = 0) -> str:
+def _format_grouped(
+    violations: list[Violation], *, excluded: int = 0, color: bool = False
+) -> str:
     if not violations:
         if excluded:
             return f"No violations found. ({excluded} skipped via config)"
@@ -127,9 +148,11 @@ def _format_grouped(violations: list[Violation], *, excluded: int = 0) -> str:
 
     lines: list[str] = []
     for path in sorted(by_file):
-        lines.append(path)
+        file_header = click.style(path, bold=True) if color else path
+        lines.append(file_header)
         for v in by_file[path]:
-            lines.append(f"  [{v.severity}] {v.rule_id}: {v.message}")
+            severity_tag = _style_severity(v.severity, color=color)
+            lines.append(f"  {severity_tag} {v.rule_id}: {v.message}")
         lines.append("")
 
     lines.append(_summary(violations, excluded).lstrip("\n"))

@@ -403,6 +403,49 @@ class TestGitHubAnnotations:
         assert "%0A" in result
 
 
+class TestColorSupport:
+    """Color output via click.style()."""
+
+    def test_error_severity_colored_red(self, make_violation):
+        violations = [make_violation(severity="error")]
+        result = report(violations, output_format="text", color=True)
+        # click.style wraps with ANSI codes; red is \x1b[31m
+        assert "\x1b[" in result
+        assert "[error]" in result
+
+    def test_warn_severity_colored_yellow(self, make_violation):
+        violations = [make_violation(severity="warn")]
+        result = report(violations, output_format="text", color=True)
+        assert "\x1b[" in result
+        assert "[warn]" in result
+
+    def test_no_color_when_disabled(self, make_violation):
+        violations = [make_violation(severity="error")]
+        result = report(violations, output_format="text", color=False)
+        assert "\x1b[" not in result
+
+    def test_no_color_in_json(self, make_violation):
+        violations = [make_violation()]
+        result = report(violations, output_format="json", color=True)
+        assert "\x1b[" not in result
+
+    def test_color_in_concise(self, make_violation):
+        violations = [make_violation(severity="error")]
+        result = report(violations, output_format="concise", color=True)
+        assert "\x1b[" in result
+
+    def test_color_in_grouped(self, make_violation):
+        violations = [make_violation(severity="error")]
+        result = report(violations, output_format="grouped", color=True)
+        assert "\x1b[" in result
+
+    def test_grouped_file_header_bold(self, make_violation):
+        violations = [make_violation(file_path="models/stg_users.sql")]
+        result = report(violations, output_format="grouped", color=True)
+        # Bold is \x1b[1m
+        assert "\x1b[1m" in result
+
+
 class TestExcludedCount:
     """Excluded violation count in summary output."""
 

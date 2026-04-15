@@ -61,8 +61,11 @@ def _format_text(violations: list[Violation], *, excluded: int = 0) -> str:
             lines.append(f"\n  {header}")
             lines.append(f"  {'-' * len(header)}")
             for v in rule_violations:
-                severity_tag = f" [{v.severity}]" if v.severity == "error" else ""
-                lines.append(f"    {v.message}{severity_tag}")
+                severity_tag = f"[{v.severity}]"
+                lines.append(f"    {severity_tag} {v.message}")
+                lines.append(f"            --> {v.file_path}")
+                if v.patch_path:
+                    lines.append(f"            yml: {v.patch_path}")
 
     # Summary
     error_count = sum(1 for v in violations if v.severity == "error")

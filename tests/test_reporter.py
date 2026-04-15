@@ -66,10 +66,32 @@ class TestTextReport:
         assert any("undocumented-models" in line for line in lines)
         assert any("documentation-coverage" in line for line in lines)
 
-    def test_severity_shown_for_errors(self, make_violation):
+    def test_file_path_shown_on_violation(self, make_violation):
+        violations = [make_violation(file_path="models/staging/stg_users.sql")]
+        result = report(violations, output_format="text")
+        assert "--> models/staging/stg_users.sql" in result
+
+    def test_patch_path_shown_when_present(self, make_violation):
+        violations = [
+            make_violation(patch_path="models/staging/_staging.yml"),
+        ]
+        result = report(violations, output_format="text")
+        assert "yml: models/staging/_staging.yml" in result
+
+    def test_patch_path_absent_when_empty(self, make_violation):
+        violations = [make_violation(patch_path="")]
+        result = report(violations, output_format="text")
+        assert "yml:" not in result
+
+    def test_severity_tag_on_errors(self, make_violation):
         violations = [make_violation(severity="error")]
         result = report(violations, output_format="text")
-        assert "error" in result.lower()
+        assert "[error]" in result
+
+    def test_severity_tag_on_warnings(self, make_violation):
+        violations = [make_violation(severity="warn")]
+        result = report(violations, output_format="text")
+        assert "[warn]" in result
 
     def test_summary_line_with_counts(self, make_violation):
         violations = [

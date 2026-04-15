@@ -137,6 +137,7 @@ class TestJsonReport:
         assert obj["message"] == "stg_users: missing description"
         assert obj["severity"] == "warn"
         assert obj["file_path"] == "models/staging/stg_users.sql"
+        assert obj["patch_path"] == ""
 
     def test_multiple_violations(self, make_violation):
         violations = [

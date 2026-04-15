@@ -65,6 +65,7 @@ def make_violation():
             "message": "stg_users: missing description",
             "severity": "warn",
             "file_path": "models/staging/stg_users.sql",
+            "patch_path": "",
         }
         if "resource_id" in overrides and "resource_name" not in overrides:
             defaults["resource_name"] = overrides["resource_id"].split(".")[-1]

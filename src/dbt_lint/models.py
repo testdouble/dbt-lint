@@ -71,6 +71,7 @@ class Violation:
     message: str
     severity: str
     file_path: str
+    patch_path: str = ""
 
     @classmethod
     def from_resource(cls, resource: Resource, message: str) -> Violation:
@@ -85,7 +86,13 @@ class Violation:
             message=message,
             severity="",
             file_path=resource.file_path,
+            patch_path=strip_patch_prefix(resource.patch_path),
         )
+
+
+def strip_patch_prefix(path: str) -> str:
+    """Strip the 'project://' prefix from a dbt patch_path."""
+    return path.split("://", 1)[-1] if "://" in path else path
 
 
 @dataclass(frozen=True)

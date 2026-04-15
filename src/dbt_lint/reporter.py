@@ -97,6 +97,7 @@ def _format_json(violations: list[Violation]) -> str:
                 "message": v.message,
                 "severity": v.severity,
                 "file_path": v.file_path,
+                "patch_path": v.patch_path,
             }
             for v in violations
         ],

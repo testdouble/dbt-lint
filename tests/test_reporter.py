@@ -202,6 +202,86 @@ class TestConciseReport:
         assert lines[0].startswith("(no file):")
 
 
+class TestGroupedReport:
+    """Grouped output: violations grouped by file path."""
+
+    def test_empty_violations(self):
+        result = report([], output_format="grouped")
+        assert "no violations" in result.lower()
+
+    def test_single_file(self, make_violation):
+        violations = [
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                severity="error",
+                rule_id="documentation/undocumented-models",
+                message="stg_users: missing description",
+            ),
+        ]
+        result = report(violations, output_format="grouped")
+        assert "models/staging/stg_users.sql" in result
+        assert (
+            "[error] documentation/undocumented-models: stg_users: missing description"
+            in result
+        )
+
+    def test_multiple_files(self, make_violation):
+        violations = [
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                message="stg_users: issue",
+            ),
+            make_violation(
+                file_path="models/staging/stg_orders.sql",
+                resource_id="model.pkg.stg_orders",
+                message="stg_orders: issue",
+            ),
+        ]
+        result = report(violations, output_format="grouped")
+        assert "models/staging/stg_users.sql" in result
+        assert "models/staging/stg_orders.sql" in result
+
+    def test_multiple_violations_same_file(self, make_violation):
+        violations = [
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                rule_id="documentation/undocumented-models",
+                message="stg_users: missing description",
+            ),
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                rule_id="documentation/undocumented-columns",
+                message="stg_users: 3 columns undocumented",
+                resource_id="model.pkg.stg_users_2",
+            ),
+        ]
+        result = report(violations, output_format="grouped")
+        lines = result.strip().split("\n")
+        # File header should appear once
+        file_lines = [line for line in lines if line == "models/staging/stg_users.sql"]
+        assert len(file_lines) == 1
+        # Both violations indented under it
+        assert any("undocumented-models" in line for line in lines)
+        assert any("undocumented-columns" in line for line in lines)
+
+    def test_empty_file_path_grouped_as_no_file(self, make_violation):
+        violations = [make_violation(file_path="")]
+        result = report(violations, output_format="grouped")
+        assert "(no file)" in result
+
+    def test_summary(self, make_violation):
+        violations = [
+            make_violation(severity="warn"),
+            make_violation(
+                severity="error",
+                resource_id="model.pkg.m2",
+                message="m2: issue",
+            ),
+        ]
+        result = report(violations, output_format="grouped")
+        assert "Found 2 violations" in result
+
+
 class TestJsonReport:
     """JSON output: list of violation objects."""
 

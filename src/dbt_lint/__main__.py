@@ -90,7 +90,7 @@ def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
 @click.option(
     "--format",
     "output_format",
-    type=click.Choice(["text", "concise", "json"]),
+    type=click.Choice(["text", "concise", "grouped", "json"]),
     default="text",
     help="Output format.",
 )

@@ -35,6 +35,8 @@ def report(
 
     if output_format == "concise":
         parts.append(_format_concise(violations, excluded=excluded))
+    elif output_format == "grouped":
+        parts.append(_format_grouped(violations, excluded=excluded))
     else:
         parts.append(_format_text(violations, excluded=excluded))
     return "\n".join(parts)
@@ -109,6 +111,28 @@ def _format_concise(violations: list[Violation], *, excluded: int = 0) -> str:
         lines.append(f"{path}: [{v.severity}] {v.rule_id}: {v.message}")
 
     lines.append(_summary(violations, excluded))
+    return "\n".join(lines)
+
+
+def _format_grouped(violations: list[Violation], *, excluded: int = 0) -> str:
+    if not violations:
+        if excluded:
+            return f"No violations found. ({excluded} skipped via config)"
+        return "No violations found."
+
+    by_file: dict[str, list[Violation]] = defaultdict(list)
+    for v in violations:
+        key = v.file_path or "(no file)"
+        by_file[key].append(v)
+
+    lines: list[str] = []
+    for path in sorted(by_file):
+        lines.append(path)
+        for v in by_file[path]:
+            lines.append(f"  [{v.severity}] {v.rule_id}: {v.message}")
+        lines.append("")
+
+    lines.append(_summary(violations, excluded).lstrip("\n"))
     return "\n".join(lines)
 
 

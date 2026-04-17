@@ -1,6 +1,8 @@
 """Tests for Violation dataclass logic."""
 
-from dbt_lint.models import Violation
+import pytest
+
+from dbt_lint.models import Violation, strip_patch_prefix
 
 
 class TestViolation:
@@ -16,6 +18,7 @@ class TestViolation:
         assert violation.rule_id == "modeling/root-models"
         assert violation.severity == "warn"
         assert violation.file_path == "models/orphan.sql"
+        assert violation.patch_path == ""
 
     def test_from_resource(self, make_resource):
         resource = make_resource(
@@ -32,3 +35,24 @@ class TestViolation:
         assert violation.message == "stg_orders: uses SELECT DISTINCT"
         assert violation.rule_id == ""
         assert violation.severity == ""
+        assert violation.patch_path == ""
+
+    def test_from_resource_applies_patch_prefix_stripping(self, make_resource):
+        resource = make_resource(patch_path="project://models/staging/_staging.yml")
+        violation = Violation.from_resource(resource, "test")
+        assert violation.patch_path == "models/staging/_staging.yml"
+
+
+class TestStripPatchPrefix:
+    @pytest.mark.parametrize(
+        ("input_path", "expected"),
+        [
+            ("project://models/staging/_staging.yml", "models/staging/_staging.yml"),
+            ("my_project://models/foo.yml", "models/foo.yml"),
+            ("models/staging/_staging.yml", "models/staging/_staging.yml"),
+            ("", ""),
+            (None, ""),
+        ],
+    )
+    def test_strip_patch_prefix(self, input_path, expected):
+        assert strip_patch_prefix(input_path) == expected

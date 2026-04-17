@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 from dbt_lint.config import RuleConfig
-from dbt_lint.models import Relationship, Resource, Violation
+from dbt_lint.models import Relationship, Resource, Violation, strip_patch_prefix
 from dbt_lint.rules import rule
 
 _SNAKE_CASE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -190,7 +190,7 @@ def source_directories(resource: Resource, config: RuleConfig) -> Violation | No
 def check_yaml_colocation(resource: Resource, config: RuleConfig) -> Violation | None:
     if resource.resource_type != "model" or not resource.patch_path:
         return None
-    yaml_path = resource.patch_path.split("://", 1)[-1]
+    yaml_path = strip_patch_prefix(resource.patch_path)
     model_dir = resource.file_path.rsplit("/", 1)[0]
     yaml_dir = yaml_path.rsplit("/", 1)[0]
     if model_dir == yaml_dir:
@@ -290,8 +290,7 @@ def yaml_file_naming(resource: Resource, config: RuleConfig) -> Violation | None
     if resource.resource_type == "source":
         yaml_path = resource.file_path
     elif resource.resource_type == "model" and resource.patch_path:
-        # patch_path format: "project://path/to/file.yml"
-        yaml_path = resource.patch_path.split("://", 1)[-1]
+        yaml_path = strip_patch_prefix(resource.patch_path)
     else:
         return None
 

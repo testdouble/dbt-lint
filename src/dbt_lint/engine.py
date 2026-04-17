@@ -106,4 +106,5 @@ def _finalize(
         message=violation.message,
         severity=violation.severity or rule_config.severity,
         file_path=violation.file_path,
+        patch_path=violation.patch_path,
     )

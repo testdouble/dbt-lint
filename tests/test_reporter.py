@@ -66,10 +66,37 @@ class TestTextReport:
         assert any("undocumented-models" in line for line in lines)
         assert any("documentation-coverage" in line for line in lines)
 
-    def test_severity_shown_for_errors(self, make_violation):
+    def test_file_path_shown_on_violation(self, make_violation):
+        violations = [make_violation(file_path="models/staging/stg_users.sql")]
+        result = report(violations, output_format="text")
+        assert "--> models/staging/stg_users.sql" in result
+
+    def test_patch_path_shown_when_present(self, make_violation):
+        violations = [
+            make_violation(patch_path="models/staging/_staging.yml"),
+        ]
+        result = report(violations, output_format="text")
+        assert "yml: models/staging/_staging.yml" in result
+
+    def test_patch_path_absent_when_empty(self, make_violation):
+        violations = [make_violation(patch_path="")]
+        result = report(violations, output_format="text")
+        assert "yml:" not in result
+
+    def test_file_path_arrow_absent_when_empty(self, make_violation):
+        violations = [make_violation(file_path="")]
+        result = report(violations, output_format="text")
+        assert "-->" not in result
+
+    def test_severity_tag_on_errors(self, make_violation):
         violations = [make_violation(severity="error")]
         result = report(violations, output_format="text")
-        assert "error" in result.lower()
+        assert "[error]" in result
+
+    def test_severity_tag_on_warnings(self, make_violation):
+        violations = [make_violation(severity="warn")]
+        result = report(violations, output_format="text")
+        assert "[warn]" in result
 
     def test_summary_line_with_counts(self, make_violation):
         violations = [
@@ -119,6 +146,148 @@ class TestTextReport:
         assert "m2" in result
 
 
+class TestConciseReport:
+    """Concise output: one line per violation, summary at end."""
+
+    def test_empty_violations(self):
+        result = report([], output_format="concise")
+        assert "no violations" in result.lower()
+
+    def test_single_violation_one_line(self, make_violation):
+        violations = [
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                severity="error",
+                rule_id="documentation/undocumented-models",
+                message="stg_users: missing description",
+            ),
+        ]
+        result = report(violations, output_format="concise")
+        lines = [line for line in result.strip().split("\n") if line]
+        # First line: file_path: [severity] category/rule: message
+        assert lines[0] == (
+            "models/staging/stg_users.sql: [error] documentation/undocumented-models:"
+            " stg_users: missing description"
+        )
+
+    def test_multiple_violations(self, make_violation):
+        violations = [
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                severity="warn",
+                message="stg_users: missing description",
+            ),
+            make_violation(
+                file_path="models/staging/stg_orders.sql",
+                severity="error",
+                resource_id="model.pkg.stg_orders",
+                message="stg_orders: missing description",
+            ),
+        ]
+        result = report(violations, output_format="concise")
+        assert "stg_users: missing description" in result
+        assert "stg_orders: missing description" in result
+        assert "Found 2 violations" in result
+
+    def test_summary_line(self, make_violation):
+        violations = [
+            make_violation(severity="warn"),
+            make_violation(
+                severity="error",
+                resource_id="model.pkg.m2",
+                message="m2: issue",
+            ),
+        ]
+        result = report(violations, output_format="concise")
+        assert "Found 2 violations" in result
+
+    def test_empty_file_path(self, make_violation):
+        violations = [make_violation(file_path="")]
+        result = report(violations, output_format="concise")
+        lines = [line for line in result.strip().split("\n") if line]
+        assert lines[0].startswith("(no file):")
+
+
+class TestGroupedReport:
+    """Grouped output: violations grouped by file path."""
+
+    def test_empty_violations(self):
+        result = report([], output_format="grouped")
+        assert "no violations" in result.lower()
+
+    def test_single_file(self, make_violation):
+        violations = [
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                severity="error",
+                rule_id="documentation/undocumented-models",
+                message="stg_users: missing description",
+            ),
+        ]
+        result = report(violations, output_format="grouped")
+        assert "models/staging/stg_users.sql" in result
+        assert (
+            "[error] documentation/undocumented-models: stg_users: missing description"
+            in result
+        )
+
+    def test_multiple_files(self, make_violation):
+        violations = [
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                message="stg_users: issue",
+            ),
+            make_violation(
+                file_path="models/staging/stg_orders.sql",
+                resource_id="model.pkg.stg_orders",
+                message="stg_orders: issue",
+            ),
+        ]
+        result = report(violations, output_format="grouped")
+        assert "models/staging/stg_users.sql" in result
+        assert "models/staging/stg_orders.sql" in result
+
+    def test_multiple_violations_same_file(self, make_violation):
+        violations = [
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                rule_id="documentation/undocumented-models",
+                message="stg_users: missing description",
+            ),
+            make_violation(
+                file_path="models/staging/stg_users.sql",
+                rule_id="documentation/undocumented-columns",
+                message="stg_users: 3 columns undocumented",
+                resource_id="model.pkg.stg_users_2",
+            ),
+        ]
+        result = report(violations, output_format="grouped")
+        lines = result.strip().split("\n")
+        # File header should appear once
+        file_lines = [line for line in lines if line == "models/staging/stg_users.sql"]
+        assert len(file_lines) == 1
+        # Both violations indented under it
+        assert any("undocumented-models" in line for line in lines)
+        assert any("undocumented-columns" in line for line in lines)
+
+    def test_empty_file_path_grouped_as_no_file(self, make_violation):
+        violations = [make_violation(file_path="")]
+        result = report(violations, output_format="grouped")
+        assert "(no file)" in result
+
+    def test_summary(self, make_violation):
+        violations = [
+            make_violation(severity="warn"),
+            make_violation(
+                severity="error",
+                resource_id="model.pkg.m2",
+                message="m2: issue",
+            ),
+        ]
+        result = report(violations, output_format="grouped")
+        assert "Found 2 violations" in result
+
+
 class TestJsonReport:
     """JSON output: list of violation objects."""
 
@@ -127,7 +296,17 @@ class TestJsonReport:
         assert not json.loads(result)
 
     def test_single_violation_structure(self, make_violation):
-        violations = [make_violation()]
+        violations = [
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.stg_users",
+                resource_name="stg_users",
+                message="stg_users: missing description",
+                severity="warn",
+                file_path="models/staging/stg_users.sql",
+                patch_path="models/staging/_staging.yml",
+            )
+        ]
         result = json.loads(report(violations, output_format="json"))
         assert len(result) == 1
         obj = result[0]
@@ -137,6 +316,7 @@ class TestJsonReport:
         assert obj["message"] == "stg_users: missing description"
         assert obj["severity"] == "warn"
         assert obj["file_path"] == "models/staging/stg_users.sql"
+        assert obj["patch_path"] == "models/staging/_staging.yml"
 
     def test_multiple_violations(self, make_violation):
         violations = [
@@ -237,6 +417,49 @@ class TestGitHubAnnotations:
         result = _format_annotations([violation])
         assert result.count("\n") == 0
         assert "%0A" in result
+
+
+class TestColorSupport:
+    """Color output via click.style()."""
+
+    def test_error_severity_colored_red(self, make_violation):
+        violations = [make_violation(severity="error")]
+        result = report(violations, output_format="text", color=True)
+        # click.style wraps with ANSI codes; red is \x1b[31m
+        assert "\x1b[" in result
+        assert "[error]" in result
+
+    def test_warn_severity_colored_yellow(self, make_violation):
+        violations = [make_violation(severity="warn")]
+        result = report(violations, output_format="text", color=True)
+        assert "\x1b[" in result
+        assert "[warn]" in result
+
+    def test_no_color_when_disabled(self, make_violation):
+        violations = [make_violation(severity="error")]
+        result = report(violations, output_format="text", color=False)
+        assert "\x1b[" not in result
+
+    def test_no_color_in_json(self, make_violation):
+        violations = [make_violation()]
+        result = report(violations, output_format="json", color=True)
+        assert "\x1b[" not in result
+
+    def test_color_in_concise(self, make_violation):
+        violations = [make_violation(severity="error")]
+        result = report(violations, output_format="concise", color=True)
+        assert "\x1b[" in result
+
+    def test_color_in_grouped(self, make_violation):
+        violations = [make_violation(severity="error")]
+        result = report(violations, output_format="grouped", color=True)
+        assert "\x1b[" in result
+
+    def test_grouped_file_header_bold(self, make_violation):
+        violations = [make_violation(file_path="models/stg_users.sql")]
+        result = report(violations, output_format="grouped", color=True)
+        # Bold is \x1b[1m
+        assert "\x1b[1m" in result
 
 
 class TestExcludedCount:

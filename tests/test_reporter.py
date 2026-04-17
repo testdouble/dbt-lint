@@ -180,8 +180,9 @@ class TestConciseReport:
             ),
         ]
         result = report(violations, output_format="concise")
-        lines = [line for line in result.strip().split("\n") if line]
-        assert len(lines) == 3  # 2 violations + summary
+        assert "stg_users: missing description" in result
+        assert "stg_orders: missing description" in result
+        assert "Found 2 violations" in result
 
     def test_summary_line(self, make_violation):
         violations = [
@@ -290,7 +291,17 @@ class TestJsonReport:
         assert not json.loads(result)
 
     def test_single_violation_structure(self, make_violation):
-        violations = [make_violation()]
+        violations = [
+            make_violation(
+                rule_id="documentation/undocumented-models",
+                resource_id="model.pkg.stg_users",
+                resource_name="stg_users",
+                message="stg_users: missing description",
+                severity="warn",
+                file_path="models/staging/stg_users.sql",
+                patch_path="models/staging/_staging.yml",
+            )
+        ]
         result = json.loads(report(violations, output_format="json"))
         assert len(result) == 1
         obj = result[0]
@@ -300,7 +311,7 @@ class TestJsonReport:
         assert obj["message"] == "stg_users: missing description"
         assert obj["severity"] == "warn"
         assert obj["file_path"] == "models/staging/stg_users.sql"
-        assert obj["patch_path"] == ""
+        assert obj["patch_path"] == "models/staging/_staging.yml"
 
     def test_multiple_violations(self, make_violation):
         violations = [

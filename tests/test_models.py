@@ -37,20 +37,8 @@ class TestViolation:
         assert violation.severity == ""
         assert violation.patch_path == ""
 
-    def test_from_resource_carries_patch_path(self, make_resource):
-        resource = make_resource(
-            patch_path="project://models/staging/_staging.yml",
-        )
-        violation = Violation.from_resource(resource, "test")
-        assert violation.patch_path == "models/staging/_staging.yml"
-
-    def test_from_resource_strips_patch_prefix(self, make_resource):
-        resource = make_resource(patch_path="my_project://models/foo.yml")
-        violation = Violation.from_resource(resource, "test")
-        assert violation.patch_path == "models/foo.yml"
-
-    def test_from_resource_no_prefix_passthrough(self, make_resource):
-        resource = make_resource(patch_path="models/staging/_staging.yml")
+    def test_from_resource_applies_patch_prefix_stripping(self, make_resource):
+        resource = make_resource(patch_path="project://models/staging/_staging.yml")
         violation = Violation.from_resource(resource, "test")
         assert violation.patch_path == "models/staging/_staging.yml"
 

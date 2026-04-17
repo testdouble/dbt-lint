@@ -101,7 +101,8 @@ def _format_text(
             for v in rule_violations:
                 severity_tag = _style_severity(v.severity, color=color)
                 lines.append(f"    {severity_tag} {v.message}")
-                lines.append(f"            --> {v.file_path}")
+                if v.file_path:
+                    lines.append(f"            --> {v.file_path}")
                 if v.patch_path:
                     lines.append(f"            yml: {v.patch_path}")
 

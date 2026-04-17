@@ -83,6 +83,11 @@ class TestTextReport:
         result = report(violations, output_format="text")
         assert "yml:" not in result
 
+    def test_file_path_arrow_absent_when_empty(self, make_violation):
+        violations = [make_violation(file_path="")]
+        result = report(violations, output_format="text")
+        assert "-->" not in result
+
     def test_severity_tag_on_errors(self, make_violation):
         violations = [make_violation(severity="error")]
         result = report(violations, output_format="text")

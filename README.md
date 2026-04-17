@@ -49,7 +49,7 @@ dbt-lint [OPTIONS] [MANIFEST]
 
 Options:
   --config PATH           Path to dbt_lint.yml config file
-  --format [text|json]    Output format (default: text)
+  --format FORMAT         Output format: text, concise, grouped, json (default: text)
   --select TEXT           Only run these rule IDs (repeatable)
   --exclude TEXT          Skip these rule IDs (repeatable)
   --fail-on [warn|error]  Minimum severity that causes exit code 1 (default: warn)
@@ -62,6 +62,8 @@ Options:
 ```
 
 Exit codes: `0` clean, `1` violations found, `2` tool error.
+
+Color is applied to severity tags and headers when stdout is a TTY. Set `NO_COLOR=1` to disable.
 
 ### GitHub Actions
 

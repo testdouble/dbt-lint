@@ -1,4 +1,4 @@
-"""Reporter: text, JSON, and GitHub Actions annotation output."""
+"""Reporter: text, concise, grouped, JSON, and GitHub Actions output."""
 
 from __future__ import annotations
 

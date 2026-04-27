@@ -6,7 +6,6 @@ import json
 
 import pytest
 
-from dbt_lint.classifier import classify_model_type
 from dbt_lint.config import DEFAULTS, load_config
 from dbt_lint.manifest import (
     _columns_to_tuple,
@@ -19,97 +18,6 @@ from dbt_lint.manifest import (
     parse_manifest,
 )
 from dbt_lint.models import ColumnInfo, DirectEdge
-
-
-class TestClassifyModelType:
-    """Two-pass heuristic: prefix match first, then directory match."""
-
-    def test_staging_prefix(self):
-        assert (
-            classify_model_type(
-                "stg_orders", "models/staging/orders/stg_orders.sql", DEFAULTS
-            )
-            == "staging"
-        )
-
-    def test_intermediate_prefix(self):
-        assert (
-            classify_model_type(
-                "int_orders_pivoted",
-                "models/intermediate/int_orders_pivoted.sql",
-                DEFAULTS,
-            )
-            == "intermediate"
-        )
-
-    def test_marts_fct_prefix(self):
-        assert (
-            classify_model_type("fct_orders", "models/marts/fct_orders.sql", DEFAULTS)
-            == "marts"
-        )
-
-    def test_marts_dim_prefix(self):
-        assert (
-            classify_model_type(
-                "dim_customers", "models/marts/dim_customers.sql", DEFAULTS
-            )
-            == "marts"
-        )
-
-    def test_base_prefix(self):
-        assert (
-            classify_model_type("base_orders", "models/base/base_orders.sql", DEFAULTS)
-            == "base"
-        )
-
-    def test_other_prefix(self):
-        assert (
-            classify_model_type(
-                "rpt_weekly_sales", "models/reports/rpt_weekly_sales.sql", DEFAULTS
-            )
-            == "other"
-        )
-
-    def test_directory_fallback_staging(self):
-        """No prefix match, falls back to directory."""
-        assert (
-            classify_model_type(
-                "orders", "models/staging/src_name/orders.sql", DEFAULTS
-            )
-            == "staging"
-        )
-
-    def test_directory_fallback_marts(self):
-        assert (
-            classify_model_type("orders", "models/marts/orders.sql", DEFAULTS)
-            == "marts"
-        )
-
-    def test_directory_fallback_intermediate(self):
-        assert (
-            classify_model_type("orders", "models/intermediate/orders.sql", DEFAULTS)
-            == "intermediate"
-        )
-
-    def test_prefix_takes_precedence_over_directory(self):
-        """Model named stg_ but in marts directory: prefix wins."""
-        assert (
-            classify_model_type("stg_orders", "models/marts/stg_orders.sql", DEFAULTS)
-            == "staging"
-        )
-
-    def test_no_match_returns_other(self):
-        assert (
-            classify_model_type("my_model", "models/custom/my_model.sql", DEFAULTS)
-            == "other"
-        )
-
-    def test_nested_directory_match(self):
-        """Directory match works with nested paths."""
-        assert (
-            classify_model_type("orders", "models/staging/stripe/orders.sql", DEFAULTS)
-            == "staging"
-        )
 
 
 class TestHasHardCodedReferences:

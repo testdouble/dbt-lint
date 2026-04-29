@@ -182,28 +182,9 @@ def generate_rules_index() -> list[RuleInfo]:
 
 def get_all_rules() -> list[RuleDef]:
     """Discover all decorated rule functions across rule modules."""
-    from dbt_lint.rules import (  # noqa: PLC0415
-        documentation,
-        governance,
-        modeling,
-        performance,
-        structure,
-        testing,
-    )
+    from dbt_lint.registry import Registry  # noqa: PLC0415
 
-    rules = []
-    for module in [
-        modeling,
-        testing,
-        documentation,
-        structure,
-        performance,
-        governance,
-    ]:
-        for obj in vars(module).values():
-            if callable(obj) and hasattr(obj, "_rule_meta"):
-                rules.append(RuleDef.from_function(obj))
-    return rules
+    return Registry().builtins()
 
 
 def group_by(items, key) -> dict:

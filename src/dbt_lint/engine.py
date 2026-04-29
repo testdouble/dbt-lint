@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 from fnmatch import fnmatch
 
 from dbt_lint.config import Config, RuleConfig, matches_path_filter
-from dbt_lint.loader import load_custom_rules
 from dbt_lint.models import Relationship, Resource, Violation
-from dbt_lint.rules import RuleContext, RuleDef, get_all_rules
+from dbt_lint.registry import Registry
+from dbt_lint.rules import RuleContext, RuleDef
 
 
 @dataclass
@@ -28,9 +28,7 @@ def evaluate(
     rules: list[RuleDef] | None = None,
 ) -> EvaluationResult:
     """Run all enabled rules and collect violations."""
-    all_rules = (
-        rules if rules is not None else get_all_rules() + load_custom_rules(config)
-    )
+    all_rules = rules if rules is not None else _assemble_rules(config)
     result = EvaluationResult()
     for rule_def in all_rules:
         rule_config = config.rule_config(rule_def.id)
@@ -66,6 +64,18 @@ def evaluate(
                 return result
 
     return result
+
+
+def _assemble_rules(config: Config) -> list[RuleDef]:
+    """Assemble built-in rules plus any custom rules declared in config."""
+    registry = Registry()
+    if config._custom_rule_entries:
+        if config.config_dir is None:
+            msg = "Custom rules require a config file (source paths are relative)"
+            raise ValueError(msg)
+        for entry in config._custom_rule_entries:
+            registry.register_from_path(entry.source, entry.rule_id, config.config_dir)
+    return registry.all()
 
 
 def _is_excluded(

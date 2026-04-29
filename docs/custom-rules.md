@@ -5,22 +5,32 @@ Write project-specific rules in Python using the same `@rule` decorator as built
 ## Minimal example
 
 ```python
-from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
 
 @rule(
     id="custom/no-hardcoded-schema",
     description="Model sets a hardcoded schema.",
 )
-def no_hardcoded_schema(resource: Resource, config: RuleConfig) -> Violation | None:
+def no_hardcoded_schema(resource: Resource, context: RuleContext) -> Violation | None:
     if resource.resource_type == "model" and resource.config.get("schema"):
-        return Violation.from_resource(
+        return context.violation(
             resource, f"{resource.resource_name}: hardcoded schema"
         )
     return None
 ```
 
-That's a complete rule. The `@rule` decorator requires `id` and `description`. The function receives a `Resource` and returns a `Violation` or `None`.
+That's a complete rule. The `@rule` decorator requires `id` and `description`. The function receives a `Resource` plus a `RuleContext` and returns a `Violation` or `None`.
+
+## Building violations
+
+`RuleContext` is the single surface rules use to construct violations and read configurable values:
+
+- `context.violation(resource, message)` — the common path. Builds a fully-formed `Violation` keyed off the supplied `Resource`.
+- `context.violation_for(*, resource_id, resource_name, message, file_path="", patch_path="")` — keyword-only escape hatch for aggregate rules that emit violations keyed by a synthetic identifier (e.g., a `model_type` bucket) or for edge-walking rules whose lookup may miss a `Resource`.
+- `context.params["threshold"]` — read rule-relevant configuration values. Single-step access; the engine populates `params` from the `params:` block on the rule's config entry.
+
+Rules never construct `Violation` directly. The engine populates `rule_id` and `severity` on the context before the call, so `violation()` / `violation_for()` always return fully-formed violations.
 
 ## Adding metadata
 
@@ -39,8 +49,8 @@ Optional decorator fields populate `--list-rules` output:
 
 Two signatures are supported:
 
-- Per-resource: `(resource: Resource, config: RuleConfig) -> Violation | None`
-- Aggregate: `(resources: list[Resource], relationships: list[Relationship], config: RuleConfig) -> list[Violation]`
+- Per-resource: `(resource: Resource, context: RuleContext) -> Violation | None`
+- Aggregate: `(resources: list[Resource], relationships: list[Relationship], context: RuleContext) -> list[Violation]`
 
 Use aggregate when the rule needs to compare across resources or traverse the DAG. The decorator validates the signature at import time.
 
@@ -63,8 +73,8 @@ Custom rule IDs must not collide with built-in rule IDs (the loader raises an er
 | --- | --- |
 | `Resource` | Frozen dataclass with 25 fields (resource_id, resource_name, resource_type, raw_code, meta, config, tags, columns, ...) |
 | `Relationship` | Dependency edge between resources (parent, child, distance, ...) |
-| `Violation` | Rule violation. Use `Violation.from_resource(resource, message)` to create. |
-| `RuleConfig` | Per-rule config (enabled, severity, params dict) |
+| `Violation` | Rule violation dataclass (rule_id, resource_id, resource_name, message, severity, file_path, patch_path) |
+| `RuleContext` | Per-rule context: `params: dict[str, Any]`, `violation(resource, message)`, `violation_for(*, resource_id, resource_name, message, ...)` |
 | `ColumnInfo` | Column metadata (name, data_type, is_described) |
 | `rule` | Decorator: `@rule(id, description, *, rationale, remediation, exceptions, examples)` |
 | `direct_edges` | Filter relationships to distance=1 |

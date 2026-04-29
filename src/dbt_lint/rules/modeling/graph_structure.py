@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
-from dbt_lint.config import RuleConfig
 from dbt_lint.models import Relationship, Resource, Violation
-from dbt_lint.rules import direct_edges, group_by, resolve_name, resources_by_id, rule
+from dbt_lint.rules import (
+    RuleContext,
+    direct_edges,
+    group_by,
+    resolve_name,
+    resources_by_id,
+    rule,
+)
 
 MIN_DUPLICATE_MART_NAMES = 2
 MIN_PARENTS_FOR_DEPENDENCY_TRIAD = 2
@@ -38,7 +44,7 @@ MIN_PARENTS_FOR_DEPENDENCY_TRIAD = 2
 def source_fanout(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     source_edges = [e for e in edges if e.parent_resource_type == "source"]
@@ -51,12 +57,10 @@ def source_fanout(
         if len(unique_children) > 1:
             parent = by_id.get(parent_id)
             violations.append(
-                Violation(
-                    rule_id="modeling/source-fanout",
+                context.violation_for(
                     resource_id=parent_id,
                     resource_name=resolve_name(by_id, parent_id),
-                    message=(f"{parent_id}: fans out to {len(unique_children)} models"),
-                    severity=config.severity,
+                    message=f"{parent_id}: fans out to {len(unique_children)} models",
                     file_path=parent.file_path if parent else "",
                 )
             )
@@ -88,9 +92,9 @@ def source_fanout(
 def model_fanout(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
-    threshold = config.params.get("models_fanout_threshold", 3)
+    threshold = context.params.get("models_fanout_threshold", 3)
     edges = direct_edges(relationships)
     model_edges = [e for e in edges if e.parent_resource_type == "model"]
     by_parent = group_by(model_edges, key=lambda e: e.parent)
@@ -102,8 +106,7 @@ def model_fanout(
         if len(unique_children) >= threshold:
             parent = by_id.get(parent_id)
             violations.append(
-                Violation(
-                    rule_id="modeling/model-fanout",
+                context.violation_for(
                     resource_id=parent_id,
                     resource_name=resolve_name(by_id, parent_id),
                     message=(
@@ -111,7 +114,6 @@ def model_fanout(
                         f" {len(unique_children)} dependents"
                         f" (threshold: {threshold})"
                     ),
-                    severity=config.severity,
                     file_path=parent.file_path if parent else "",
                 )
             )
@@ -138,9 +140,9 @@ def model_fanout(
 def too_many_joins(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
-    threshold = config.params.get("too_many_joins_threshold", 7)
+    threshold = context.params.get("too_many_joins_threshold", 7)
     edges = direct_edges(relationships)
     model_children = [e for e in edges if e.child_resource_type == "model"]
     by_child = group_by(model_children, key=lambda e: e.child)
@@ -151,14 +153,12 @@ def too_many_joins(
         if len(parents) >= threshold:
             child = by_id.get(child_id)
             violations.append(
-                Violation(
-                    rule_id="modeling/too-many-joins",
+                context.violation_for(
                     resource_id=child_id,
                     resource_name=resolve_name(by_id, child_id),
                     message=(
                         f"{child_id}: {len(parents)} parents (threshold: {threshold})"
                     ),
-                    severity=config.severity,
                     file_path=child.file_path if child else "",
                 )
             )
@@ -189,9 +189,9 @@ def too_many_joins(
 def staging_model_too_many_parents(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
-    threshold = config.params.get("staging_max_parents", 1)
+    threshold = context.params.get("staging_max_parents", 1)
     edges = direct_edges(relationships)
     staging_edges = [e for e in edges if e.child_model_type == "staging"]
     by_child = group_by(staging_edges, key=lambda e: e.child)
@@ -203,8 +203,7 @@ def staging_model_too_many_parents(
         if len(unique_parents) > threshold:
             child = by_id.get(child_id)
             violations.append(
-                Violation(
-                    rule_id="modeling/staging-model-too-many-parents",
+                context.violation_for(
                     resource_id=child_id,
                     resource_name=resolve_name(by_id, child_id),
                     message=(
@@ -212,7 +211,6 @@ def staging_model_too_many_parents(
                         f" {len(unique_parents)} parents"
                         f" (max: {threshold})"
                     ),
-                    severity=config.severity,
                     file_path=child.file_path if child else "",
                 )
             )
@@ -240,9 +238,9 @@ def staging_model_too_many_parents(
 def intermediate_fanout(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
-    threshold = config.params.get("intermediate_fanout_threshold", 1)
+    threshold = context.params.get("intermediate_fanout_threshold", 1)
     edges = direct_edges(relationships)
     inter_edges = [
         e
@@ -258,8 +256,7 @@ def intermediate_fanout(
         if len(unique_children) > threshold:
             parent = by_id.get(parent_id)
             violations.append(
-                Violation(
-                    rule_id="modeling/intermediate-fanout",
+                context.violation_for(
                     resource_id=parent_id,
                     resource_name=resolve_name(by_id, parent_id),
                     message=(
@@ -267,7 +264,6 @@ def intermediate_fanout(
                         f" {len(unique_children)} dependents"
                         f" (max: {threshold})"
                     ),
-                    severity=config.severity,
                     file_path=parent.file_path if parent else "",
                 )
             )
@@ -297,7 +293,7 @@ def intermediate_fanout(
 def mart_depends_on_mart(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     by_id = resources_by_id(resources)
@@ -307,8 +303,7 @@ def mart_depends_on_mart(
         if edge.parent_model_type == "marts" and edge.child_model_type == "marts":
             child = by_id.get(edge.child)
             violations.append(
-                Violation(
-                    rule_id="modeling/mart-depends-on-mart",
+                context.violation_for(
                     resource_id=edge.child,
                     resource_name=resolve_name(by_id, edge.child),
                     message=(
@@ -316,7 +311,6 @@ def mart_depends_on_mart(
                         f" mart depends on mart"
                         f" {resolve_name(by_id, edge.parent)}"
                     ),
-                    severity=config.severity,
                     file_path=child.file_path if child else "",
                 )
             )
@@ -342,7 +336,7 @@ def mart_depends_on_mart(
 def duplicate_mart_concepts(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     marts = [
         r for r in resources if r.resource_type == "model" and r.model_type == "marts"
@@ -356,17 +350,11 @@ def duplicate_mart_concepts(
         dirs = {r.file_path.rsplit("/", 1)[0] for r in group}
         if len(dirs) > 1:
             violations.append(
-                Violation(
-                    rule_id="modeling/duplicate-mart-concepts",
-                    resource_id=group[0].resource_id,
-                    resource_name=name,
-                    message=(
-                        f"{name}: same mart entity appears in"
-                        f" {len(dirs)} directories"
-                        f" ({', '.join(sorted(dirs))})"
-                    ),
-                    severity=config.severity,
-                    file_path=group[0].file_path,
+                context.violation(
+                    group[0],
+                    f"{name}: same mart entity appears in"
+                    f" {len(dirs)} directories"
+                    f" ({', '.join(sorted(dirs))})",
                 )
             )
     return violations
@@ -403,7 +391,7 @@ def duplicate_mart_concepts(
 def rejoining_upstream_concepts(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     by_child = group_by(edges, key=lambda e: e.child)
@@ -428,16 +416,14 @@ def rejoining_upstream_concepts(
             for ancestor_id in shared:
                 child = by_id.get(child_id)
                 violations.append(
-                    Violation(
-                        rule_id="modeling/rejoining-upstream-concepts",
+                    context.violation_for(
                         resource_id=child_id,
                         resource_name=resolve_name(by_id, child_id),
                         message=(
                             f"{child_id}: rejoins {ancestor_id}"
                             f" (already consumed via {mid_id})"
                         ),
-                        severity=config.severity,
-                        file_path=(child.file_path if child else ""),
+                        file_path=child.file_path if child else "",
                     )
                 )
     return violations

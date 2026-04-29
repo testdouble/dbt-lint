@@ -5,9 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from dbt_lint.config import RuleConfig
 from dbt_lint.models import Relationship, Resource, Violation, strip_patch_prefix
-from dbt_lint.rules import rule
+from dbt_lint.rules import RuleContext, rule
 
 _SNAKE_CASE = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -28,21 +27,15 @@ _SNAKE_CASE = re.compile(r"^[a-z][a-z0-9_]*$")
         "notation) and abbreviations."
     ),
 )
-def model_name_format(resource: Resource, config: RuleConfig) -> Violation | None:
+def model_name_format(resource: Resource, context: RuleContext) -> Violation | None:
     if resource.resource_type != "model":
         return None
     if _SNAKE_CASE.match(resource.resource_name):
         return None
-    return Violation(
-        rule_id="structure/model-name-format",
-        resource_id=resource.resource_id,
-        resource_name=resource.resource_name,
-        message=(
-            f"{resource.resource_name}: model name must be"
-            " snake_case (lowercase letters, numbers, underscores)"
-        ),
-        severity=config.severity,
-        file_path=resource.file_path,
+    return context.violation(
+        resource,
+        f"{resource.resource_name}: model name must be"
+        " snake_case (lowercase letters, numbers, underscores)",
     )
 
 
@@ -74,25 +67,19 @@ def model_name_format(resource: Resource, config: RuleConfig) -> Violation | Non
     ),
 )
 def model_naming_conventions(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
     if resource.resource_type != "model" or not resource.model_type:
         return None
     prefixes_key = f"{resource.model_type}_prefixes"
-    prefixes = config.params.get(prefixes_key, [])
+    prefixes = context.params.get(prefixes_key, [])
     if not prefixes:
         return None
     if not any(resource.resource_name.startswith(p) for p in prefixes):
-        return Violation(
-            rule_id="structure/model-naming-conventions",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=(
-                f"{resource.resource_name}: {resource.model_type} model"
-                f" should start with one of {prefixes}"
-            ),
-            severity=config.severity,
-            file_path=resource.file_path,
+        return context.violation(
+            resource,
+            f"{resource.resource_name}: {resource.model_type} model"
+            f" should start with one of {prefixes}",
         )
     return None
 
@@ -115,11 +102,11 @@ def model_naming_conventions(
         "type. For staging models, nest in staging/<source_name>/."
     ),
 )
-def model_directories(resource: Resource, config: RuleConfig) -> Violation | None:
+def model_directories(resource: Resource, context: RuleContext) -> Violation | None:
     if resource.resource_type != "model" or not resource.model_type:
         return None
     folder_key = f"{resource.model_type}_folder_name"
-    expected = config.params.get(folder_key)
+    expected = context.params.get(folder_key)
     if not expected:
         return None
     folders = expected if isinstance(expected, list) else [expected]
@@ -127,13 +114,9 @@ def model_directories(resource: Resource, config: RuleConfig) -> Violation | Non
     if any(f"/{f}/" in path for f in folders):
         return None
     display = folders[0] if len(folders) == 1 else f"one of {folders}"
-    return Violation(
-        rule_id="structure/model-directories",
-        resource_id=resource.resource_id,
-        resource_name=resource.resource_name,
-        message=(f"{resource.resource_name}: expected in {display}/ directory"),
-        severity=config.severity,
-        file_path=resource.file_path,
+    return context.violation(
+        resource,
+        f"{resource.resource_name}: expected in {display}/ directory",
     )
 
 
@@ -154,22 +137,16 @@ def model_directories(resource: Resource, config: RuleConfig) -> Violation | Non
         "alongside the staging models that consume it."
     ),
 )
-def source_directories(resource: Resource, config: RuleConfig) -> Violation | None:
+def source_directories(resource: Resource, context: RuleContext) -> Violation | None:
     if resource.resource_type != "source":
         return None
-    staging_folder = config.params.get("staging_folder_name", "staging")
+    staging_folder = context.params.get("staging_folder_name", "staging")
     path = f"/{resource.file_path}"
     if f"/{staging_folder}/" not in path:
-        return Violation(
-            rule_id="structure/source-directories",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=(
-                f"{resource.resource_name}: source YAML expected in"
-                f" {staging_folder}/ directory"
-            ),
-            severity=config.severity,
-            file_path=resource.file_path,
+        return context.violation(
+            resource,
+            f"{resource.resource_name}: source YAML expected in"
+            f" {staging_folder}/ directory",
         )
     return None
 
@@ -187,7 +164,7 @@ def source_directories(resource: Resource, config: RuleConfig) -> Violation | No
     ),
     remediation=("Move test YAML into the same directory as the model(s) it tests."),
 )
-def check_yaml_colocation(resource: Resource, config: RuleConfig) -> Violation | None:
+def check_yaml_colocation(resource: Resource, context: RuleContext) -> Violation | None:
     if resource.resource_type != "model" or not resource.patch_path:
         return None
     yaml_path = strip_patch_prefix(resource.patch_path)
@@ -195,16 +172,9 @@ def check_yaml_colocation(resource: Resource, config: RuleConfig) -> Violation |
     yaml_dir = yaml_path.rsplit("/", 1)[0]
     if model_dir == yaml_dir:
         return None
-    return Violation(
-        rule_id="structure/test-directories",
-        resource_id=resource.resource_id,
-        resource_name=resource.resource_name,
-        message=(
-            f"{resource.resource_name}: YAML in {yaml_dir}/"
-            f" but model is in {model_dir}/"
-        ),
-        severity=config.severity,
-        file_path=resource.file_path,
+    return context.violation(
+        resource,
+        f"{resource.resource_name}: YAML in {yaml_dir}/ but model is in {model_dir}/",
     )
 
 
@@ -232,11 +202,11 @@ def check_yaml_colocation(resource: Resource, config: RuleConfig) -> Violation |
     ),
 )
 def staging_naming_convention(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
     if resource.resource_type != "model" or resource.model_type != "staging":
         return None
-    prefixes = config.params.get("staging_prefixes", [])
+    prefixes = context.params.get("staging_prefixes", [])
     matched_prefix = next(
         (p for p in prefixes if resource.resource_name.startswith(p)), None
     )
@@ -245,16 +215,10 @@ def staging_naming_convention(
     remainder = resource.resource_name[len(matched_prefix) :]
     if "__" in remainder:
         return None
-    return Violation(
-        rule_id="structure/staging-naming-convention",
-        resource_id=resource.resource_id,
-        resource_name=resource.resource_name,
-        message=(
-            f"{resource.resource_name}: staging model should follow"
-            " stg_<source>__<entity> pattern (missing __ separator)"
-        ),
-        severity=config.severity,
-        file_path=resource.file_path,
+    return context.violation(
+        resource,
+        f"{resource.resource_name}: staging model should follow"
+        " stg_<source>__<entity> pattern (missing __ separator)",
     )
 
 
@@ -286,7 +250,7 @@ _YAML_NAMING_RE = re.compile(
         "Pass: _staging__models.yml, _marts__sources.yml",
     ),
 )
-def yaml_file_naming(resource: Resource, config: RuleConfig) -> Violation | None:
+def yaml_file_naming(resource: Resource, context: RuleContext) -> Violation | None:
     if resource.resource_type == "source":
         yaml_path = resource.file_path
     elif resource.resource_type == "model" and resource.patch_path:
@@ -299,15 +263,13 @@ def yaml_file_naming(resource: Resource, config: RuleConfig) -> Violation | None
         return None
     if _YAML_NAMING_RE.search(filename):
         return None
-    return Violation(
-        rule_id="structure/yaml-file-naming",
+    return context.violation_for(
         resource_id=resource.resource_id,
         resource_name=resource.resource_name,
         message=(
             f"{resource.resource_name}: YAML file '{filename}' should follow"
             " _<directory>__<type>.yml naming convention"
         ),
-        severity=config.severity,
         file_path=yaml_path,
     )
 
@@ -386,9 +348,9 @@ def _check_column_naming(
 def column_naming_conventions(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
-    conventions = config.params.get("column_naming_conventions")
+    conventions = context.params.get("column_naming_conventions")
     if not conventions:
         return []
 
@@ -397,5 +359,5 @@ def column_naming_conventions(
         if resource.resource_type != "model":
             continue
         for msg in _check_column_naming(resource, conventions):
-            violations.append(Violation.from_resource(resource, msg))
+            violations.append(context.violation(resource, msg))
     return violations

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from dbt_lint.config import RuleConfig
 from dbt_lint.models import Relationship, Resource, Violation
-from dbt_lint.rules import filter_by_model_type, rule
+from dbt_lint.rules import RuleContext, filter_by_model_type, rule
 
 
 @rule(
@@ -23,15 +22,10 @@ from dbt_lint.rules import filter_by_model_type, rule
         "Prioritize marts models first, then work upstream."
     ),
 )
-def undocumented_models(resource: Resource, config: RuleConfig) -> Violation | None:
+def undocumented_models(resource: Resource, context: RuleContext) -> Violation | None:
     if resource.resource_type == "model" and not resource.is_described:
-        return Violation(
-            rule_id="documentation/undocumented-models",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=f"{resource.resource_name}: missing description",
-            severity=config.severity,
-            file_path=resource.file_path,
+        return context.violation(
+            resource, f"{resource.resource_name}: missing description"
         )
     return None
 
@@ -51,19 +45,14 @@ def undocumented_models(resource: Resource, config: RuleConfig) -> Violation | N
         "properties file (_<dir>__sources.yml)."
     ),
 )
-def undocumented_sources(resource: Resource, config: RuleConfig) -> Violation | None:
+def undocumented_sources(resource: Resource, context: RuleContext) -> Violation | None:
     if resource.resource_type != "source":
         return None
     # is_described tracks table-level; source-level is in meta
     source_described = resource.meta.get("source_description_populated", True)
     if not source_described:
-        return Violation(
-            rule_id="documentation/undocumented-sources",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=f"{resource.resource_name}: source missing description",
-            severity=config.severity,
-            file_path=resource.file_path,
+        return context.violation(
+            resource, f"{resource.resource_name}: source missing description"
         )
     return None
 
@@ -85,16 +74,12 @@ def undocumented_sources(resource: Resource, config: RuleConfig) -> Violation | 
 )
 def undocumented_source_tables(
     resource: Resource,
-    config: RuleConfig,
+    context: RuleContext,
 ) -> Violation | None:
     if resource.resource_type == "source" and not resource.is_described:
-        return Violation(
-            rule_id="documentation/undocumented-source-tables",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=(f"{resource.resource_name}: source table missing description"),
-            severity=config.severity,
-            file_path=resource.file_path,
+        return context.violation(
+            resource,
+            f"{resource.resource_name}: source table missing description",
         )
     return None
 
@@ -126,9 +111,9 @@ def undocumented_source_tables(
 def documentation_coverage(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
-    target = config.params.get("documentation_coverage_target", 100)
+    target = context.params.get("documentation_coverage_target", 100)
     violations = []
     model_types = sorted(
         {r.model_type for r in resources if r.resource_type == "model" and r.model_type}
@@ -144,15 +129,12 @@ def documentation_coverage(
         pct = (described / len(models)) * 100
         if pct < target:
             violations.append(
-                Violation(
-                    rule_id="documentation/documentation-coverage",
+                context.violation_for(
                     resource_id=f"model_type:{model_type}",
                     resource_name=model_type,
                     message=(
                         f"{model_type}: {pct:.0f}% documented (target: {target}%)"
                     ),
-                    severity=config.severity,
-                    file_path="",
                 )
             )
     return violations
@@ -184,9 +166,9 @@ def documentation_coverage(
 def column_documentation_coverage(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
-    target = config.params.get("column_documentation_coverage_target")
+    target = context.params.get("column_documentation_coverage_target")
     if target is None:
         return []
 
@@ -200,7 +182,7 @@ def column_documentation_coverage(
         pct = (described / len(resource.columns)) * 100
         if pct < target:
             violations.append(
-                Violation.from_resource(
+                context.violation(
                     resource,
                     f"{resource.resource_name}: {pct:.0f}% columns"
                     f" documented (target: {target}%)",

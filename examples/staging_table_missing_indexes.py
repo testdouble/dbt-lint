@@ -6,7 +6,7 @@ on the @rule decorator. These populate --list-rules output when provided.
 
 from __future__ import annotations
 
-from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
 _INDEXED_MATERIALIZATIONS = {"table", "incremental"}
 
@@ -25,7 +25,7 @@ _INDEXED_MATERIALIZATIONS = {"table", "incremental"}
     ),
 )
 def staging_table_missing_indexes(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
     if resource.resource_type != "model":
         return None
@@ -38,7 +38,7 @@ def staging_table_missing_indexes(
     if indexes:
         return None
 
-    return Violation.from_resource(
+    return context.violation(
         resource,
         f"{resource.resource_name}: staging model materialized as"
         f" {resource.materialization} without indexes config;"

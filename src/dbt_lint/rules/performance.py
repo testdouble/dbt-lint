@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-from dbt_lint.config import RuleConfig
 from dbt_lint.models import Relationship, Resource, Violation
-from dbt_lint.rules import direct_edges, resolve_name, resources_by_id, rule
+from dbt_lint.rules import (
+    RuleContext,
+    direct_edges,
+    resolve_name,
+    resources_by_id,
+    rule,
+)
 
 
 @rule(
@@ -34,9 +39,9 @@ from dbt_lint.rules import direct_edges, resolve_name, resources_by_id, rule
 def chained_views(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
-    threshold = config.params.get("chained_views_threshold", 5)
+    threshold = context.params.get("chained_views_threshold", 5)
     by_id = resources_by_id(resources)
     violations = []
     seen = set()
@@ -50,15 +55,13 @@ def chained_views(
             seen.add(rel.child)
             child = by_id.get(rel.child)
             violations.append(
-                Violation(
-                    rule_id="performance/chained-views",
+                context.violation_for(
                     resource_id=rel.child,
                     resource_name=resolve_name(by_id, rel.child),
                     message=(
                         f"{rel.child}: view chain depth {rel.distance}"
                         f" exceeds threshold {threshold}"
                     ),
-                    severity=config.severity,
                     file_path=child.file_path if child else "",
                 )
             )
@@ -91,7 +94,7 @@ def chained_views(
 def exposure_parent_materializations(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     by_id = resources_by_id(resources)
     edges = direct_edges(relationships)
@@ -108,8 +111,7 @@ def exposure_parent_materializations(
         ):
             exposure = by_id.get(edge.child)
             violations.append(
-                Violation(
-                    rule_id="performance/exposure-parent-materializations",
+                context.violation_for(
                     resource_id=edge.child,
                     resource_name=resolve_name(by_id, edge.child),
                     message=(
@@ -117,8 +119,7 @@ def exposure_parent_materializations(
                         f" {parent.resource_name}"
                         f" ({parent.materialization or parent.resource_type})"
                     ),
-                    severity=config.severity,
-                    file_path=(exposure.file_path if exposure else ""),
+                    file_path=exposure.file_path if exposure else "",
                 )
             )
     return violations
@@ -150,7 +151,7 @@ def exposure_parent_materializations(
     ),
 )
 def incremental_missing_unique_key(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
     if resource.resource_type != "model":
         return None
@@ -158,7 +159,7 @@ def incremental_missing_unique_key(
         return None
     if resource.config.get("unique_key"):
         return None
-    return Violation.from_resource(
+    return context.violation(
         resource,
         f"{resource.resource_name}: incremental model missing unique_key config",
     )

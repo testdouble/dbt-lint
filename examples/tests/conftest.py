@@ -9,8 +9,9 @@ import pytest
 # Add examples/ to sys.path so test files can import rule modules directly.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dbt_lint.config import DEFAULTS, RuleConfig
+from dbt_lint.config import DEFAULTS
 from dbt_lint.models import Relationship, Resource
+from dbt_lint.rules import RuleContext
 
 
 @pytest.fixture
@@ -83,11 +84,10 @@ def make_relationship():
 
 
 @pytest.fixture
-def default_config():
-    """Default RuleConfig with all params."""
-    return RuleConfig(
-        enabled=True,
-        severity="warn",
-        exclude_resources=[],
-        params=DEFAULTS,
+def default_context():
+    """Default RuleContext with all params, severity=warn."""
+    return RuleContext(
+        params={**DEFAULTS},
+        _rule_id="test/rule",
+        _severity="warn",
     )

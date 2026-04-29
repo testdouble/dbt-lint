@@ -73,22 +73,6 @@ class Violation:
     file_path: str
     patch_path: str = ""
 
-    @classmethod
-    def from_resource(cls, resource: Resource, message: str) -> Violation:
-        """Create a Violation from a Resource.
-
-        Leaves rule_id and severity empty for the engine to fill.
-        """
-        return cls(
-            rule_id="",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=message,
-            severity="",
-            file_path=resource.file_path,
-            patch_path=strip_patch_prefix(resource.patch_path),
-        )
-
 
 def strip_patch_prefix(path: str | None) -> str:
     """Strip the 'project://' prefix from a dbt patch_path."""

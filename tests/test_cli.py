@@ -377,13 +377,13 @@ def _write_custom_rule(tmp_path: Path) -> Path:
     """Write a minimal custom rule that flags models containing SELECT *."""
     rule_file = tmp_path / "no_select_star.py"
     rule_file.write_text(
-        "from dbt_lint.extend import Resource, RuleConfig, Violation, rule\n"
+        "from dbt_lint.extend import Resource, RuleContext, Violation, rule\n"
         "\n"
         '@rule(id="custom/no-select-star", description="Model uses SELECT *.")\n'
-        "def no_select_star(resource: Resource, config: RuleConfig)"
+        "def no_select_star(resource: Resource, context: RuleContext)"
         " -> Violation | None:\n"
         '    if resource.raw_code and "select *" in resource.raw_code.lower():\n'
-        "        return Violation.from_resource(resource, "
+        "        return context.violation(resource, "
         '"uses SELECT *")\n'
         "    return None\n"
     )

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
 # Match WITH as the first SQL keyword, allowing leading whitespace,
 # comments, and Jinja blocks before it.
@@ -36,7 +36,9 @@ _LEADING_WITH = re.compile(
         "Pass: SELECT col_a, col_b FROM {{ source('raw', 'users') }}",
     ),
 )
-def staging_no_cte_wrapping(resource: Resource, config: RuleConfig) -> Violation | None:
+def staging_no_cte_wrapping(
+    resource: Resource, context: RuleContext
+) -> Violation | None:
     if resource.resource_type != "model":
         return None
     if resource.model_type != "staging":
@@ -47,7 +49,7 @@ def staging_no_cte_wrapping(resource: Resource, config: RuleConfig) -> Violation
     if not _LEADING_WITH.search(resource.raw_code):
         return None
 
-    return Violation.from_resource(
+    return context.violation(
         resource,
         f"{resource.resource_name}: staging model uses CTE wrapping;"
         " use bare SELECT from source() per project convention",

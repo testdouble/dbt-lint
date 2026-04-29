@@ -9,27 +9,27 @@ from dbt_lint.rules.modeling import (
 
 
 class TestHardCodedReferences:
-    def test_flags_hard_coded(self, make_resource, default_config):
+    def test_flags_hard_coded(self, make_resource, default_context):
         resource = make_resource(resource_type="model", hard_coded_references=True)
 
-        violation = hard_coded_references(resource, default_config)
+        violation = hard_coded_references(resource, default_context)
 
         assert violation is not None
         assert "hard-coded table references" in violation.message
 
-    def test_clean(self, make_resource, default_config):
+    def test_clean(self, make_resource, default_context):
         resource = make_resource(resource_type="model", hard_coded_references=False)
 
-        assert hard_coded_references(resource, default_config) is None
+        assert hard_coded_references(resource, default_context) is None
 
-    def test_ignores_non_models(self, make_resource, default_config):
+    def test_ignores_non_models(self, make_resource, default_context):
         resource = make_resource(resource_type="source", hard_coded_references=True)
 
-        assert hard_coded_references(resource, default_config) is None
+        assert hard_coded_references(resource, default_context) is None
 
 
 class TestDuplicateSources:
-    def test_flags_duplicates(self, make_resource, default_config):
+    def test_flags_duplicates(self, make_resource, default_context):
         s1 = make_resource(
             resource_id="source.a.raw.orders",
             resource_type="source",
@@ -45,11 +45,11 @@ class TestDuplicateSources:
             schema_name="raw",
         )
 
-        violations = duplicate_sources([s1, s2], [], default_config)
+        violations = duplicate_sources([s1, s2], [], default_context)
 
         assert len(violations) == 1
 
-    def test_clean_when_different_tables(self, make_resource, default_config):
+    def test_clean_when_different_tables(self, make_resource, default_context):
         s1 = make_resource(
             resource_type="source",
             resource_name="orders",
@@ -63,22 +63,22 @@ class TestDuplicateSources:
             schema_name="raw",
         )
 
-        assert not duplicate_sources([s1, s2], [], default_config)
+        assert not duplicate_sources([s1, s2], [], default_context)
 
 
 class TestUnusedSources:
-    def test_flags_source_with_no_children(self, make_resource, default_config):
+    def test_flags_source_with_no_children(self, make_resource, default_context):
         source = make_resource(
             resource_id="source.pkg.raw.t",
             resource_type="source",
         )
 
-        violations = unused_sources([source], [], default_config)
+        violations = unused_sources([source], [], default_context)
 
         assert len(violations) == 1
 
     def test_clean_when_source_has_child(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         source = make_resource(
             resource_id="source.pkg.raw.t",
@@ -92,12 +92,12 @@ class TestUnusedSources:
             ),
         ]
 
-        assert not unused_sources([source], rels, default_config)
+        assert not unused_sources([source], rels, default_context)
 
 
 class TestMultipleSourcesJoined:
     def test_flags_model_with_two_source_parents(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         model = make_resource(resource_id="model.pkg.m")
         rels = [
@@ -115,6 +115,6 @@ class TestMultipleSourcesJoined:
             ),
         ]
 
-        violations = multiple_sources_joined([model], rels, default_config)
+        violations = multiple_sources_joined([model], rels, default_context)
 
         assert len(violations) == 1

@@ -54,11 +54,11 @@ class TestLoadCustomRulesPerResource:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
             @rule(id="custom/flag-all", description="Flags everything.")
-            def flag_all(resource: Resource, config: RuleConfig) -> Violation | None:
-                return Violation.from_resource(resource, "flagged")
+            def flag_all(resource: Resource, context: RuleContext) -> Violation | None:
+                return context.violation(resource, "flagged")
             """,
         )
 
@@ -77,14 +77,14 @@ class TestLoadCustomRulesPerResource:
             rule_file,
             """\
             from dbt_lint.extend import (
-                Resource, Relationship, RuleConfig, Violation, rule,
+                Resource, Relationship, RuleContext, Violation, rule,
             )
 
             @rule(id="custom/agg", description="Aggregate.")
             def agg(
                 resources: list[Resource],
                 relationships: list[Relationship],
-                config: RuleConfig,
+                context: RuleContext,
             ) -> list[Violation]:
                 return []
             """,
@@ -105,14 +105,14 @@ class TestIdempotence:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
             @rule(id="custom/rule-a", description="Rule A.")
-            def rule_a(resource: Resource, config: RuleConfig) -> Violation | None:
+            def rule_a(resource: Resource, context: RuleContext) -> Violation | None:
                 return None
 
             @rule(id="custom/rule-b", description="Rule B.")
-            def rule_b(resource: Resource, config: RuleConfig) -> Violation | None:
+            def rule_b(resource: Resource, context: RuleContext) -> Violation | None:
                 return None
             """,
         )
@@ -160,10 +160,10 @@ class TestValidationErrors:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
             @rule(id="custom/other-name", description="Wrong.")
-            def other(resource: Resource, config: RuleConfig) -> Violation | None:
+            def other(resource: Resource, context: RuleContext) -> Violation | None:
                 return None
             """,
         )
@@ -180,13 +180,13 @@ class TestValidationErrors:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
             @rule(
                 id="modeling/too-many-joins",
                 description="Collides with built-in.",
             )
-            def bad(resource: Resource, config: RuleConfig) -> Violation | None:
+            def bad(resource: Resource, context: RuleContext) -> Violation | None:
                 return None
             """,
         )
@@ -264,10 +264,10 @@ class TestValidationErrors:
         _write_rule_file(
             outside,
             """\
-            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
             @rule(id="custom/evil", description="Evil.")
-            def evil(resource: Resource, config: RuleConfig) -> Violation | None:
+            def evil(resource: Resource, context: RuleContext) -> Violation | None:
                 return None
             """,
         )
@@ -284,10 +284,10 @@ class TestValidationErrors:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
             @rule(id="custom/valid", description="Valid.")
-            def valid(resource: Resource, config: RuleConfig) -> Violation | None:
+            def valid(resource: Resource, context: RuleContext) -> Violation | None:
                 return None
             """,
         )
@@ -336,10 +336,10 @@ class TestEndToEndWithConfig:
         _write_rule_file(
             rule_file,
             """\
-            from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+            from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
             @rule(id="custom/my-rule", description="My rule.")
-            def my_rule(resource: Resource, config: RuleConfig) -> Violation | None:
+            def my_rule(resource: Resource, context: RuleContext) -> Violation | None:
                 return None
             """,
         )

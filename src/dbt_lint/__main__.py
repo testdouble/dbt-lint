@@ -14,6 +14,7 @@ import click
 from dbt_lint.baseline import generate_baseline
 from dbt_lint.config import (
     BASELINE_FILENAME,
+    Config,
     load_baseline,
     load_config,
     merge_baseline,
@@ -22,8 +23,9 @@ from dbt_lint.engine import evaluate
 from dbt_lint.graph import build_relationships
 from dbt_lint.manifest import parse_manifest
 from dbt_lint.models import Violation
+from dbt_lint.registry import Registry
 from dbt_lint.reporter import report
-from dbt_lint.rules import generate_rules_index
+from dbt_lint.rules import RuleDef, generate_rules_index
 
 
 def _handle_list_rules(output_format: str) -> None:
@@ -41,6 +43,18 @@ def _handle_list_rules(output_format: str) -> None:
 
     categories = {r.category for r in index}
     click.echo(f"\n{len(index)} rules across {len(categories)} categories")
+
+
+def _assemble_rules(config: Config) -> list[RuleDef]:
+    """Assemble built-in rules plus any custom rules declared in config."""
+    registry = Registry()
+    if config._custom_rule_entries:
+        if config.config_dir is None:
+            msg = "Custom rules require a config file (source paths are relative)"
+            raise ValueError(msg)
+        for entry in config._custom_rule_entries:
+            registry.register_from_path(entry.source, entry.rule_id, config.config_dir)
+    return registry.all()
 
 
 def _apply_filters(
@@ -174,7 +188,13 @@ def main(  # noqa: PLR0913
                 cfg = merge_baseline(cfg, load_baseline(resolved))
         resources, edges = parse_manifest(manifest, cfg)
         relationships = build_relationships(resources, edges)
-        result = evaluate(resources, relationships, cfg, fail_fast=fail_fast)
+        result = evaluate(
+            resources,
+            relationships,
+            cfg,
+            rules=_assemble_rules(cfg),
+            fail_fast=fail_fast,
+        )
     except Exception as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(2)

@@ -5,12 +5,17 @@ from pathlib import Path
 
 from dbt_lint.config import load_config
 from dbt_lint.engine import EvaluationResult, evaluate
+from dbt_lint.registry import Registry
 
 UNDOCUMENTED = "documentation/undocumented-models"
 
 
 def _by_rule(result: EvaluationResult, rule_id: str):
     return [v for v in result.violations if v.rule_id == rule_id]
+
+
+def _builtin_rules():
+    return Registry().builtins()
 
 
 class TestEvaluateIntegration:
@@ -29,7 +34,7 @@ class TestEvaluateIntegration:
             ),
         ]
         config = load_config(None)
-        result = evaluate(resources, [], config)
+        result = evaluate(resources, [], config, rules=_builtin_rules())
         doc_violations = _by_rule(result, UNDOCUMENTED)
         assert len(doc_violations) == 1
         assert "undocumented" in doc_violations[0].message
@@ -63,7 +68,7 @@ class TestEvaluateIntegration:
             ),
         ]
         config = load_config(None)
-        result = evaluate([src, m1, m2], rels, config)
+        result = evaluate([src, m1, m2], rels, config, rules=_builtin_rules())
         fanout = _by_rule(result, "modeling/source-fanout")
         assert len(fanout) == 1
 
@@ -80,7 +85,7 @@ class TestEvaluateIntegration:
             make_resource(resource_type="model", is_described=False),
         ]
         config = load_config(config_file)
-        result = evaluate(resources, [], config)
+        result = evaluate(resources, [], config, rules=_builtin_rules())
         doc_violations = _by_rule(result, UNDOCUMENTED)
         assert len(doc_violations) == 0
 
@@ -93,7 +98,7 @@ class TestEvaluateIntegration:
             ),
         ]
         config = load_config(None)
-        result = evaluate(resources, [], config)
+        result = evaluate(resources, [], config, rules=_builtin_rules())
         doc_violations = _by_rule(result, UNDOCUMENTED)
         assert len(doc_violations) == 0
 
@@ -120,7 +125,7 @@ class TestEvaluateIntegration:
             ),
         ]
         config = load_config(config_file)
-        result = evaluate(resources, [], config)
+        result = evaluate(resources, [], config, rules=_builtin_rules())
         doc_violations = _by_rule(result, UNDOCUMENTED)
         # legacy_orders excluded, stg_orders not
         assert len(doc_violations) == 1
@@ -139,7 +144,7 @@ class TestEvaluateIntegration:
             make_resource(resource_type="model", is_described=False),
         ]
         config = load_config(config_file)
-        result = evaluate(resources, [], config)
+        result = evaluate(resources, [], config, rules=_builtin_rules())
         doc_violations = _by_rule(result, UNDOCUMENTED)
         assert len(doc_violations) == 1
         assert doc_violations[0].severity == "error"
@@ -189,7 +194,7 @@ class TestEvaluateIntegration:
         """)
         )
         config = load_config(config_file)
-        result = evaluate([src, m1, m2], rels, config)
+        result = evaluate([src, m1, m2], rels, config, rules=_builtin_rules())
         fanout = _by_rule(result, "modeling/source-fanout")
         assert len(fanout) == 0
         assert result.excluded >= 1

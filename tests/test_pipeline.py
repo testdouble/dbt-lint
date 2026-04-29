@@ -14,6 +14,7 @@ from dbt_lint.config import load_config
 from dbt_lint.engine import evaluate
 from dbt_lint.graph import build_relationships
 from dbt_lint.manifest import parse_manifest
+from dbt_lint.registry import Registry
 from helpers import fixture_manifest_dict
 
 
@@ -28,7 +29,7 @@ class TestEndToEndPipeline:
         config = load_config(None)
         resources, edges = parse_manifest(manifest_path, config)
         relationships = build_relationships(resources, edges)
-        result = evaluate(resources, relationships, config)
+        result = evaluate(resources, relationships, config, rules=Registry().builtins())
         return resources, edges, relationships, result.violations
 
     def test_parse_extracts_all_resources(self, pipeline):

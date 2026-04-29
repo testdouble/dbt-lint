@@ -1,4 +1,4 @@
-"""Rule engine: discovery, filtering, dispatch, exclusion."""
+"""Rule engine: pure dispatch over an explicit rule list."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from fnmatch import fnmatch
 
 from dbt_lint.config import Config, RuleConfig, matches_path_filter
 from dbt_lint.models import Relationship, Resource, Violation
-from dbt_lint.registry import Registry
 from dbt_lint.rules import RuleContext, RuleDef
 
 
@@ -24,13 +23,12 @@ def evaluate(
     relationships: list[Relationship],
     config: Config,
     *,
+    rules: list[RuleDef],
     fail_fast: bool = False,
-    rules: list[RuleDef] | None = None,
 ) -> EvaluationResult:
-    """Run all enabled rules and collect violations."""
-    all_rules = rules if rules is not None else _assemble_rules(config)
+    """Run the supplied rules against resources and collect violations."""
     result = EvaluationResult()
-    for rule_def in all_rules:
+    for rule_def in rules:
         rule_config = config.rule_config(rule_def.id)
         if not rule_config.enabled:
             continue
@@ -64,18 +62,6 @@ def evaluate(
                 return result
 
     return result
-
-
-def _assemble_rules(config: Config) -> list[RuleDef]:
-    """Assemble built-in rules plus any custom rules declared in config."""
-    registry = Registry()
-    if config._custom_rule_entries:
-        if config.config_dir is None:
-            msg = "Custom rules require a config file (source paths are relative)"
-            raise ValueError(msg)
-        for entry in config._custom_rule_entries:
-            registry.register_from_path(entry.source, entry.rule_id, config.config_dir)
-    return registry.all()
 
 
 def _is_excluded(

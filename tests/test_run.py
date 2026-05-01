@@ -7,8 +7,16 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import pytest
+import yaml
 
-from dbt_lint._lint import LintResult, run
+from dbt_lint._lint import (
+    ConfigError,
+    CustomRuleError,
+    LintError,
+    LintResult,
+    ManifestError,
+    run,
+)
 from dbt_lint.config import Config, CustomRuleEntry
 from dbt_lint.engine import EvaluationResult
 from dbt_lint.models import DirectEdge, Violation
@@ -461,3 +469,200 @@ class TestFixtureManifest:
         assert "governance/public-models-without-contract" in rule_ids
         assert "governance/undocumented-public-models" in rule_ids
         assert result.resource_counts == {"model": 2, "source": 1, "exposure": 1}
+
+
+def _run_with_defaults(
+    manifest_path,
+    *,
+    config_path=None,
+    baseline_path=None,
+):
+    return run(
+        manifest_path=manifest_path,
+        config_path=config_path,
+        baseline_path=baseline_path,
+        select=(),
+        exclude=(),
+        fail_fast=False,
+    )
+
+
+class TestLintErrorHierarchy:
+    def test_subtypes_extend_lint_error(self):
+        assert issubclass(ConfigError, LintError)
+        assert issubclass(ManifestError, LintError)
+        assert issubclass(CustomRuleError, LintError)
+
+    def test_lint_error_extends_exception(self):
+        assert issubclass(LintError, Exception)
+
+
+class TestConfigErrors:
+    def test_yaml_parse_failure_raises_config_error(
+        self, pipeline_doubles, monkeypatch, tmp_path
+    ):
+        def stub_load_config(path):
+            raise yaml.YAMLError("invalid yaml syntax")
+
+        monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
+
+        with pytest.raises(ConfigError, match="invalid yaml syntax"):
+            _run_with_defaults(tmp_path / "manifest.json")
+
+    def test_config_file_io_failure_raises_config_error(
+        self, pipeline_doubles, monkeypatch, tmp_path
+    ):
+        def stub_load_config(path):
+            raise FileNotFoundError("config missing")
+
+        monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
+
+        with pytest.raises(ConfigError, match="config missing"):
+            _run_with_defaults(tmp_path / "manifest.json")
+
+    def test_baseline_load_failure_raises_config_error(
+        self, pipeline_doubles, monkeypatch, tmp_path
+    ):
+        def stub_load_baseline(path):
+            raise yaml.YAMLError("bad baseline")
+
+        monkeypatch.setattr("dbt_lint._lint.load_baseline", stub_load_baseline)
+
+        with pytest.raises(ConfigError, match="bad baseline"):
+            _run_with_defaults(
+                tmp_path / "manifest.json",
+                baseline_path=tmp_path / "dbt-lint-baseline.yml",
+            )
+
+
+class TestManifestErrors:
+    def test_json_decode_failure_raises_manifest_error(
+        self, pipeline_doubles, monkeypatch, tmp_path
+    ):
+        def stub_parse_manifest(path, config):
+            raise json.JSONDecodeError("invalid json", "doc", 0)
+
+        monkeypatch.setattr("dbt_lint._lint.parse_manifest", stub_parse_manifest)
+
+        with pytest.raises(ManifestError, match="invalid json"):
+            _run_with_defaults(tmp_path / "manifest.json")
+
+    def test_schema_mismatch_raises_manifest_error(
+        self, pipeline_doubles, monkeypatch, tmp_path
+    ):
+        def stub_parse_manifest(path, config):
+            raise KeyError("nodes")
+
+        monkeypatch.setattr("dbt_lint._lint.parse_manifest", stub_parse_manifest)
+
+        with pytest.raises(ManifestError, match="nodes"):
+            _run_with_defaults(tmp_path / "manifest.json")
+
+    def test_manifest_file_io_failure_raises_manifest_error(
+        self, pipeline_doubles, monkeypatch, tmp_path
+    ):
+        def stub_parse_manifest(path, config):
+            raise FileNotFoundError("manifest missing")
+
+        monkeypatch.setattr("dbt_lint._lint.parse_manifest", stub_parse_manifest)
+
+        with pytest.raises(ManifestError, match="manifest missing"):
+            _run_with_defaults(tmp_path / "manifest.json")
+
+
+class TestCustomRuleErrors:
+    def test_registry_import_failure_raises_custom_rule_error(
+        self, pipeline_doubles, monkeypatch, tmp_path
+    ):
+        config = _empty_config(
+            custom_entries=[
+                CustomRuleEntry(
+                    rule_id="custom/example",
+                    source="rules/example.py",
+                    overrides={},
+                )
+            ]
+        )
+        config.config_dir = tmp_path
+
+        def stub_load_config(path):
+            return config
+
+        monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
+
+        class FailingRegistry(FakeRegistry):
+            def register_from_path(self, path, rule_id, config_dir):
+                raise ImportError("module load failed")
+
+        monkeypatch.setattr("dbt_lint._lint.Registry", FailingRegistry)
+
+        with pytest.raises(CustomRuleError, match="module load failed"):
+            _run_with_defaults(
+                tmp_path / "manifest.json",
+                config_path=tmp_path / "dbt-lint.yml",
+            )
+
+    def test_registry_validation_failure_raises_custom_rule_error(
+        self, pipeline_doubles, monkeypatch, tmp_path
+    ):
+        config = _empty_config(
+            custom_entries=[
+                CustomRuleEntry(
+                    rule_id="custom/example",
+                    source="rules/example.py",
+                    overrides={},
+                )
+            ]
+        )
+        config.config_dir = tmp_path
+
+        def stub_load_config(path):
+            return config
+
+        monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
+
+        class FailingRegistry(FakeRegistry):
+            def register_from_path(self, path, rule_id, config_dir):
+                raise ValueError("conflicts with built-in")
+
+        monkeypatch.setattr("dbt_lint._lint.Registry", FailingRegistry)
+
+        with pytest.raises(CustomRuleError, match="conflicts with built-in"):
+            _run_with_defaults(
+                tmp_path / "manifest.json",
+                config_path=tmp_path / "dbt-lint.yml",
+            )
+
+    def test_custom_entries_without_config_dir_raises_custom_rule_error(
+        self, pipeline_doubles, monkeypatch, tmp_path
+    ):
+        config = _empty_config(
+            custom_entries=[
+                CustomRuleEntry(
+                    rule_id="custom/example",
+                    source="rules/example.py",
+                    overrides={},
+                )
+            ]
+        )
+
+        def stub_load_config(path):
+            return config
+
+        monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
+
+        with pytest.raises(CustomRuleError, match="config file"):
+            _run_with_defaults(tmp_path / "manifest.json")
+
+
+class TestUnexpectedExceptionPropagates:
+    def test_engine_evaluation_error_does_not_become_lint_error(
+        self, pipeline_doubles, monkeypatch, tmp_path
+    ):
+        def stub_evaluate(resources, relationships, config, *, rules, fail_fast=False):
+            raise RuntimeError("rule body bug")
+
+        monkeypatch.setattr("dbt_lint._lint.evaluate", stub_evaluate)
+
+        with pytest.raises(RuntimeError, match="rule body bug"):
+            _run_with_defaults(tmp_path / "manifest.json")

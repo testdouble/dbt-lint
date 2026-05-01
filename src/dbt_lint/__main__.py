@@ -11,7 +11,7 @@ from pathlib import Path
 
 import click
 
-from dbt_lint._lint import LintResult, run
+from dbt_lint._lint import LintError, LintResult, run
 from dbt_lint.baseline import generate_baseline
 from dbt_lint.config import BASELINE_FILENAME
 from dbt_lint.models import Violation
@@ -188,7 +188,7 @@ def main(  # noqa: PLR0913
             exclude=exclude,
             fail_fast=fail_fast,
         )
-    except Exception as exc:
+    except LintError as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(2)
 

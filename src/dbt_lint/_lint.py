@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import yaml
 
 from dbt_lint.config import (
     Config,
@@ -18,6 +21,26 @@ from dbt_lint.manifest import parse_manifest
 from dbt_lint.models import Violation
 from dbt_lint.registry import Registry
 from dbt_lint.rules import RuleDef
+
+
+class LintError(Exception):
+    """Base class for expected lint pipeline failures.
+
+    The CLI catches LintError specifically and exits 2; unexpected
+    exceptions propagate so real bugs surface instead of being swallowed.
+    """
+
+
+class ConfigError(LintError):
+    """Failure loading config or baseline (YAML parse, file IO, regex validation)."""
+
+
+class ManifestError(LintError):
+    """Failure parsing the dbt manifest (JSON decode, file IO, schema mismatch)."""
+
+
+class CustomRuleError(LintError):
+    """Failure assembling custom rules (import, validation, missing config dir)."""
 
 
 @dataclass
@@ -40,14 +63,29 @@ def run(  # noqa: PLR0913
 
     None for config_path uses defaults; None for baseline_path skips merging.
     """
-    config = load_config(config_path)
-    if baseline_path is not None:
-        config = merge_baseline(config, load_baseline(baseline_path))
+    try:
+        config = load_config(config_path)
+    except (yaml.YAMLError, OSError, ValueError) as exc:
+        raise ConfigError(str(exc)) from exc
 
-    resources, edges = parse_manifest(manifest_path, config)
+    if baseline_path is not None:
+        try:
+            config = merge_baseline(config, load_baseline(baseline_path))
+        except (yaml.YAMLError, OSError, ValueError) as exc:
+            raise ConfigError(str(exc)) from exc
+
+    try:
+        resources, edges = parse_manifest(manifest_path, config)
+    except (OSError, json.JSONDecodeError, KeyError, ValueError) as exc:
+        raise ManifestError(str(exc)) from exc
+
     relationships = build_relationships(resources, edges)
 
-    rules = _assemble_rules(config)
+    try:
+        rules = _assemble_rules(config)
+    except (ImportError, OSError, ValueError) as exc:
+        raise CustomRuleError(str(exc)) from exc
+
     evaluation = evaluate(
         resources, relationships, config, rules=rules, fail_fast=fail_fast
     )

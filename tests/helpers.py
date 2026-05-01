@@ -10,7 +10,7 @@ def fixture_manifest_dict() -> dict:
                 -> model.pkg.fct_orders (table, NOT described, public, no contract)
                     -> exposure.pkg.dashboard
 
-    Used by test_cli.py (writes to disk) and test_pipeline.py (in-memory).
+    Used by test_cli.py and test_run.py.
     """
     return {
         "metadata": {

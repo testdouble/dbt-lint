@@ -80,6 +80,7 @@ def _emit_report(result: LintResult, output_format: str) -> None:
         github_annotations=github_annotations,
         excluded=result.excluded,
         color=use_color,
+        resource_counts=result.resource_counts,
     )
     click.echo(output)
 

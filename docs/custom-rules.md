@@ -65,7 +65,7 @@ rules:
     severity: warn
 ```
 
-Custom rule IDs must not collide with built-in rule IDs (the loader raises an error on collision). Multiple rules can live in the same file; the loader matches by `id`.
+Custom rule IDs must not collide with built-in rule IDs (the Registry raises an error on collision). Multiple rules can live in the same file; the Registry matches by `id`.
 
 ## Public API (`dbt_lint.extend`)
 

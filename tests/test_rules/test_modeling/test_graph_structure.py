@@ -14,7 +14,7 @@ from dbt_lint.rules.modeling import (
 
 class TestSourceFanout:
     def test_flags_source_with_multiple_children(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         source = make_resource(
             resource_id="source.pkg.raw.t",
@@ -33,14 +33,14 @@ class TestSourceFanout:
             ),
         ]
 
-        violations = source_fanout([source], rels, default_config)
+        violations = source_fanout([source], rels, default_context)
 
         assert len(violations) == 1
 
 
 class TestModelFanout:
     def test_flags_model_exceeding_threshold(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         parent = make_resource(resource_id="model.pkg.hub")
         rels = [
@@ -52,12 +52,12 @@ class TestModelFanout:
             for i in range(3)  # default threshold is 3
         ]
 
-        violations = model_fanout([parent], rels, default_config)
+        violations = model_fanout([parent], rels, default_context)
 
         assert len(violations) == 1
 
     def test_clean_below_threshold(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         parent = make_resource(resource_id="model.pkg.hub")
         rels = [
@@ -73,12 +73,12 @@ class TestModelFanout:
             ),
         ]
 
-        assert not model_fanout([parent], rels, default_config)
+        assert not model_fanout([parent], rels, default_context)
 
 
 class TestTooManyJoins:
     def test_flags_model_with_many_parents(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         child = make_resource(resource_id="model.pkg.wide")
         rels = [
@@ -90,12 +90,12 @@ class TestTooManyJoins:
             for i in range(5)  # default threshold is 5
         ]
 
-        violations = too_many_joins([child], rels, default_config)
+        violations = too_many_joins([child], rels, default_context)
 
         assert len(violations) == 1
 
     def test_clean_below_threshold(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         child = make_resource(resource_id="model.pkg.m")
         rels = [
@@ -106,12 +106,12 @@ class TestTooManyJoins:
             ),
         ]
 
-        assert not too_many_joins([child], rels, default_config)
+        assert not too_many_joins([child], rels, default_context)
 
 
 class TestStagingModelTooManyParents:
     def test_flags_staging_with_two_parents(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         stg = make_resource(
             resource_id="model.pkg.stg_orders",
@@ -135,13 +135,13 @@ class TestStagingModelTooManyParents:
             ),
         ]
 
-        violations = staging_model_too_many_parents([stg], rels, default_config)
+        violations = staging_model_too_many_parents([stg], rels, default_context)
 
         assert len(violations) == 1
         assert "2 parents" in violations[0].message
 
     def test_clean_staging_with_one_parent(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         stg = make_resource(
             resource_id="model.pkg.stg_orders",
@@ -158,10 +158,10 @@ class TestStagingModelTooManyParents:
             ),
         ]
 
-        assert not staging_model_too_many_parents([stg], rels, default_config)
+        assert not staging_model_too_many_parents([stg], rels, default_context)
 
     def test_ignores_non_staging_models(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         mart = make_resource(
             resource_id="model.pkg.fct_orders",
@@ -183,13 +183,13 @@ class TestStagingModelTooManyParents:
             ),
         ]
 
-        assert not staging_model_too_many_parents([mart], rels, default_config)
+        assert not staging_model_too_many_parents([mart], rels, default_context)
 
     def test_respects_custom_threshold(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         """Base models may need joins (e.g., union + delete). Allow override."""
-        default_config.params["staging_max_parents"] = 2
+        default_context.params["staging_max_parents"] = 2
         stg = make_resource(
             resource_id="model.pkg.stg_orders",
             resource_type="model",
@@ -212,12 +212,12 @@ class TestStagingModelTooManyParents:
             ),
         ]
 
-        assert not staging_model_too_many_parents([stg], rels, default_config)
+        assert not staging_model_too_many_parents([stg], rels, default_context)
 
 
 class TestIntermediateFanout:
     def test_flags_intermediate_with_multiple_children(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         inter = make_resource(
             resource_id="model.pkg.int_orders_pivoted",
@@ -239,13 +239,13 @@ class TestIntermediateFanout:
             ),
         ]
 
-        violations = intermediate_fanout([inter], rels, default_config)
+        violations = intermediate_fanout([inter], rels, default_context)
 
         assert len(violations) == 1
         assert "2 dependents" in violations[0].message
 
     def test_clean_intermediate_with_one_child(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         inter = make_resource(
             resource_id="model.pkg.int_orders_pivoted",
@@ -261,10 +261,10 @@ class TestIntermediateFanout:
             ),
         ]
 
-        assert not intermediate_fanout([inter], rels, default_config)
+        assert not intermediate_fanout([inter], rels, default_context)
 
     def test_ignores_non_intermediate(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         mart = make_resource(
             resource_id="model.pkg.fct_orders",
@@ -286,12 +286,12 @@ class TestIntermediateFanout:
             ),
         ]
 
-        assert not intermediate_fanout([mart], rels, default_config)
+        assert not intermediate_fanout([mart], rels, default_context)
 
     def test_respects_custom_threshold(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
-        default_config.params["intermediate_fanout_threshold"] = 3
+        default_context.params["intermediate_fanout_threshold"] = 3
         inter = make_resource(
             resource_id="model.pkg.int_x",
             resource_type="model",
@@ -307,12 +307,12 @@ class TestIntermediateFanout:
             for i in range(2)
         ]
 
-        assert not intermediate_fanout([inter], rels, default_config)
+        assert not intermediate_fanout([inter], rels, default_context)
 
 
 class TestMartDependsOnMart:
     def test_flags_mart_to_mart_dependency(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         parent = make_resource(
             resource_id="model.pkg.dim_customers",
@@ -337,14 +337,14 @@ class TestMartDependsOnMart:
             ),
         ]
 
-        violations = mart_depends_on_mart([parent, child], rels, default_config)
+        violations = mart_depends_on_mart([parent, child], rels, default_context)
 
         assert len(violations) == 1
         assert "dim_customers" in violations[0].message
         assert "fct_orders" in violations[0].message
 
     def test_clean_mart_depends_on_intermediate(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         parent = make_resource(
             resource_id="model.pkg.int_orders",
@@ -367,10 +367,10 @@ class TestMartDependsOnMart:
             ),
         ]
 
-        assert not mart_depends_on_mart([parent, child], rels, default_config)
+        assert not mart_depends_on_mart([parent, child], rels, default_context)
 
     def test_clean_staging_depends_on_staging(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         rels = [
             make_relationship(
@@ -381,10 +381,10 @@ class TestMartDependsOnMart:
             ),
         ]
 
-        assert not mart_depends_on_mart([], rels, default_config)
+        assert not mart_depends_on_mart([], rels, default_context)
 
     def test_flags_multiple_mart_to_mart_edges(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         dim = make_resource(
             resource_id="model.pkg.dim_customers",
@@ -423,13 +423,13 @@ class TestMartDependsOnMart:
             ),
         ]
 
-        violations = mart_depends_on_mart([dim, fct, rpt], rels, default_config)
+        violations = mart_depends_on_mart([dim, fct, rpt], rels, default_context)
 
         assert len(violations) == 2
 
 
 class TestDuplicateMartConcepts:
-    def test_flags_same_entity_in_different_dirs(self, make_resource, default_config):
+    def test_flags_same_entity_in_different_dirs(self, make_resource, default_context):
         """finance/fct_orders and marketing/fct_orders are duplicates."""
         resources = [
             make_resource(
@@ -448,11 +448,11 @@ class TestDuplicateMartConcepts:
             ),
         ]
 
-        violations = duplicate_mart_concepts(resources, [], default_config)
+        violations = duplicate_mart_concepts(resources, [], default_context)
 
         assert len(violations) == 1
 
-    def test_flags_same_entity_different_prefix(self, make_resource, default_config):
+    def test_flags_same_entity_different_prefix(self, make_resource, default_context):
         """Plain name duplicates across dirs are flagged."""
         resources = [
             make_resource(
@@ -471,11 +471,11 @@ class TestDuplicateMartConcepts:
             ),
         ]
 
-        violations = duplicate_mart_concepts(resources, [], default_config)
+        violations = duplicate_mart_concepts(resources, [], default_context)
 
         assert len(violations) == 1
 
-    def test_clean_single_instance(self, make_resource, default_config):
+    def test_clean_single_instance(self, make_resource, default_context):
         """A single model is not a duplicate."""
         resources = [
             make_resource(
@@ -486,11 +486,11 @@ class TestDuplicateMartConcepts:
             ),
         ]
 
-        violations = duplicate_mart_concepts(resources, [], default_config)
+        violations = duplicate_mart_concepts(resources, [], default_context)
 
         assert not violations
 
-    def test_clean_different_entities(self, make_resource, default_config):
+    def test_clean_different_entities(self, make_resource, default_context):
         """Different entities in different dirs are not duplicates."""
         resources = [
             make_resource(
@@ -507,11 +507,11 @@ class TestDuplicateMartConcepts:
             ),
         ]
 
-        violations = duplicate_mart_concepts(resources, [], default_config)
+        violations = duplicate_mart_concepts(resources, [], default_context)
 
         assert not violations
 
-    def test_ignores_non_marts(self, make_resource, default_config):
+    def test_ignores_non_marts(self, make_resource, default_context):
         resources = [
             make_resource(
                 resource_type="model",
@@ -527,13 +527,13 @@ class TestDuplicateMartConcepts:
             ),
         ]
 
-        violations = duplicate_mart_concepts(resources, [], default_config)
+        violations = duplicate_mart_concepts(resources, [], default_context)
 
         assert not violations
 
 
 class TestRejoiningUpstreamConcepts:
-    def test_flags_triad(self, make_resource, make_relationship, default_config):
+    def test_flags_triad(self, make_resource, make_relationship, default_context):
         """A -> B -> C and A -> C: C rejoins A."""
         rels = [
             make_relationship(
@@ -557,12 +557,12 @@ class TestRejoiningUpstreamConcepts:
         ]
         downstream = make_resource(resource_id="model.pkg.c")
 
-        violations = rejoining_upstream_concepts([downstream], rels, default_config)
+        violations = rejoining_upstream_concepts([downstream], rels, default_context)
 
         assert len(violations) == 1
         assert "rejoins" in violations[0].message
 
-    def test_clean_no_triad(self, make_resource, make_relationship, default_config):
+    def test_clean_no_triad(self, make_resource, make_relationship, default_context):
         downstream = make_resource(resource_id="model.pkg.c")
         rels = [
             make_relationship(
@@ -575,4 +575,4 @@ class TestRejoiningUpstreamConcepts:
             ),
         ]
 
-        assert not rejoining_upstream_concepts([downstream], rels, default_config)
+        assert not rejoining_upstream_concepts([downstream], rels, default_context)

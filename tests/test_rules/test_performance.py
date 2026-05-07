@@ -9,7 +9,7 @@ from dbt_lint.rules.performance import (
 
 class TestChainedViews:
     def test_flags_chain_exceeding_threshold(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         child = make_resource(resource_id="model.pkg.deep")
         rels = [
@@ -21,13 +21,13 @@ class TestChainedViews:
             ),
         ]
 
-        violations = chained_views([child], rels, default_config)
+        violations = chained_views([child], rels, default_context)
 
         assert len(violations) == 1
         assert "depth 6" in violations[0].message
 
     def test_clean_below_threshold(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         child = make_resource(resource_id="model.pkg.deep")
         rels = [
@@ -39,10 +39,10 @@ class TestChainedViews:
             ),
         ]
 
-        assert not chained_views([child], rels, default_config)
+        assert not chained_views([child], rels, default_context)
 
     def test_clean_non_view_chain(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         child = make_resource(resource_id="model.pkg.deep")
         rels = [
@@ -54,12 +54,12 @@ class TestChainedViews:
             ),
         ]
 
-        assert not chained_views([child], rels, default_config)
+        assert not chained_views([child], rels, default_context)
 
 
 class TestExposureParentMaterializations:
     def test_flags_exposure_depending_on_view(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         exposure = make_resource(
             resource_id="exposure.pkg.dash",
@@ -82,13 +82,13 @@ class TestExposureParentMaterializations:
         ]
 
         violations = exposure_parent_materializations(
-            [exposure, parent], rels, default_config
+            [exposure, parent], rels, default_context
         )
 
         assert len(violations) == 1
 
     def test_flags_exposure_depending_on_source(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         exposure = make_resource(
             resource_id="exposure.pkg.dash",
@@ -111,13 +111,13 @@ class TestExposureParentMaterializations:
         ]
 
         violations = exposure_parent_materializations(
-            [exposure, src], rels, default_config
+            [exposure, src], rels, default_context
         )
 
         assert len(violations) == 1
 
     def test_clean_exposure_depending_on_table(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         exposure = make_resource(
             resource_id="exposure.pkg.dash",
@@ -139,55 +139,55 @@ class TestExposureParentMaterializations:
         ]
 
         violations = exposure_parent_materializations(
-            [exposure, parent], rels, default_config
+            [exposure, parent], rels, default_context
         )
 
         assert len(violations) == 0
 
 
 class TestIncrementalMissingUniqueKey:
-    def test_flags_incremental_without_unique_key(self, make_resource, default_config):
+    def test_flags_incremental_without_unique_key(self, make_resource, default_context):
         resource = make_resource(
             materialization="incremental",
             config={},
         )
 
-        result = incremental_missing_unique_key(resource, default_config)
+        result = incremental_missing_unique_key(resource, default_context)
 
         assert result is not None
         assert "unique_key" in result.message
 
-    def test_clean_incremental_with_unique_key(self, make_resource, default_config):
+    def test_clean_incremental_with_unique_key(self, make_resource, default_context):
         resource = make_resource(
             materialization="incremental",
             config={"unique_key": "id"},
         )
 
-        assert incremental_missing_unique_key(resource, default_config) is None
+        assert incremental_missing_unique_key(resource, default_context) is None
 
     def test_clean_incremental_with_unique_key_list(
-        self, make_resource, default_config
+        self, make_resource, default_context
     ):
         resource = make_resource(
             materialization="incremental",
             config={"unique_key": ["id", "date"]},
         )
 
-        assert incremental_missing_unique_key(resource, default_config) is None
+        assert incremental_missing_unique_key(resource, default_context) is None
 
-    def test_skips_non_incremental_models(self, make_resource, default_config):
+    def test_skips_non_incremental_models(self, make_resource, default_context):
         resource = make_resource(
             materialization="table",
             config={},
         )
 
-        assert incremental_missing_unique_key(resource, default_config) is None
+        assert incremental_missing_unique_key(resource, default_context) is None
 
-    def test_skips_non_model_resources(self, make_resource, default_config):
+    def test_skips_non_model_resources(self, make_resource, default_context):
         resource = make_resource(
             resource_type="source",
             materialization="",
             config={},
         )
 
-        assert incremental_missing_unique_key(resource, default_config) is None
+        assert incremental_missing_unique_key(resource, default_context) is None

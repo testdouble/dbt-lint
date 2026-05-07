@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
-from dbt_lint.config import RuleConfig
 from dbt_lint.models import Relationship, Resource, Violation
-from dbt_lint.rules import direct_edges, group_by, resolve_name, resources_by_id, rule
+from dbt_lint.rules import (
+    RuleContext,
+    direct_edges,
+    group_by,
+    resolve_name,
+    resources_by_id,
+    rule,
+)
 
 
 @rule(
@@ -24,15 +30,11 @@ from dbt_lint.rules import direct_edges, group_by, resolve_name, resources_by_id
         "have one yet."
     ),
 )
-def hard_coded_references(resource: Resource, config: RuleConfig) -> Violation | None:
+def hard_coded_references(resource: Resource, context: RuleContext) -> Violation | None:
     if resource.resource_type == "model" and resource.hard_coded_references:
-        return Violation(
-            rule_id="modeling/hard-coded-references",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=(f"{resource.resource_name}: contains hard-coded table references"),
-            severity=config.severity,
-            file_path=resource.file_path,
+        return context.violation(
+            resource,
+            f"{resource.resource_name}: contains hard-coded table references",
         )
     return None
 
@@ -55,7 +57,7 @@ def hard_coded_references(resource: Resource, config: RuleConfig) -> Violation |
 def duplicate_sources(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     sources = [r for r in resources if r.resource_type == "source"]
     by_target = group_by(
@@ -66,18 +68,11 @@ def duplicate_sources(
     violations = []
     for table_key, source_group in by_target.items():
         if len(source_group) > 1:
-            ids = [s.resource_id for s in source_group]
             violations.append(
-                Violation(
-                    rule_id="modeling/duplicate-sources",
-                    resource_id=ids[0],
-                    resource_name=source_group[0].resource_name,
-                    message=(
-                        f"{table_key[0]}.{table_key[1]}.{table_key[2]}:"
-                        f" {len(source_group)} duplicate source entries"
-                    ),
-                    severity=config.severity,
-                    file_path=source_group[0].file_path,
+                context.violation(
+                    source_group[0],
+                    f"{table_key[0]}.{table_key[1]}.{table_key[2]}:"
+                    f" {len(source_group)} duplicate source entries",
                 )
             )
     return violations
@@ -98,7 +93,7 @@ def duplicate_sources(
 def unused_sources(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     sources_with_children = {
@@ -109,14 +104,7 @@ def unused_sources(
     for r in resources:
         if r.resource_type == "source" and r.resource_id not in sources_with_children:
             violations.append(
-                Violation(
-                    rule_id="modeling/unused-sources",
-                    resource_id=r.resource_id,
-                    resource_name=r.resource_name,
-                    message=(f"{r.resource_name}: source has no consumers"),
-                    severity=config.severity,
-                    file_path=r.file_path,
-                )
+                context.violation(r, f"{r.resource_name}: source has no consumers")
             )
     return violations
 
@@ -149,7 +137,7 @@ def unused_sources(
 def multiple_sources_joined(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     source_edges = [
@@ -165,12 +153,10 @@ def multiple_sources_joined(
         if len(parents) > 1:
             child = by_id.get(child_id)
             violations.append(
-                Violation(
-                    rule_id="modeling/multiple-sources-joined",
+                context.violation_for(
                     resource_id=child_id,
                     resource_name=resolve_name(by_id, child_id),
-                    message=(f"{child_id}: joins {len(parents)} sources directly"),
-                    severity=config.severity,
+                    message=f"{child_id}: joins {len(parents)} sources directly",
                     file_path=child.file_path if child else "",
                 )
             )

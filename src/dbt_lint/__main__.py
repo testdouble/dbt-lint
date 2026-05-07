@@ -11,16 +11,9 @@ from pathlib import Path
 
 import click
 
+from dbt_lint._lint import LintError, LintResult, run
 from dbt_lint.baseline import generate_baseline
-from dbt_lint.config import (
-    BASELINE_FILENAME,
-    load_baseline,
-    load_config,
-    merge_baseline,
-)
-from dbt_lint.engine import evaluate
-from dbt_lint.graph import build_relationships
-from dbt_lint.manifest import parse_manifest
+from dbt_lint.config import BASELINE_FILENAME
 from dbt_lint.models import Violation
 from dbt_lint.reporter import report
 from dbt_lint.rules import generate_rules_index
@@ -31,29 +24,16 @@ def _handle_list_rules(output_format: str) -> None:
     index = generate_rules_index()
 
     if output_format == "json":
-        click.echo(json.dumps([dataclasses.asdict(r) for r in index], indent=2))
+        click.echo(json.dumps([dataclasses.asdict(rule) for rule in index], indent=2))
         return
 
-    for category, rules in groupby(index, key=lambda r: r.category):
+    for category, rules in groupby(index, key=lambda rule: rule.category):
         click.echo(f"\n{category}")
-        for r in rules:
-            click.echo(f"  {r.id}: {r.description}")
+        for rule in rules:
+            click.echo(f"  {rule.id}: {rule.description}")
 
-    categories = {r.category for r in index}
+    categories = {rule.category for rule in index}
     click.echo(f"\n{len(index)} rules across {len(categories)} categories")
-
-
-def _apply_filters(
-    violations: list[Violation],
-    select: tuple[str, ...],
-    exclude: tuple[str, ...],
-) -> list[Violation]:
-    """Filter violations by --select and --exclude rule IDs."""
-    if select:
-        violations = [v for v in violations if v.rule_id in select]
-    if exclude:
-        violations = [v for v in violations if v.rule_id not in exclude]
-    return violations
 
 
 def _resolve_baseline(
@@ -71,8 +51,38 @@ def _resolve_baseline(
 def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
     """Return 1 if any violation meets the fail_on threshold, else 0."""
     if fail_on == "error":
-        return 1 if any(v.severity == "error" for v in violations) else 0
+        return (
+            1 if any(violation.severity == "error" for violation in violations) else 0
+        )
     return 1 if violations else 0
+
+
+def _emit_baseline(violations: list[Violation], output_path: Path | None) -> None:
+    """Write a generated baseline YAML to file or stdout."""
+    baseline = generate_baseline(violations)
+    if output_path:
+        output_path.write_text(baseline)
+    else:
+        click.echo(baseline, nl=False)
+
+
+def _emit_report(result: LintResult, output_format: str) -> None:
+    """Render the lint result to stdout."""
+    github_annotations = os.environ.get("GITHUB_ACTIONS") == "true"
+    use_color = (
+        output_format != "json"
+        and os.environ.get("NO_COLOR") is None
+        and click.get_text_stream("stdout").isatty()
+    )
+    output = report(
+        result.violations,
+        output_format=output_format,
+        github_annotations=github_annotations,
+        excluded=result.excluded,
+        color=use_color,
+        resource_counts=result.resource_counts,
+    )
+    click.echo(output)
 
 
 @click.command()
@@ -166,45 +176,29 @@ def main(  # noqa: PLR0913
     if manifest is None:
         raise click.UsageError("Missing argument 'MANIFEST'.")
 
+    resolved_baseline = (
+        None if generate_baseline_flag else _resolve_baseline(baseline_path, config)
+    )
+
     try:
-        cfg = load_config(config)
-        if not generate_baseline_flag:
-            resolved = _resolve_baseline(baseline_path, config)
-            if resolved is not None:
-                cfg = merge_baseline(cfg, load_baseline(resolved))
-        resources, edges = parse_manifest(manifest, cfg)
-        relationships = build_relationships(resources, edges)
-        result = evaluate(resources, relationships, cfg, fail_fast=fail_fast)
-    except Exception as exc:
+        result = run(
+            manifest_path=manifest,
+            config_path=config,
+            baseline_path=resolved_baseline,
+            select=select,
+            exclude=exclude,
+            fail_fast=fail_fast,
+        )
+    except LintError as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(2)
 
-    violations = _apply_filters(result.violations, select, exclude)
-
     if generate_baseline_flag:
-        baseline = generate_baseline(violations)
-        if output_path:
-            output_path.write_text(baseline)
-        else:
-            click.echo(baseline, nl=False)
+        _emit_baseline(result.violations, output_path)
         sys.exit(0)
 
-    github_annotations = os.environ.get("GITHUB_ACTIONS") == "true"
-    use_color = (
-        output_format not in ("json",)
-        and os.environ.get("NO_COLOR") is None
-        and click.get_text_stream("stdout").isatty()
-    )
-    output = report(
-        violations,
-        output_format=output_format,
-        github_annotations=github_annotations,
-        excluded=result.excluded,
-        color=use_color,
-    )
-    click.echo(output)
-
-    sys.exit(_determine_exit_code(violations, fail_on))
+    _emit_report(result, output_format)
+    sys.exit(_determine_exit_code(result.violations, fail_on))
 
 
 if __name__ == "__main__":

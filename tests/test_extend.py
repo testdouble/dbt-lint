@@ -13,7 +13,7 @@ class TestAllExports:
             "ColumnInfo",
             "Relationship",
             "Resource",
-            "RuleConfig",
+            "RuleContext",
             "Violation",
             "direct_edges",
             "filter_by_model_type",
@@ -25,5 +25,6 @@ class TestAllExports:
     def test_rule_is_callable(self):
         assert callable(extend.rule)
 
-    def test_violation_from_resource_available(self):
-        assert hasattr(extend.Violation, "from_resource")
+    def test_rule_context_is_constructable(self):
+        ctx = extend.RuleContext(params={"target": 80})
+        assert ctx.params["target"] == 80

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from dbt_lint.config import RuleConfig
 from dbt_lint.models import Relationship, Resource, Violation
-from dbt_lint.rules import direct_edges, filter_by_model_type, rule
+from dbt_lint.rules import RuleContext, direct_edges, filter_by_model_type, rule
 
 
 @rule(
@@ -28,17 +27,12 @@ from dbt_lint.rules import direct_edges, filter_by_model_type, rule
     ),
 )
 def missing_primary_key_tests(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
-    enforced_types = config.params.get("enforced_primary_key_node_types", ["model"])
+    enforced_types = context.params.get("enforced_primary_key_node_types", ["model"])
     if resource.resource_type in enforced_types and not resource.is_primary_key_tested:
-        return Violation(
-            rule_id="testing/missing-primary-key-tests",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=(f"{resource.resource_name}: missing primary key test"),
-            severity=config.severity,
-            file_path=resource.file_path,
+        return context.violation(
+            resource, f"{resource.resource_name}: missing primary key test"
         )
     return None
 
@@ -64,16 +58,11 @@ def missing_primary_key_tests(
     ),
 )
 def sources_without_freshness(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
     if resource.resource_type == "source" and not resource.is_freshness_enabled:
-        return Violation(
-            rule_id="testing/sources-without-freshness",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=(f"{resource.resource_name}: no freshness check configured"),
-            severity=config.severity,
-            file_path=resource.file_path,
+        return context.violation(
+            resource, f"{resource.resource_name}: no freshness check configured"
         )
     return None
 
@@ -103,7 +92,7 @@ def sources_without_freshness(
 def missing_relationship_tests(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     models_with_model_parents = {
@@ -121,16 +110,10 @@ def missing_relationship_tests(
             and not r.has_relationship_tests
         ):
             violations.append(
-                Violation(
-                    rule_id="testing/missing-relationship-tests",
-                    resource_id=r.resource_id,
-                    resource_name=r.resource_name,
-                    message=(
-                        f"{r.resource_name}: has model dependencies"
-                        " but no relationship tests"
-                    ),
-                    severity=config.severity,
-                    file_path=r.file_path,
+                context.violation(
+                    r,
+                    f"{r.resource_name}: has model dependencies"
+                    " but no relationship tests",
                 )
             )
     return violations
@@ -160,9 +143,9 @@ def missing_relationship_tests(
 def check_test_coverage(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
-    target = config.params.get("test_coverage_target", 100)
+    target = context.params.get("test_coverage_target", 100)
     violations = []
     model_types = sorted(
         {r.model_type for r in resources if r.resource_type == "model" and r.model_type}
@@ -178,15 +161,12 @@ def check_test_coverage(
         pct = (tested / len(models)) * 100
         if pct < target:
             violations.append(
-                Violation(
-                    rule_id="testing/test-coverage",
+                context.violation_for(
                     resource_id=f"model_type:{model_type}",
                     resource_name=model_type,
                     message=(
                         f"{model_type}: {pct:.0f}% test coverage (target: {target}%)"
                     ),
-                    severity=config.severity,
-                    file_path="",
                 )
             )
     return violations
@@ -209,12 +189,9 @@ def check_test_coverage(
         "column in the model's YAML file."
     ),
 )
-def untested_models(resource: Resource, config: RuleConfig) -> Violation | None:
+def untested_models(resource: Resource, context: RuleContext) -> Violation | None:
     if resource.resource_type != "model":
         return None
     if resource.number_of_tests > 0:
         return None
-    return Violation.from_resource(
-        resource,
-        f"{resource.resource_name}: model has no tests",
-    )
+    return context.violation(resource, f"{resource.resource_name}: model has no tests")

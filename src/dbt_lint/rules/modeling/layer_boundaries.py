@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
-from dbt_lint.config import RuleConfig
 from dbt_lint.models import Relationship, Resource, Violation
-from dbt_lint.rules import direct_edges, group_by, resolve_name, resources_by_id, rule
+from dbt_lint.rules import (
+    RuleContext,
+    direct_edges,
+    group_by,
+    resolve_name,
+    resources_by_id,
+    rule,
+)
 
 
 @rule(
@@ -30,7 +36,7 @@ from dbt_lint.rules import direct_edges, group_by, resolve_name, resources_by_id
 def direct_join_to_source(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     model_children = [e for e in edges if e.child_resource_type == "model"]
@@ -43,14 +49,12 @@ def direct_join_to_source(
         if "source" in parent_types and "model" in parent_types:
             child = by_id.get(child_id)
             violations.append(
-                Violation(
-                    rule_id="modeling/direct-join-to-source",
+                context.violation_for(
                     resource_id=child_id,
                     resource_name=resolve_name(by_id, child_id),
                     message=(
                         f"{child_id}: joins both source and model parents directly"
                     ),
-                    severity=config.severity,
                     file_path=child.file_path if child else "",
                 )
             )
@@ -76,7 +80,7 @@ def direct_join_to_source(
 def downstream_depends_on_source(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     violations = []
@@ -90,15 +94,13 @@ def downstream_depends_on_source(
         ):
             child = by_id.get(edge.child)
             violations.append(
-                Violation(
-                    rule_id="modeling/downstream-depends-on-source",
+                context.violation_for(
                     resource_id=edge.child,
                     resource_name=resolve_name(by_id, edge.child),
                     message=(
                         f"{edge.child}: {edge.child_model_type} model"
                         " depends directly on source"
                     ),
-                    severity=config.severity,
                     file_path=child.file_path if child else "",
                 )
             )
@@ -124,7 +126,7 @@ def downstream_depends_on_source(
 def staging_depends_on_staging(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     violations = []
@@ -134,15 +136,13 @@ def staging_depends_on_staging(
         if edge.parent_model_type == "staging" and edge.child_model_type == "staging":
             child = by_id.get(edge.child)
             violations.append(
-                Violation(
-                    rule_id="modeling/staging-depends-on-staging",
+                context.violation_for(
                     resource_id=edge.child,
                     resource_name=resolve_name(by_id, edge.child),
                     message=(
                         f"{edge.child}: staging model depends"
                         f" on staging model {edge.parent}"
                     ),
-                    severity=config.severity,
                     file_path=child.file_path if child else "",
                 )
             )
@@ -168,7 +168,7 @@ def staging_depends_on_staging(
 def staging_depends_on_downstream(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     violations = []
@@ -181,15 +181,13 @@ def staging_depends_on_downstream(
         ):
             child = by_id.get(edge.child)
             violations.append(
-                Violation(
-                    rule_id="modeling/staging-depends-on-downstream",
+                context.violation_for(
                     resource_id=edge.child,
                     resource_name=resolve_name(by_id, edge.child),
                     message=(
                         f"{edge.child}: staging model depends on"
                         f" {edge.parent_model_type} model {edge.parent}"
                     ),
-                    severity=config.severity,
                     file_path=child.file_path if child else "",
                 )
             )
@@ -218,7 +216,7 @@ def staging_depends_on_downstream(
 def root_models(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     edges = direct_edges(relationships)
     models_with_parents = {e.child for e in edges if e.child_resource_type == "model"}
@@ -227,13 +225,6 @@ def root_models(
     for r in resources:
         if r.resource_type == "model" and r.resource_id not in models_with_parents:
             violations.append(
-                Violation(
-                    rule_id="modeling/root-models",
-                    resource_id=r.resource_id,
-                    resource_name=r.resource_name,
-                    message=f"{r.resource_name}: model has no parents",
-                    severity=config.severity,
-                    file_path=r.file_path,
-                )
+                context.violation(r, f"{r.resource_name}: model has no parents")
             )
     return violations

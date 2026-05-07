@@ -7,7 +7,7 @@ but populate --list-rules output when provided.
 
 from __future__ import annotations
 
-from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
 
 @rule(
@@ -27,7 +27,7 @@ from dbt_lint.extend import Resource, RuleConfig, Violation, rule
     ),
 )
 def source_missing_index_meta(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
     if resource.resource_type != "source":
         return None
@@ -39,7 +39,7 @@ def source_missing_index_meta(
     if resource.meta.get("indexes_reviewed"):
         return None
 
-    return Violation.from_resource(
+    return context.violation(
         resource,
         f"{resource.resource_name}: External source missing"
         " meta.indexes_reviewed; confirm database indexes exist"

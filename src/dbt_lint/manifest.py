@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from dbt_lint.classifier import classify_model_type
 from dbt_lint.config import Config
 from dbt_lint.models import ColumnInfo, DirectEdge, Resource
 
@@ -40,42 +41,6 @@ def _build_test_index(manifest: dict) -> dict[str, list[dict]]:
             if attached:
                 index.setdefault(attached, []).append(node["test_metadata"])
     return index
-
-
-# Prefix -> model_type mapping: (config_key_for_prefixes, model_type_name)
-_PREFIX_KEYS = [
-    ("staging_prefixes", "staging"),
-    ("intermediate_prefixes", "intermediate"),
-    ("marts_prefixes", "marts"),
-    ("base_prefixes", "base"),
-    ("other_prefixes", "other"),
-]
-
-# Folder -> model_type mapping: (config_key_for_folder, model_type_name)
-_FOLDER_KEYS = [
-    ("staging_folder_name", "staging"),
-    ("intermediate_folder_name", "intermediate"),
-    ("marts_folder_name", "marts"),
-    ("base_folder_name", "base"),
-]
-
-
-def _classify_model_type(name: str, file_path: str, params: dict[str, Any]) -> str:
-    """Classify a model's type using a two-pass heuristic: prefix then directory."""
-    # Pass 1: prefix match
-    for key, model_type in _PREFIX_KEYS:
-        for prefix in params[key]:
-            if name.startswith(prefix):
-                return model_type
-
-    # Pass 2: directory match
-    parts = file_path.split("/")
-    for key, model_type in _FOLDER_KEYS:
-        folder_name = params[key]
-        if folder_name in parts:
-            return model_type
-
-    return "other"
 
 
 # Identifier: unquoted word, double-quoted, or backtick-quoted
@@ -169,7 +134,7 @@ def _model_to_resource(
         resource_name=name,
         resource_type="model",
         file_path=file_path,
-        model_type=_classify_model_type(name, file_path, params),
+        model_type=classify_model_type(name, file_path, params),
         materialization=node_config.get("materialized", ""),
         schema_name=node.get("schema", ""),
         database=node.get("database", ""),

@@ -20,28 +20,6 @@ class TestViolation:
         assert violation.file_path == "models/orphan.sql"
         assert violation.patch_path == ""
 
-    def test_from_resource(self, make_resource):
-        resource = make_resource(
-            resource_id="model.pkg.stg_orders",
-            resource_name="stg_orders",
-            file_path="models/staging/stg_orders.sql",
-        )
-        violation = Violation.from_resource(
-            resource, "stg_orders: uses SELECT DISTINCT"
-        )
-        assert violation.resource_id == "model.pkg.stg_orders"
-        assert violation.resource_name == "stg_orders"
-        assert violation.file_path == "models/staging/stg_orders.sql"
-        assert violation.message == "stg_orders: uses SELECT DISTINCT"
-        assert violation.rule_id == ""
-        assert violation.severity == ""
-        assert violation.patch_path == ""
-
-    def test_from_resource_applies_patch_prefix_stripping(self, make_resource):
-        resource = make_resource(patch_path="project://models/staging/_staging.yml")
-        violation = Violation.from_resource(resource, "test")
-        assert violation.patch_path == "models/staging/_staging.yml"
-
 
 class TestStripPatchPrefix:
     @pytest.mark.parametrize(

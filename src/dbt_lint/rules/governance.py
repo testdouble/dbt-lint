@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-from dbt_lint.config import RuleConfig
 from dbt_lint.models import Relationship, Resource, Violation
-from dbt_lint.rules import direct_edges, group_by, resources_by_id, rule
+from dbt_lint.rules import (
+    RuleContext,
+    direct_edges,
+    group_by,
+    resources_by_id,
+    rule,
+)
 
 
 @rule(
@@ -24,22 +29,16 @@ from dbt_lint.rules import direct_edges, group_by, resources_by_id, rule
     ),
 )
 def public_models_without_contract(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
     if (
         resource.resource_type == "model"
         and resource.is_public
         and not resource.is_contract_enforced
     ):
-        return Violation(
-            rule_id="governance/public-models-without-contract",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=(
-                f"{resource.resource_name}: public model without contract enforcement"
-            ),
-            severity=config.severity,
-            file_path=resource.file_path,
+        return context.violation(
+            resource,
+            f"{resource.resource_name}: public model without contract enforcement",
         )
     return None
 
@@ -62,7 +61,7 @@ def public_models_without_contract(
     ),
 )
 def undocumented_public_models(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
     if resource.resource_type != "model" or not resource.is_public:
         return None
@@ -78,13 +77,8 @@ def undocumented_public_models(
             f"{resource.number_of_columns} columns documented"
         )
     if issues:
-        return Violation(
-            rule_id="governance/undocumented-public-models",
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=(f"{resource.resource_name}: {', '.join(issues)}"),
-            severity=config.severity,
-            file_path=resource.file_path,
+        return context.violation(
+            resource, f"{resource.resource_name}: {', '.join(issues)}"
         )
     return None
 
@@ -107,14 +101,14 @@ def undocumented_public_models(
     ),
 )
 def intermediate_public_access(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
     if (
         resource.resource_type == "model"
         and resource.model_type == "intermediate"
         and resource.is_public
     ):
-        return Violation.from_resource(
+        return context.violation(
             resource,
             f"{resource.resource_name}: intermediate model has public access",
         )
@@ -144,7 +138,7 @@ def intermediate_public_access(
 def exposures_depend_on_private_models(
     resources: list[Resource],
     relationships: list[Relationship],
-    config: RuleConfig,
+    context: RuleContext,
 ) -> list[Violation]:
     by_id = resources_by_id(resources)
     edges = direct_edges(relationships)
@@ -160,17 +154,11 @@ def exposures_depend_on_private_models(
             parent = by_id.get(edge.parent)
             if parent and parent.resource_type == "model" and not parent.is_public:
                 violations.append(
-                    Violation(
-                        rule_id=("governance/exposures-depend-on-private-models"),
-                        resource_id=exposure_id,
-                        resource_name=exposure.resource_name,
-                        message=(
-                            f"{exposure.resource_name}: depends on"
-                            f" non-public model"
-                            f" {parent.resource_name}"
-                        ),
-                        severity=config.severity,
-                        file_path=exposure.file_path,
+                    context.violation(
+                        exposure,
+                        f"{exposure.resource_name}: depends on"
+                        f" non-public model"
+                        f" {parent.resource_name}",
                     )
                 )
     return violations

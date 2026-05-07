@@ -1,8 +1,8 @@
 """Unit tests for @rule decorator, signature detection, and helpers."""
 
-from dbt_lint.config import RuleConfig
 from dbt_lint.models import Relationship, Resource, Violation
 from dbt_lint.rules import (
+    RuleContext,
     RuleDef,
     RuleMeta,
     direct_edges,
@@ -20,7 +20,7 @@ class TestRuleDecorator:
             id="testing/example-rule",
             description="An example rule.",
         )
-        def example_rule(resource: Resource, config: RuleConfig) -> Violation | None:
+        def example_rule(resource: Resource, context: RuleContext) -> Violation | None:
             return None
 
         assert hasattr(example_rule, "_rule_meta")
@@ -29,7 +29,7 @@ class TestRuleDecorator:
 
     def test_returns_function_unchanged(self):
         @rule(id="testing/noop", description="Noop.")
-        def noop(resource: Resource, config: RuleConfig) -> Violation | None:
+        def noop(resource: Resource, context: RuleContext) -> Violation | None:
             return None
 
         # Function is still callable
@@ -37,7 +37,7 @@ class TestRuleDecorator:
 
     def test_category_derived_from_id(self):
         @rule(id="modeling/some-rule", description="Test.")
-        def some_rule(resource: Resource, config: RuleConfig) -> Violation | None:
+        def some_rule(resource: Resource, context: RuleContext) -> Violation | None:
             return None
 
         assert some_rule._rule_meta.category == "modeling"
@@ -51,7 +51,7 @@ class TestRuleDecorator:
             exceptions="When X.",
             examples=["Violation: bad", "Pass: good"],
         )
-        def structured(resource: Resource, config: RuleConfig) -> Violation | None:
+        def structured(resource: Resource, context: RuleContext) -> Violation | None:
             return None
 
         meta: RuleMeta = structured._rule_meta
@@ -62,7 +62,7 @@ class TestRuleDecorator:
 
     def test_structured_metadata_defaults(self):
         @rule(id="testing/defaults", description="Defaults.")
-        def defaults(resource: Resource, config: RuleConfig) -> Violation | None:
+        def defaults(resource: Resource, context: RuleContext) -> Violation | None:
             return None
 
         meta: RuleMeta = defaults._rule_meta
@@ -75,7 +75,7 @@ class TestRuleDecorator:
 class TestSignatureDetection:
     def test_per_resource_rule(self):
         @rule(id="test/per-resource", description="Test.")
-        def per_resource(resource: Resource, config: RuleConfig) -> Violation | None:
+        def per_resource(resource: Resource, context: RuleContext) -> Violation | None:
             return None
 
         rd = RuleDef.from_function(per_resource)
@@ -86,7 +86,7 @@ class TestSignatureDetection:
         def aggregate(
             resources: list[Resource],
             relationships: list[Relationship],
-            config: RuleConfig,
+            context: RuleContext,
         ) -> list[Violation]:
             return []
 

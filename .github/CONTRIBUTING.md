@@ -45,6 +45,8 @@ For security vulnerabilities, see [SECURITY.md](./SECURITY.md).
 
 ## Adding a built-in rule
 
+Built-in rules use the same `@rule` decorator and signatures as custom rules. See [docs/custom-rules.md](../docs/custom-rules.md) for the API: minimal example, `RuleContext`, helpers, and signature variants. The notes below cover what's specific to in-tree rules.
+
 ### Project layout
 
 ```shell
@@ -62,92 +64,40 @@ src/dbt_lint/rules/
   governance.py
 ```
 
-Categories that are single modules (`governance.py`) are discovered automatically. Sub-packaged categories (`modeling/`, `structure/`) require re-export from their `__init__.py`.
-
-### 1. Write the rule
-
-Add your function in the appropriate module. Use the `@rule` decorator with at minimum `id` and `description`:
-
-```python
-from dbt_lint.config import RuleConfig
-from dbt_lint.models import Resource, Violation
-from dbt_lint.rules import rule
-
-
-@rule(
-    id="category/rule-name",
-    description="Short description shown in rule tables.",
-    rationale="Why this matters. Shown in --list-rules output.",
-    remediation="How to fix it.",
-)
-def rule_name(resource: Resource, config: RuleConfig) -> Violation | None:
-    if resource.resource_type != "model":
-        return None
-    # Check logic here
-    return Violation.from_resource(resource, f"{resource.resource_name}: explanation")
-```
-
-Two function signatures are supported:
-
-- Per-resource: `(resource: Resource, config: RuleConfig) -> Violation | None`
-- Aggregate: `(resources: list[Resource], relationships: list[Relationship], config: RuleConfig) -> list[Violation]`
-
-Use aggregate when the rule needs to compare across resources or traverse the DAG. The decorator validates the signature at import time.
-
-Helpers available from `dbt_lint.rules`:
-
-| Helper | Purpose |
-| --- | --- |
-| `direct_edges(relationships)` | Filter to distance=1 edges |
-| `resources_by_id(resources)` | Index resources by ID |
-| `resolve_name(by_id, resource_id)` | Human-readable name for a resource ID |
-| `group_by(items, key)` | Group items by key function |
-| `filter_by_model_type(resources, type)` | Filter resources to a model type |
-
-### 2. Register the rule
-
-For sub-packaged categories, re-export your function from the category's `__init__.py`:
+Single-module categories (`governance.py`) are auto-discovered. Sub-packaged categories (`modeling/`, `structure/`) require re-export from their `__init__.py`:
 
 ```python
 # rules/modeling/__init__.py
 from dbt_lint.rules.modeling.graph_structure import your_new_rule
 
 __all__ = [
-    # ... existing exports ...
+    # existing exports...
     "your_new_rule",
 ]
 ```
 
-For single-module categories (`testing.py`, `governance.py`, etc.), no extra registration is needed.
+### Tests
 
-### 3. Write tests
-
-Add tests in the matching file under `tests/test_rules/`. Use the `make_resource` and `default_config` fixtures:
+Add tests in the matching file under `tests/test_rules/`. Use the `make_resource` and `default_context` fixtures:
 
 ```python
 class TestYourNewRule:
-    def test_flags_violation(self, make_resource, default_config):
-        resource = make_resource(
-            resource_type="model",
-            # set fields relevant to your rule
-        )
+    def test_flags_violation(self, make_resource, default_context):
+        resource = make_resource(resource_type="model")
 
-        violation = your_new_rule(resource, default_config)
+        violation = your_new_rule(resource, default_context)
 
         assert violation is not None
         assert "expected message fragment" in violation.message
 
-    def test_clean_resource(self, make_resource, default_config):
-        resource = make_resource(
-            resource_type="model",
-            # set fields for a passing case
-        )
+    def test_clean_resource(self, make_resource, default_context):
+        resource = make_resource(resource_type="model")
 
-        assert your_new_rule(resource, default_config) is None
+        assert your_new_rule(resource, default_context) is None
 ```
 
-Test both positive (violation) and negative (clean) cases. Cover edge cases like wrong resource types, boundary values for thresholds, and any config-dependent behavior.
+Cover positive and negative cases plus edge cases (wrong resource types, threshold boundaries, config-dependent behavior).
 
-### 4. Update the docs
+### Documentation
 
-Add your rule to the appropriate table in [docs/rules.md](../docs/rules.md) and update the rule count in both `docs/rules.md` and `README.md`.
+Add your rule to the appropriate table in [docs/rules.md](../docs/rules.md).

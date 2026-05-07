@@ -15,7 +15,7 @@ class TestTextReport:
 
     def test_empty_violations_returns_clean_message(self):
         result = report([], output_format="text")
-        assert "no violations" in result.lower()
+        assert result == "Found 0 violations"
 
     def test_single_violation(self, make_violation):
         violations = [make_violation()]
@@ -111,27 +111,6 @@ class TestTextReport:
         result = report(violations, output_format="text")
         assert "Found 2 violations" in result
 
-    def test_summary_includes_category_breakdown(self, make_violation):
-        violations = [
-            make_violation(
-                rule_id="documentation/undocumented-models", resource_name="m1"
-            ),
-            make_violation(
-                rule_id="governance/public-models-without-contract",
-                resource_name="m2",
-                message="m2: public without contract",
-            ),
-            make_violation(
-                rule_id="documentation/documentation-coverage",
-                resource_name="m3",
-                message="m3: below coverage target",
-                resource_id="model.pkg.m3",
-            ),
-        ]
-        result = report(violations, output_format="text")
-        assert "documentation (2)" in result
-        assert "governance (1)" in result
-
     def test_multiple_violations_same_rule(self, make_violation):
         violations = [
             make_violation(resource_name="m1", message="m1: missing description"),
@@ -151,7 +130,7 @@ class TestConciseReport:
 
     def test_empty_violations(self):
         result = report([], output_format="concise")
-        assert "no violations" in result.lower()
+        assert result == "Found 0 violations"
 
     def test_single_violation_one_line(self, make_violation):
         violations = [
@@ -213,7 +192,7 @@ class TestGroupedReport:
 
     def test_empty_violations(self):
         result = report([], output_format="grouped")
-        assert "no violations" in result.lower()
+        assert result == "Found 0 violations"
 
     def test_single_file(self, make_violation):
         violations = [
@@ -462,23 +441,168 @@ class TestColorSupport:
         assert "\x1b[1m" in result
 
 
-class TestExcludedCount:
-    """Excluded violation count in summary output."""
+class TestUnifiedSummary:
+    """Unified 'Inspected X. Found Y' summary line, shared across formats."""
 
-    def test_no_violations_with_excluded(self):
-        result = report([], excluded=42)
-        assert "No violations found." in result
-        assert "42 skipped via config" in result
+    def test_zero_violations_zero_excluded(self):
+        result = report([], output_format="text")
+        assert result == "Found 0 violations"
 
-    def test_no_violations_without_excluded(self):
-        result = report([])
-        assert "No violations found." in result
-        assert "skipped" not in result
+    def test_zero_violations_with_excluded(self):
+        result = report([], output_format="text", excluded=42)
+        assert result == "Found 0 violations (42 skipped)"
 
-    def test_violations_with_excluded(self, make_violation):
+    def test_single_severity_warn_only(self, make_violation):
+        violations = [
+            make_violation(severity="warn"),
+            make_violation(
+                severity="warn", resource_id="model.pkg.m2", resource_name="m2"
+            ),
+        ]
+        result = report(violations, output_format="text")
+        assert "Found 2 warnings" in result
+        assert "violations" not in result.split("\n")[-1]
+
+    def test_single_severity_error_only(self, make_violation):
+        violations = [make_violation(severity="error")]
+        result = report(violations, output_format="text")
+        assert "Found 1 error" in result
+        # Drop trailing-s: "1 error" not "1 errors"
+        assert "1 errors" not in result
+
+    def test_mixed_severity_uses_violations_with_breakdown(self, make_violation):
+        violations = [
+            make_violation(severity="error"),
+            make_violation(
+                severity="warn", resource_id="model.pkg.m2", resource_name="m2"
+            ),
+            make_violation(
+                severity="warn", resource_id="model.pkg.m3", resource_name="m3"
+            ),
+        ]
+        result = report(violations, output_format="text")
+        assert "Found 3 violations (1 error, 2 warnings)" in result
+
+    def test_single_severity_with_excluded_appends_skipped(self, make_violation):
+        result = report([make_violation(severity="warn")], excluded=10)
+        assert "Found 1 warning (10 skipped)" in result
+
+    def test_mixed_severity_with_excluded_in_same_parenthetical(self, make_violation):
+        violations = [
+            make_violation(severity="error"),
+            make_violation(
+                severity="warn", resource_id="model.pkg.m2", resource_name="m2"
+            ),
+        ]
+        result = report(violations, output_format="text", excluded=5)
+        assert "Found 2 violations (1 error, 1 warning, 5 skipped)" in result
+
+    def test_via_config_phrase_dropped(self, make_violation):
         result = report([make_violation()], excluded=10)
-        assert "10 skipped via config" in result
+        assert "via config" not in result
 
-    def test_violations_without_excluded(self, make_violation):
-        result = report([make_violation()])
-        assert "skipped" not in result
+    def test_concise_uses_same_summary(self, make_violation):
+        result = report(
+            [make_violation(severity="warn")], output_format="concise", excluded=5
+        )
+        assert "Found 1 warning (5 skipped)" in result
+
+    def test_grouped_uses_same_summary(self, make_violation):
+        result = report(
+            [make_violation(severity="warn")], output_format="grouped", excluded=5
+        )
+        assert "Found 1 warning (5 skipped)" in result
+
+
+class TestScopePrefix:
+    """Optional 'Inspected N models, ...' prefix from resource_counts."""
+
+    def test_prefix_added_when_resource_counts_present(self, make_violation):
+        result = report(
+            [make_violation(severity="warn")],
+            output_format="text",
+            resource_counts={"model": 1034, "source": 542},
+        )
+        assert "Inspected 1034 models, 542 sources. Found 1 warning" in result
+
+    def test_singular_pluralization(self, make_violation):
+        result = report(
+            [make_violation(severity="error")],
+            output_format="text",
+            resource_counts={"model": 1, "source": 1},
+        )
+        assert "Inspected 1 model, 1 source. Found 1 error" in result
+
+    def test_zero_counts_dropped_from_scope(self, make_violation):
+        result = report(
+            [make_violation(severity="warn")],
+            output_format="text",
+            resource_counts={"model": 5, "exposure": 0, "source": 2},
+        )
+        assert "Inspected 5 models, 2 sources. Found 1 warning" in result
+        assert "exposure" not in result.split("\n")[-1]
+
+    def test_scope_alphabetical_order(self, make_violation):
+        result = report(
+            [make_violation(severity="warn")],
+            output_format="text",
+            resource_counts={"source": 1, "model": 2, "exposure": 3},
+        )
+        assert "Inspected 3 exposures, 2 models, 1 source." in result
+
+    def test_no_prefix_when_resource_counts_omitted(self, make_violation):
+        result = report([make_violation(severity="warn")], output_format="text")
+        assert "Inspected" not in result
+
+    def test_no_prefix_when_resource_counts_empty(self, make_violation):
+        result = report(
+            [make_violation(severity="warn")],
+            output_format="text",
+            resource_counts={},
+        )
+        assert "Inspected" not in result
+
+    def test_prefix_with_zero_violations(self):
+        result = report(
+            [], output_format="text", resource_counts={"model": 1034, "source": 542}
+        )
+        assert result == "Inspected 1034 models, 542 sources. Found 0 violations"
+
+    def test_prefix_with_zero_violations_and_excluded(self):
+        result = report(
+            [],
+            output_format="text",
+            excluded=553,
+            resource_counts={"model": 1034, "source": 542},
+        )
+        assert (
+            result
+            == "Inspected 1034 models, 542 sources. Found 0 violations (553 skipped)"
+        )
+
+    def test_concise_format_gets_prefix(self, make_violation):
+        result = report(
+            [make_violation(severity="warn")],
+            output_format="concise",
+            resource_counts={"model": 4},
+        )
+        assert "Inspected 4 models. Found 1 warning" in result
+
+    def test_grouped_format_gets_prefix(self, make_violation):
+        result = report(
+            [make_violation(severity="warn")],
+            output_format="grouped",
+            resource_counts={"model": 4},
+        )
+        assert "Inspected 4 models. Found 1 warning" in result
+
+    def test_json_format_omits_prefix(self, make_violation):
+        result = report(
+            [make_violation()],
+            output_format="json",
+            resource_counts={"model": 4},
+        )
+        assert "Inspected" not in result
+        # JSON shape unchanged
+        parsed = json.loads(result)
+        assert isinstance(parsed, list)

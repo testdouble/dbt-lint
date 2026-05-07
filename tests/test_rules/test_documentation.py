@@ -11,72 +11,72 @@ from dbt_lint.rules.documentation import (
 
 
 class TestUndocumentedModels:
-    def test_flags_undocumented_model(self, make_resource, default_config):
+    def test_flags_undocumented_model(self, make_resource, default_context):
         resource = make_resource(resource_type="model", is_described=False)
 
-        violation = undocumented_models(resource, default_config)
+        violation = undocumented_models(resource, default_context)
 
         assert violation is not None
         assert "missing description" in violation.message
 
-    def test_clean_documented_model(self, make_resource, default_config):
+    def test_clean_documented_model(self, make_resource, default_context):
         resource = make_resource(resource_type="model", is_described=True)
 
-        assert undocumented_models(resource, default_config) is None
+        assert undocumented_models(resource, default_context) is None
 
-    def test_ignores_sources(self, make_resource, default_config):
+    def test_ignores_sources(self, make_resource, default_context):
         resource = make_resource(resource_type="source", is_described=False)
 
-        assert undocumented_models(resource, default_config) is None
+        assert undocumented_models(resource, default_context) is None
 
 
 class TestUndocumentedSources:
     def test_flags_source_without_source_description(
-        self, make_resource, default_config
+        self, make_resource, default_context
     ):
         resource = make_resource(
             resource_type="source",
             meta={"source_description_populated": False},
         )
 
-        violation = undocumented_sources(resource, default_config)
+        violation = undocumented_sources(resource, default_context)
 
         assert violation is not None
         assert "source missing description" in violation.message
 
-    def test_clean_source_with_description(self, make_resource, default_config):
+    def test_clean_source_with_description(self, make_resource, default_context):
         resource = make_resource(
             resource_type="source",
             meta={"source_description_populated": True},
         )
 
-        assert undocumented_sources(resource, default_config) is None
+        assert undocumented_sources(resource, default_context) is None
 
-    def test_ignores_models(self, make_resource, default_config):
+    def test_ignores_models(self, make_resource, default_context):
         resource = make_resource(resource_type="model")
 
-        assert undocumented_sources(resource, default_config) is None
+        assert undocumented_sources(resource, default_context) is None
 
 
 class TestUndocumentedSourceTables:
     def test_flags_source_table_without_description(
-        self, make_resource, default_config
+        self, make_resource, default_context
     ):
         resource = make_resource(resource_type="source", is_described=False)
 
-        violation = undocumented_source_tables(resource, default_config)
+        violation = undocumented_source_tables(resource, default_context)
 
         assert violation is not None
         assert "source table missing description" in violation.message
 
-    def test_clean_source_table_with_description(self, make_resource, default_config):
+    def test_clean_source_table_with_description(self, make_resource, default_context):
         resource = make_resource(resource_type="source", is_described=True)
 
-        assert undocumented_source_tables(resource, default_config) is None
+        assert undocumented_source_tables(resource, default_context) is None
 
 
 class TestDocumentationCoverage:
-    def test_flags_below_target(self, make_resource, default_config):
+    def test_flags_below_target(self, make_resource, default_context):
         resources = [
             make_resource(
                 resource_type="model",
@@ -90,7 +90,7 @@ class TestDocumentationCoverage:
             ),
         ]
 
-        violations = documentation_coverage(resources, [], default_config)
+        violations = documentation_coverage(resources, [], default_context)
         staging_vs = [
             violation
             for violation in violations
@@ -100,7 +100,7 @@ class TestDocumentationCoverage:
         assert len(staging_vs) == 1
         assert "50%" in staging_vs[0].message
 
-    def test_clean_at_target(self, make_resource, default_config):
+    def test_clean_at_target(self, make_resource, default_context):
         resources = [
             make_resource(
                 resource_type="model",
@@ -109,7 +109,7 @@ class TestDocumentationCoverage:
             ),
         ]
 
-        violations = documentation_coverage(resources, [], default_config)
+        violations = documentation_coverage(resources, [], default_context)
         staging_vs = [
             violation
             for violation in violations
@@ -122,17 +122,17 @@ class TestDocumentationCoverage:
 class TestColumnDocumentationCoverage:
     """Column-level doc coverage: disabled by default, config-driven."""
 
-    def test_null_config_returns_empty(self, make_resource, default_config):
+    def test_null_config_returns_empty(self, make_resource, default_context):
         resource = make_resource(
             columns=(ColumnInfo(name="id", data_type="integer", is_described=False),),
         )
 
-        result = column_documentation_coverage([resource], [], default_config)
+        result = column_documentation_coverage([resource], [], default_context)
 
         assert not result
 
-    def test_zero_coverage_flagged(self, make_resource, default_config):
-        default_config.params["column_documentation_coverage_target"] = 100
+    def test_zero_coverage_flagged(self, make_resource, default_context):
+        default_context.params["column_documentation_coverage_target"] = 100
         resource = make_resource(
             columns=(
                 ColumnInfo(name="id", data_type="integer", is_described=False),
@@ -140,14 +140,14 @@ class TestColumnDocumentationCoverage:
             ),
         )
 
-        result = column_documentation_coverage([resource], [], default_config)
+        result = column_documentation_coverage([resource], [], default_context)
 
         assert len(result) == 1
         assert "0%" in result[0].message
         assert "100%" in result[0].message
 
-    def test_partial_coverage_flagged(self, make_resource, default_config):
-        default_config.params["column_documentation_coverage_target"] = 100
+    def test_partial_coverage_flagged(self, make_resource, default_context):
+        default_context.params["column_documentation_coverage_target"] = 100
         resource = make_resource(
             columns=(
                 ColumnInfo(name="id", data_type="integer", is_described=True),
@@ -155,13 +155,13 @@ class TestColumnDocumentationCoverage:
             ),
         )
 
-        result = column_documentation_coverage([resource], [], default_config)
+        result = column_documentation_coverage([resource], [], default_context)
 
         assert len(result) == 1
         assert "50%" in result[0].message
 
-    def test_full_coverage_clean(self, make_resource, default_config):
-        default_config.params["column_documentation_coverage_target"] = 100
+    def test_full_coverage_clean(self, make_resource, default_context):
+        default_context.params["column_documentation_coverage_target"] = 100
         resource = make_resource(
             columns=(
                 ColumnInfo(name="id", data_type="integer", is_described=True),
@@ -169,12 +169,12 @@ class TestColumnDocumentationCoverage:
             ),
         )
 
-        result = column_documentation_coverage([resource], [], default_config)
+        result = column_documentation_coverage([resource], [], default_context)
 
         assert not result
 
-    def test_partial_coverage_below_custom_target(self, make_resource, default_config):
-        default_config.params["column_documentation_coverage_target"] = 80
+    def test_partial_coverage_below_custom_target(self, make_resource, default_context):
+        default_context.params["column_documentation_coverage_target"] = 80
         resource = make_resource(
             columns=(
                 ColumnInfo(name="a", data_type="", is_described=True),
@@ -184,45 +184,34 @@ class TestColumnDocumentationCoverage:
             ),
         )
 
-        result = column_documentation_coverage([resource], [], default_config)
+        result = column_documentation_coverage([resource], [], default_context)
 
         assert len(result) == 1
         assert "25%" in result[0].message
 
-    def test_no_columns_declared_skipped(self, make_resource, default_config):
-        default_config.params["column_documentation_coverage_target"] = 100
+    def test_no_columns_declared_skipped(self, make_resource, default_context):
+        default_context.params["column_documentation_coverage_target"] = 100
         resource = make_resource(columns=())
 
-        result = column_documentation_coverage([resource], [], default_config)
+        result = column_documentation_coverage([resource], [], default_context)
 
         assert not result
 
-    def test_sources_skipped(self, make_resource, default_config):
-        default_config.params["column_documentation_coverage_target"] = 100
+    def test_sources_skipped(self, make_resource, default_context):
+        default_context.params["column_documentation_coverage_target"] = 100
         resource = make_resource(
             resource_type="source",
             columns=(ColumnInfo(name="id", data_type="integer", is_described=False),),
         )
 
-        result = column_documentation_coverage([resource], [], default_config)
+        result = column_documentation_coverage([resource], [], default_context)
 
         assert not result
 
-    def test_exposures_skipped(self, make_resource, default_config):
-        default_config.params["column_documentation_coverage_target"] = 100
+    def test_exposures_skipped(self, make_resource, default_context):
+        default_context.params["column_documentation_coverage_target"] = 100
         resource = make_resource(resource_type="exposure")
 
-        result = column_documentation_coverage([resource], [], default_config)
+        result = column_documentation_coverage([resource], [], default_context)
 
         assert not result
-
-    def test_violation_uses_from_resource(self, make_resource, default_config):
-        default_config.params["column_documentation_coverage_target"] = 100
-        resource = make_resource(
-            columns=(ColumnInfo(name="id", data_type="integer", is_described=False),),
-        )
-
-        result = column_documentation_coverage([resource], [], default_config)
-
-        assert result[0].rule_id == ""
-        assert result[0].severity == ""

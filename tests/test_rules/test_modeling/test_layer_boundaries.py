@@ -11,7 +11,7 @@ from dbt_lint.rules.modeling import (
 
 class TestDirectJoinToSource:
     def test_flags_model_with_source_and_model_parents(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         child = make_resource(
             resource_id="model.pkg.m",
@@ -32,12 +32,12 @@ class TestDirectJoinToSource:
             ),
         ]
 
-        violations = direct_join_to_source([child], rels, default_config)
+        violations = direct_join_to_source([child], rels, default_context)
 
         assert len(violations) == 1
 
     def test_clean_when_only_model_parents(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         child = make_resource(resource_id="model.pkg.m")
         rels = [
@@ -49,12 +49,12 @@ class TestDirectJoinToSource:
             ),
         ]
 
-        assert not direct_join_to_source([child], rels, default_config)
+        assert not direct_join_to_source([child], rels, default_context)
 
 
 class TestDownstreamDependsOnSource:
     def test_flags_marts_depending_on_source(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         model = make_resource(resource_id="model.pkg.fct")
         rels = [
@@ -67,11 +67,11 @@ class TestDownstreamDependsOnSource:
             ),
         ]
 
-        violations = downstream_depends_on_source([model], rels, default_config)
+        violations = downstream_depends_on_source([model], rels, default_context)
 
         assert len(violations) == 1
 
-    def test_clean_for_staging(self, make_resource, make_relationship, default_config):
+    def test_clean_for_staging(self, make_resource, make_relationship, default_context):
         model = make_resource(resource_id="model.pkg.stg")
         rels = [
             make_relationship(
@@ -83,11 +83,11 @@ class TestDownstreamDependsOnSource:
             ),
         ]
 
-        assert not downstream_depends_on_source([model], rels, default_config)
+        assert not downstream_depends_on_source([model], rels, default_context)
 
 
 class TestStagingDependsOnStaging:
-    def test_flags_staging_to_staging(self, make_relationship, default_config):
+    def test_flags_staging_to_staging(self, make_relationship, default_context):
         rels = [
             make_relationship(
                 parent="model.pkg.stg_a",
@@ -97,13 +97,13 @@ class TestStagingDependsOnStaging:
             ),
         ]
 
-        violations = staging_depends_on_staging([], rels, default_config)
+        violations = staging_depends_on_staging([], rels, default_context)
 
         assert len(violations) == 1
 
 
 class TestStagingDependsOnDownstream:
-    def test_flags_staging_depending_on_marts(self, make_relationship, default_config):
+    def test_flags_staging_depending_on_marts(self, make_relationship, default_context):
         rels = [
             make_relationship(
                 parent="model.pkg.fct_x",
@@ -113,26 +113,26 @@ class TestStagingDependsOnDownstream:
             ),
         ]
 
-        violations = staging_depends_on_downstream([], rels, default_config)
+        violations = staging_depends_on_downstream([], rels, default_context)
 
         assert len(violations) == 1
 
 
 class TestRootModels:
     def test_flags_model_with_no_parents(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         orphan = make_resource(
             resource_id="model.pkg.orphan",
             resource_type="model",
         )
 
-        violations = root_models([orphan], [], default_config)
+        violations = root_models([orphan], [], default_context)
 
         assert len(violations) == 1
 
     def test_clean_when_model_has_parent(
-        self, make_resource, make_relationship, default_config
+        self, make_resource, make_relationship, default_context
     ):
         model = make_resource(resource_id="model.pkg.m", resource_type="model")
         rels = [
@@ -143,6 +143,6 @@ class TestRootModels:
             ),
         ]
 
-        violations = root_models([model], rels, default_config)
+        violations = root_models([model], rels, default_context)
 
         assert len(violations) == 0

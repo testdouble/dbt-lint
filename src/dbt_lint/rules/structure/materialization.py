@@ -2,35 +2,27 @@
 
 from __future__ import annotations
 
-from dbt_lint.config import RuleConfig
 from dbt_lint.models import Resource, Violation
-from dbt_lint.rules import rule
+from dbt_lint.rules import RuleContext, rule
 
 
 def _check_materialization(
     resource: Resource,
-    config: RuleConfig,
+    context: RuleContext,
     model_type: str,
-    rule_id: str,
 ) -> Violation | None:
     if resource.resource_type != "model" or resource.model_type != model_type:
         return None
     allowed_key = f"{model_type}_allowed_materializations"
-    allowed = config.params.get(allowed_key, [])
+    allowed = context.params.get(allowed_key, [])
     if not allowed:
         return None
     if resource.materialization not in allowed:
-        return Violation(
-            rule_id=rule_id,
-            resource_id=resource.resource_id,
-            resource_name=resource.resource_name,
-            message=(
-                f"{resource.resource_name}:"
-                f" {resource.materialization} not allowed"
-                f" for {model_type} (allowed: {allowed})"
-            ),
-            severity=config.severity,
-            file_path=resource.file_path,
+        return context.violation(
+            resource,
+            f"{resource.resource_name}:"
+            f" {resource.materialization} not allowed"
+            f" for {model_type} (allowed: {allowed})",
         )
     return None
 
@@ -56,10 +48,10 @@ def _check_materialization(
         "Use table or incremental with explicit justification."
     ),
 )
-def staging_materialization(resource: Resource, config: RuleConfig) -> Violation | None:
-    return _check_materialization(
-        resource, config, "staging", "structure/staging-materialization"
-    )
+def staging_materialization(
+    resource: Resource, context: RuleContext
+) -> Violation | None:
+    return _check_materialization(resource, context, "staging")
 
 
 @rule(
@@ -84,14 +76,9 @@ def staging_materialization(resource: Resource, config: RuleConfig) -> Violation
     ),
 )
 def intermediate_materialization(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
-    return _check_materialization(
-        resource,
-        config,
-        "intermediate",
-        "structure/intermediate-materialization",
-    )
+    return _check_materialization(resource, context, "intermediate")
 
 
 @rule(
@@ -112,7 +99,5 @@ def intermediate_materialization(
         "the marts directory level."
     ),
 )
-def marts_materialization(resource: Resource, config: RuleConfig) -> Violation | None:
-    return _check_materialization(
-        resource, config, "marts", "structure/marts-materialization"
-    )
+def marts_materialization(resource: Resource, context: RuleContext) -> Violation | None:
+    return _check_materialization(resource, context, "marts")

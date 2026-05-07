@@ -5,15 +5,66 @@ from __future__ import annotations
 import inspect
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, get_type_hints
 
-from dbt_lint.models import Relationship, Resource
+from dbt_lint.models import Relationship, Resource, Violation, strip_patch_prefix
 
-# Valid per-resource params (resource, config) and aggregate (resources,
-# relationships, config). We check type hints to distinguish them.
-_PER_RESOURCE_PARAMS = {"resource", "config"}
-_AGGREGATE_PARAMS = {"resources", "relationships", "config"}
+_PER_RESOURCE_PARAMS = {"resource", "context"}
+_AGGREGATE_PARAMS = {"resources", "relationships", "context"}
+
+
+@dataclass
+class RuleContext:
+    """Per-rule context handed to rule functions during evaluation.
+
+    Author-visible surfaces: ``params`` (rule-relevant config values) and
+    ``violation`` / ``violation_for`` (violation construction).
+
+    ``_rule_id`` and ``_severity`` are populated by the engine and are
+    private plumbing used by the violation constructors.
+    """
+
+    params: dict[str, Any] = field(default_factory=dict)
+    _rule_id: str = ""
+    _severity: str = ""
+
+    def violation(self, resource: Resource, message: str) -> Violation:
+        """Build a fully-formed Violation from a Resource."""
+        return Violation(
+            rule_id=self._rule_id,
+            resource_id=resource.resource_id,
+            resource_name=resource.resource_name,
+            message=message,
+            severity=self._severity,
+            file_path=resource.file_path,
+            patch_path=strip_patch_prefix(resource.patch_path),
+        )
+
+    def violation_for(
+        self,
+        *,
+        resource_id: str,
+        resource_name: str,
+        message: str,
+        file_path: str = "",
+        patch_path: str = "",
+    ) -> Violation:
+        """Build a fully-formed Violation when no Resource is available.
+
+        Used by aggregate rules that emit violations keyed by a synthetic
+        identifier (e.g., a model_type bucket) or by edge-walking rules
+        whose lookup may miss a Resource.
+        """
+        return Violation(
+            rule_id=self._rule_id,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            message=message,
+            severity=self._severity,
+            file_path=file_path,
+            patch_path=patch_path,
+        )
 
 
 @dataclass(frozen=True)
@@ -38,9 +89,9 @@ def _validate_rule_signature(fn, rule_id: str) -> None:
     if params in (_PER_RESOURCE_PARAMS, _AGGREGATE_PARAMS):
         return
     raise TypeError(
-        f"@rule error in {rule_id}: expected (resource, config)"
-        f" or (resources, relationships, config),"
-        f" got ({', '.join(params)})"
+        f"@rule error in {rule_id}: expected (resource, context)"
+        f" or (resources, relationships, context),"
+        f" got ({', '.join(sorted(params))})."
     )
 
 
@@ -131,28 +182,9 @@ def generate_rules_index() -> list[RuleInfo]:
 
 def get_all_rules() -> list[RuleDef]:
     """Discover all decorated rule functions across rule modules."""
-    from dbt_lint.rules import (  # noqa: PLC0415
-        documentation,
-        governance,
-        modeling,
-        performance,
-        structure,
-        testing,
-    )
+    from dbt_lint.registry import Registry  # noqa: PLC0415
 
-    rules = []
-    for module in [
-        modeling,
-        testing,
-        documentation,
-        structure,
-        performance,
-        governance,
-    ]:
-        for obj in vars(module).values():
-            if callable(obj) and hasattr(obj, "_rule_meta"):
-                rules.append(RuleDef.from_function(obj))
-    return rules
+    return Registry().builtins()
 
 
 def group_by(items, key) -> dict:

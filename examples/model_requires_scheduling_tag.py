@@ -7,7 +7,7 @@ provided.
 
 from __future__ import annotations
 
-from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
 _SCHEDULING_TAGS = (
     "scheduled_update",
@@ -38,7 +38,7 @@ _SCHEDULING_PREFIXES = (
     ),
 )
 def model_requires_scheduling_tag(
-    resource: Resource, config: RuleConfig
+    resource: Resource, context: RuleContext
 ) -> Violation | None:
     if resource.resource_type != "model":
         return None
@@ -50,7 +50,7 @@ def model_requires_scheduling_tag(
             return None
 
     valid = list(_SCHEDULING_TAGS) + [p + "*" for p in _SCHEDULING_PREFIXES]
-    return Violation.from_resource(
+    return context.violation(
         resource,
         f"{resource.resource_name}: missing a scheduling tag"
         f" (expected one of: {', '.join(valid)})",

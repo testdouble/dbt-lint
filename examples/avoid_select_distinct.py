@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 
-from dbt_lint.extend import Resource, RuleConfig, Violation, rule
+from dbt_lint.extend import Resource, RuleContext, Violation, rule
 
 # Match SELECT DISTINCT but not COUNT(DISTINCT or similar function(DISTINCT.
 # Handles whitespace/newlines between SELECT and DISTINCT.
@@ -31,7 +31,7 @@ _FUNC_DISTINCT = re.compile(r"\w+\s*\(\s*DISTINCT\b", re.IGNORECASE)
         "deduplication."
     ),
 )
-def avoid_select_distinct(resource: Resource, config: RuleConfig) -> Violation | None:
+def avoid_select_distinct(resource: Resource, context: RuleContext) -> Violation | None:
     if resource.resource_type != "model":
         return None
     if not resource.raw_code:
@@ -49,7 +49,7 @@ def avoid_select_distinct(resource: Resource, config: RuleConfig) -> Violation |
     if select_count <= func_count:
         return None
 
-    return Violation.from_resource(
+    return context.violation(
         resource,
         f"{resource.resource_name}: uses SELECT DISTINCT;"
         " prefer GROUP BY or QUALIFY for deduplication",

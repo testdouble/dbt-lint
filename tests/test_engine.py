@@ -1,4 +1,4 @@
-"""Unit tests for rule engine: dispatch, exclusion, finalization, fail-fast."""
+"""Unit tests for rule engine: dispatch, exclusion, dispatch shape, fail-fast."""
 
 from dbt_lint.config import DEFAULTS, Config
 from dbt_lint.engine import evaluate
@@ -13,19 +13,19 @@ STUB_PER_RESOURCE_ID = "test/stub-per-resource"
 STUB_AGGREGATE_ID = "test/stub-aggregate"
 
 
-def _stub_per_resource(resource, config):
+def _stub_per_resource(resource, context):
     """Per-resource stub: always returns a violation."""
-    return Violation.from_resource(resource, "stub violation")
+    return context.violation(resource, "stub violation")
 
 
-def _stub_per_resource_clean(resource, config):
+def _stub_per_resource_clean(resource, context):
     """Per-resource stub: never returns a violation."""
     return None
 
 
-def _stub_aggregate(resources, relationships, config):
+def _stub_aggregate(resources, relationships, context):
     """Aggregate stub: returns one violation per resource."""
-    return [Violation.from_resource(r, "agg violation") for r in resources]
+    return [context.violation(r, "agg violation") for r in resources]
 
 
 def _make_rule(
@@ -78,10 +78,10 @@ class TestEngineDispatch:
         rels = [make_relationship()]
         captured = {}
 
-        def spy_aggregate(res, relationships, config):
+        def spy_aggregate(res, relationships, context):
             captured["resources"] = res
             captured["relationships"] = relationships
-            return [Violation.from_resource(res[0], "agg")]
+            return [context.violation(res[0], "agg")]
 
         rule = _make_rule(STUB_AGGREGATE_ID, spy_aggregate, is_per_resource=False)
 
@@ -158,10 +158,10 @@ class TestEngineExclusion:
         assert result.violations[0].resource_id == inside.resource_id
 
 
-class TestEngineFinalization:
-    """Engine fills rule_id and severity via _finalize."""
+class TestEngineContextPlumbing:
+    """Engine constructs the RuleContext that rules use to build violations."""
 
-    def test_fills_rule_id_and_default_severity(self, make_resource):
+    def test_context_carries_rule_id_and_default_severity(self, make_resource):
         resources = [make_resource()]
 
         result = evaluate(resources, [], _default_config(), rules=[_make_rule()])
@@ -178,10 +178,10 @@ class TestEngineFinalization:
 
         assert result.violations[0].severity == "error"
 
-    def test_preserves_pre_filled_rule_id_and_severity(self, make_resource):
-        """If the rule function returns a complete Violation, engine preserves it."""
+    def test_engine_returns_rule_output_unchanged(self, make_resource):
+        """Engine appends rule output verbatim; it does not rewrite Violation fields."""
 
-        def prefilled_rule(resource, config):
+        def prefilled_rule(resource, context):
             return Violation(
                 rule_id="custom/already-set",
                 resource_id=resource.resource_id,

@@ -1,4 +1,4 @@
-"""Rule engine: discovery, filtering, dispatch, exclusion."""
+"""Rule engine: pure dispatch over an explicit rule list."""
 
 from __future__ import annotations
 
@@ -6,9 +6,8 @@ from dataclasses import dataclass, field
 from fnmatch import fnmatch
 
 from dbt_lint.config import Config, RuleConfig, matches_path_filter
-from dbt_lint.loader import load_custom_rules
 from dbt_lint.models import Relationship, Resource, Violation
-from dbt_lint.rules import RuleDef, get_all_rules
+from dbt_lint.rules import RuleContext, RuleDef
 
 
 @dataclass
@@ -24,28 +23,29 @@ def evaluate(
     relationships: list[Relationship],
     config: Config,
     *,
+    rules: list[RuleDef],
     fail_fast: bool = False,
-    rules: list[RuleDef] | None = None,
 ) -> EvaluationResult:
-    """Run all enabled rules and collect violations."""
-    all_rules = (
-        rules if rules is not None else get_all_rules() + load_custom_rules(config)
-    )
+    """Run the supplied rules against resources and collect violations."""
     result = EvaluationResult()
-    for rule_def in all_rules:
+    for rule_def in rules:
         rule_config = config.rule_config(rule_def.id)
         if not rule_config.enabled:
             continue
+
+        context = RuleContext(
+            params=rule_config.params,
+            _rule_id=rule_def.id,
+            _severity=rule_config.severity,
+        )
 
         if rule_def.is_per_resource:
             for resource in resources:
                 if _is_excluded(resource, rule_def.id, rule_config, config):
                     continue
-                violation = rule_def.fn(resource, rule_config)
+                violation = rule_def.fn(resource, context)
                 if violation:
-                    result.violations.append(
-                        _finalize(violation, rule_def, rule_config)
-                    )
+                    result.violations.append(violation)
                     if fail_fast:
                         return result
         else:
@@ -54,10 +54,10 @@ def evaluate(
                 for r in resources
                 if not _is_excluded(r, rule_def.id, rule_config, config)
             ]
-            raw = rule_def.fn(eligible, relationships, rule_config)
+            raw = rule_def.fn(eligible, relationships, context)
             kept = _post_filter(raw, rule_config)
             result.excluded += len(raw) - len(kept)
-            result.violations.extend(_finalize(v, rule_def, rule_config) for v in kept)
+            result.violations.extend(kept)
             if fail_fast and result.violations:
                 return result
 
@@ -89,22 +89,3 @@ def _post_filter(
         for v in violations
         if not any(fnmatch(v.resource_id, pat) for pat in rule_config.exclude_resources)
     ]
-
-
-def _finalize(
-    violation: Violation,
-    rule_def: RuleDef,
-    rule_config: RuleConfig,
-) -> Violation:
-    """Ensure violation has rule_id and severity from config."""
-    if violation.rule_id and violation.severity:
-        return violation
-    return Violation(
-        rule_id=violation.rule_id or rule_def.id,
-        resource_id=violation.resource_id,
-        resource_name=violation.resource_name,
-        message=violation.message,
-        severity=violation.severity or rule_config.severity,
-        file_path=violation.file_path,
-        patch_path=violation.patch_path,
-    )

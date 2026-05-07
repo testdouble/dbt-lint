@@ -76,7 +76,7 @@ In GitHub Actions runs, dbt-lint automatically emits inline annotations on PR di
 
 ## Rules
 
-45 built-in rules across 6 categories: modeling, testing, documentation, structure, performance, and governance. Run `dbt-lint --list-rules` to see all rules with descriptions, or see [docs/rules.md](docs/rules.md) for the full reference.
+Built-in rules cover modeling, testing, documentation, structure, performance, and governance. Run `dbt-lint --list-rules` to see all rules with descriptions, or see [docs/rules.md](docs/rules.md) for the full reference.
 
 ## Configuration
 

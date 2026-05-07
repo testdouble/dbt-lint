@@ -1,6 +1,6 @@
 # Rules reference
 
-45 built-in rules across 6 categories. Use `dbt-lint --list-rules` for full details including rationale and remediation guidance.
+Use `dbt-lint --list-rules` for full details including rationale and remediation guidance.
 
 ## Modeling
 

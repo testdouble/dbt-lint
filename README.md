@@ -54,10 +54,10 @@ Options:
   --exclude TEXT          Skip these rule IDs (repeatable)
   --fail-on [warn|error]  Minimum severity that causes exit code 1 (default: warn)
   --fail-fast             Stop after the first violation
-  --baseline PATH         Path to baseline suppressions file
+  --suppressions PATH     Path to suppressions file
   --list-rules            List all available rules and exit
-  --generate-baseline     Output YAML config that suppresses all current violations
-  --output PATH           Write output to file (use with --generate-baseline)
+  --write-suppressions    Output YAML config that suppresses all current violations
+  --output PATH           Write output to file (use with --write-suppressions)
   --help                  Show help message and exit
 ```
 
@@ -95,7 +95,7 @@ rules:
     enabled: false
 ```
 
-See [docs/configuration.md](docs/configuration.md) for the full reference, including naming prefixes, materialization constraints, per-resource skips, and baseline suppressions.
+See [docs/configuration.md](docs/configuration.md) for the full reference, including naming prefixes, materialization constraints, per-resource skips, and suppressions.
 
 ## Custom rules
 

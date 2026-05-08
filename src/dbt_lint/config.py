@@ -10,7 +10,7 @@ from typing import Any
 
 import yaml
 
-BASELINE_FILENAME = "dbt-lint-baseline.yml"
+SUPPRESSIONS_FILENAME = ".dbt-lint-suppressions.yml"
 
 
 DEFAULTS: dict[str, Any] = {
@@ -139,25 +139,27 @@ def load_config(path: Path | None) -> Config:
     )
 
 
-def merge_baseline(config: Config, baseline_rules: dict[str, dict[str, Any]]) -> Config:
-    """Return a new Config with baseline suppressions merged in.
+def merge_suppressions(
+    config: Config, suppressions_rules: dict[str, dict[str, Any]]
+) -> Config:
+    """Return a new Config with suppressions merged in.
 
-    exclude_resources are unioned; enabled: false from baseline overrides.
+    exclude_resources are unioned; enabled: false from suppressions overrides.
     """
     merged_overrides = dict(config._rule_overrides)
 
-    for rule_id, baseline_entry in baseline_rules.items():
+    for rule_id, suppressions_entry in suppressions_rules.items():
         existing = merged_overrides.get(rule_id, {})
         merged_entry = dict(existing)
 
-        if "exclude_resources" in baseline_entry:
+        if "exclude_resources" in suppressions_entry:
             existing_excludes = set(merged_entry.get("exclude_resources", []))
-            baseline_excludes = set(baseline_entry["exclude_resources"])
+            suppressions_excludes = set(suppressions_entry["exclude_resources"])
             merged_entry["exclude_resources"] = sorted(
-                existing_excludes | baseline_excludes
+                existing_excludes | suppressions_excludes
             )
 
-        if baseline_entry.get("enabled") is False:
+        if suppressions_entry.get("enabled") is False:
             merged_entry["enabled"] = False
 
         merged_overrides[rule_id] = merged_entry
@@ -172,8 +174,8 @@ def merge_baseline(config: Config, baseline_rules: dict[str, dict[str, Any]]) ->
     )
 
 
-def load_baseline(path: Path) -> dict[str, dict[str, Any]]:
-    """Load a baseline YAML file and return its rules section.
+def load_suppressions(path: Path) -> dict[str, dict[str, Any]]:
+    """Load a suppressions YAML file and return its rules section.
 
     Only extracts exclude_resources and enabled keys from each rule entry.
     Other keys are ignored.

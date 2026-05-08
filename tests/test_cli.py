@@ -184,16 +184,16 @@ class TestCliSelectExclude:
         assert "documentation/undocumented-models" not in rule_ids
 
 
-class TestCliBaselineLoading:
-    """Loading and merging dbt-lint-baseline.yml."""
+class TestCliSuppressionsLoading:
+    """Loading and merging .dbt-lint-suppressions.yml."""
 
     def test_auto_discover_next_to_config(self, tmp_path):
-        """Baseline file next to --config is auto-discovered and merged."""
+        """Suppressions file next to --config is auto-discovered and merged."""
         manifest_path = _write_manifest(tmp_path)
         config_path = tmp_path / "dbt-lint.yml"
         config_path.write_text("rules: {}\n")
-        baseline_path = tmp_path / "dbt-lint-baseline.yml"
-        baseline_path.write_text(
+        suppressions_path = tmp_path / ".dbt-lint-suppressions.yml"
+        suppressions_path.write_text(
             "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
         )
         runner = CliRunner()
@@ -205,18 +205,18 @@ class TestCliBaselineLoading:
         rule_ids = {v["rule_id"] for v in parsed}
         assert "documentation/undocumented-models" not in rule_ids
 
-    def test_no_baseline_no_error(self, tmp_path):
-        """Missing baseline file is silently ignored."""
+    def test_no_suppressions_file_no_error(self, tmp_path):
+        """Missing suppressions file is silently ignored."""
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
         result = runner.invoke(main, [str(manifest_path)])
         assert result.exit_code in (0, 1)
 
-    def test_explicit_baseline_flag(self, tmp_path):
-        """--baseline with explicit path loads the file."""
+    def test_explicit_suppressions_flag(self, tmp_path):
+        """--suppressions with explicit path loads the file."""
         manifest_path = _write_manifest(tmp_path)
-        baseline_path = tmp_path / "custom-baseline.yml"
-        baseline_path.write_text(
+        suppressions_path = tmp_path / "custom-suppressions.yml"
+        suppressions_path.write_text(
             "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
         )
         runner = CliRunner()
@@ -224,8 +224,8 @@ class TestCliBaselineLoading:
             main,
             [
                 str(manifest_path),
-                "--baseline",
-                str(baseline_path),
+                "--suppressions",
+                str(suppressions_path),
                 "--format",
                 "json",
             ],
@@ -234,39 +234,45 @@ class TestCliBaselineLoading:
         rule_ids = {v["rule_id"] for v in parsed}
         assert "documentation/undocumented-models" not in rule_ids
 
-    def test_generate_baseline_skips_existing_baseline(self, tmp_path):
-        """--generate-baseline ignores existing baseline to show full violations."""
+    def test_write_suppressions_skips_existing_suppressions(self, tmp_path):
+        """--write-suppressions ignores existing suppressions to show full violations."""
         manifest_path = _write_manifest(tmp_path)
         config_path = tmp_path / "dbt-lint.yml"
         config_path.write_text("rules: {}\n")
-        # Baseline that disables everything
-        baseline_path = tmp_path / "dbt-lint-baseline.yml"
-        baseline_path.write_text(
+        # Suppressions file that disables everything
+        suppressions_path = tmp_path / ".dbt-lint-suppressions.yml"
+        suppressions_path.write_text(
             "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
         )
         runner = CliRunner()
         result = runner.invoke(
             main,
-            [str(manifest_path), "--config", str(config_path), "--generate-baseline"],
+            [str(manifest_path), "--config", str(config_path), "--write-suppressions"],
         )
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
-        # Should still contain undocumented-models since baseline was skipped
+        # Should still contain undocumented-models since suppressions were skipped
         assert "documentation/undocumented-models" in parsed["rules"]
 
     def test_round_trip_generate_then_load(self, tmp_path):
-        """Generate baseline, then load it. Suppressed rules should vanish."""
+        """Generate suppressions, then load it. Suppressed rules should vanish."""
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        # Step 1: generate baseline
-        gen_result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        # Step 1: generate suppressions
+        gen_result = runner.invoke(main, [str(manifest_path), "--write-suppressions"])
         assert gen_result.exit_code == 0
-        baseline_path = tmp_path / "dbt-lint-baseline.yml"
-        baseline_path.write_text(gen_result.output)
-        # Step 2: run with baseline
+        suppressions_path = tmp_path / ".dbt-lint-suppressions.yml"
+        suppressions_path.write_text(gen_result.output)
+        # Step 2: run with suppressions
         result = runner.invoke(
             main,
-            [str(manifest_path), "--baseline", str(baseline_path), "--format", "json"],
+            [
+                str(manifest_path),
+                "--suppressions",
+                str(suppressions_path),
+                "--format",
+                "json",
+            ],
         )
         parsed = json.loads(result.output)
         assert len(parsed) == 0
@@ -306,13 +312,13 @@ class TestCliListRules:
         assert result.exit_code == EXIT_COMMAND_SYNTAX_ERROR
 
 
-class TestCliGenerateBaseline:
-    """--generate-baseline flag for producing suppressions config."""
+class TestCliWriteSuppressions:
+    """--write-suppressions flag for producing suppressions config."""
 
     def test_outputs_valid_yaml(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        result = runner.invoke(main, [str(manifest_path), "--write-suppressions"])
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
         assert "rules" in parsed
@@ -320,35 +326,35 @@ class TestCliGenerateBaseline:
     def test_exits_0(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        result = runner.invoke(main, [str(manifest_path), "--write-suppressions"])
         assert result.exit_code == 0
 
     def test_skips_normal_report(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        result = runner.invoke(main, [str(manifest_path), "--write-suppressions"])
         assert "Found" not in result.output
 
     def test_contains_header_comment(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        result = runner.invoke(main, [str(manifest_path), "--write-suppressions"])
         assert "Generated by dbt-lint" in result.output
 
     def test_contains_violated_rules(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        result = runner.invoke(main, [str(manifest_path), "--write-suppressions"])
         parsed = yaml.safe_load(result.output)
         assert len(parsed["rules"]) > 0
 
     def test_output_file(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
-        output_path = tmp_path / "baseline.yml"
+        output_path = tmp_path / "suppressions.yml"
         runner = CliRunner()
         result = runner.invoke(
             main,
-            [str(manifest_path), "--generate-baseline", "--output", str(output_path)],
+            [str(manifest_path), "--write-suppressions", "--output", str(output_path)],
         )
         assert result.exit_code == 0
         assert output_path.exists()
@@ -363,7 +369,7 @@ class TestCliGenerateBaseline:
             main,
             [
                 str(manifest_path),
-                "--generate-baseline",
+                "--write-suppressions",
                 "--select",
                 "documentation/undocumented-models",
             ],

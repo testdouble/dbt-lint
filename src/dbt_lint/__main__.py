@@ -12,11 +12,11 @@ from pathlib import Path
 import click
 
 from dbt_lint._lint import LintError, LintResult, run
-from dbt_lint.baseline import generate_baseline
-from dbt_lint.config import BASELINE_FILENAME
+from dbt_lint.config import SUPPRESSIONS_FILENAME
 from dbt_lint.models import Violation
 from dbt_lint.reporter import report
 from dbt_lint.rules import generate_rules_index
+from dbt_lint.suppressions import generate_suppressions
 
 
 def _handle_list_rules(output_format: str) -> None:
@@ -36,15 +36,15 @@ def _handle_list_rules(output_format: str) -> None:
     click.echo(f"\n{len(index)} rules across {len(categories)} categories")
 
 
-def _resolve_baseline(
+def _resolve_suppressions(
     explicit: Path | None,
     config_path: Path | None,
 ) -> Path | None:
-    """Find the baseline file: explicit path, or auto-discover by convention."""
+    """Find the suppressions file: explicit path, or auto-discover by convention."""
     if explicit is not None:
         return explicit
     search_dir = config_path.parent if config_path is not None else Path.cwd()
-    candidate = search_dir / BASELINE_FILENAME
+    candidate = search_dir / SUPPRESSIONS_FILENAME
     return candidate if candidate.exists() else None
 
 
@@ -57,13 +57,13 @@ def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
     return 1 if violations else 0
 
 
-def _emit_baseline(violations: list[Violation], output_path: Path | None) -> None:
-    """Write a generated baseline YAML to file or stdout."""
-    baseline = generate_baseline(violations)
+def _emit_suppressions(violations: list[Violation], output_path: Path | None) -> None:
+    """Write a generated suppressions YAML to file or stdout."""
+    suppressions = generate_suppressions(violations)
     if output_path:
-        output_path.write_text(baseline)
+        output_path.write_text(suppressions)
     else:
-        click.echo(baseline, nl=False)
+        click.echo(suppressions, nl=False)
 
 
 def _emit_report(result: LintResult, output_format: str) -> None:
@@ -128,11 +128,11 @@ def _emit_report(result: LintResult, output_format: str) -> None:
     help="Stop after the first violation.",
 )
 @click.option(
-    "--baseline",
-    "baseline_path",
+    "--suppressions",
+    "suppressions_path",
     type=click.Path(exists=True, path_type=Path),
     default=None,
-    help="Path to dbt-lint-baseline.yml suppressions file.",
+    help="Path to .dbt-lint-suppressions.yml file.",
 )
 @click.option(
     "--list-rules",
@@ -142,8 +142,8 @@ def _emit_report(result: LintResult, output_format: str) -> None:
     help="List all available rules and exit.",
 )
 @click.option(
-    "--generate-baseline",
-    "generate_baseline_flag",
+    "--write-suppressions",
+    "write_suppressions_flag",
     is_flag=True,
     default=False,
     help="Output a YAML config that suppresses all current violations.",
@@ -153,7 +153,7 @@ def _emit_report(result: LintResult, output_format: str) -> None:
     "output_path",
     type=click.Path(path_type=Path),
     default=None,
-    help="Write output to file instead of stdout (use with --generate-baseline).",
+    help="Write output to file instead of stdout (use with --write-suppressions).",
 )
 def main(  # noqa: PLR0913
     manifest: Path | None,
@@ -164,8 +164,8 @@ def main(  # noqa: PLR0913
     fail_on: str,
     fail_fast: bool,
     list_rules: bool,
-    baseline_path: Path | None,
-    generate_baseline_flag: bool,
+    suppressions_path: Path | None,
+    write_suppressions_flag: bool,
     output_path: Path | None,
 ) -> None:
     """Lint a dbt project by analyzing its manifest.json."""
@@ -176,15 +176,17 @@ def main(  # noqa: PLR0913
     if manifest is None:
         raise click.UsageError("Missing argument 'MANIFEST'.")
 
-    resolved_baseline = (
-        None if generate_baseline_flag else _resolve_baseline(baseline_path, config)
+    resolved_suppressions = (
+        None
+        if write_suppressions_flag
+        else _resolve_suppressions(suppressions_path, config)
     )
 
     try:
         result = run(
             manifest_path=manifest,
             config_path=config,
-            baseline_path=resolved_baseline,
+            suppressions_path=resolved_suppressions,
             select=select,
             exclude=exclude,
             fail_fast=fail_fast,
@@ -193,8 +195,8 @@ def main(  # noqa: PLR0913
         click.echo(f"Error: {exc}", err=True)
         sys.exit(2)
 
-    if generate_baseline_flag:
-        _emit_baseline(result.violations, output_path)
+    if write_suppressions_flag:
+        _emit_suppressions(result.violations, output_path)
         sys.exit(0)
 
     _emit_report(result, output_format)

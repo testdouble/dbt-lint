@@ -11,9 +11,9 @@ import yaml
 
 from dbt_lint.config import (
     Config,
-    load_baseline,
     load_config,
-    merge_baseline,
+    load_suppressions,
+    merge_suppressions,
 )
 from dbt_lint.engine import evaluate
 from dbt_lint.graph import build_relationships
@@ -32,7 +32,7 @@ class LintError(Exception):
 
 
 class ConfigError(LintError):
-    """Failure loading config or baseline (YAML parse, file IO, regex validation)."""
+    """Failure loading config or suppressions (YAML parse, file IO, regex validation)."""
 
 
 class ManifestError(LintError):
@@ -54,23 +54,23 @@ def run(  # noqa: PLR0913
     *,
     manifest_path: Path,
     config_path: Path | None,
-    baseline_path: Path | None,
+    suppressions_path: Path | None,
     select: tuple[str, ...],
     exclude: tuple[str, ...],
     fail_fast: bool,
 ) -> LintResult:
     """Compose the lint pipeline and return a LintResult.
 
-    None for config_path uses defaults; None for baseline_path skips merging.
+    None for config_path uses defaults; None for suppressions_path skips merging.
     """
     try:
         config = load_config(config_path)
     except (yaml.YAMLError, OSError, ValueError) as exc:
         raise ConfigError(str(exc)) from exc
 
-    if baseline_path is not None:
+    if suppressions_path is not None:
         try:
-            config = merge_baseline(config, load_baseline(baseline_path))
+            config = merge_suppressions(config, load_suppressions(suppressions_path))
         except (yaml.YAMLError, OSError, ValueError) as exc:
             raise ConfigError(str(exc)) from exc
 

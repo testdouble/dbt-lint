@@ -99,18 +99,18 @@ models:
           - structure/model-naming-conventions
 ```
 
-## Baseline suppressions
+## Suppressions
 
-For existing projects, generate a baseline that suppresses all current violations:
+For existing projects, generate a suppressions file that suppresses all current violations:
 
 ```bash
-dbt-lint target/manifest.json --generate-baseline --output dbt-lint-baseline.yml
+dbt-lint target/manifest.json --write-suppressions --output .dbt-lint-suppressions.yml
 ```
 
 Then pass it on subsequent runs:
 
 ```bash
-dbt-lint target/manifest.json --baseline dbt-lint-baseline.yml
+dbt-lint target/manifest.json --suppressions .dbt-lint-suppressions.yml
 ```
 
-New violations are still reported. Fix existing violations over time and shrink the baseline.
+New violations are still reported. Fix existing violations over time and shrink the suppressions file.

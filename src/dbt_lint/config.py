@@ -1,8 +1,9 @@
-"""YAML config loading, defaults, merging, RuleConfig, and path filtering."""
+"""Config loading, defaults, merging, RuleConfig, and path filtering."""
 
 from __future__ import annotations
 
 import re
+import tomllib
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -11,6 +12,9 @@ from typing import Any
 import yaml
 
 SUPPRESSIONS_FILENAME = ".dbt-lint-suppressions.yml"
+CONFIG_FILENAME = "dbt-lint.yml"
+PYPROJECT_FILENAME = "pyproject.toml"
+PYPROJECT_TOOL_KEY = "dbt-lint"
 
 
 DEFAULTS: dict[str, Any] = {
@@ -94,9 +98,17 @@ class Config:
         )
 
 
-def load_config(path: Path | None) -> Config:
-    """Load config from YAML file, falling back to defaults."""
-    raw = (yaml.safe_load(path.read_text()) or {}) if path is not None else {}
+def load_config(path: Path | None = None, *, isolated: bool = False) -> Config:
+    """Load config from a path, fall back to walk-up discovery, else use defaults.
+
+    With ``isolated=True``, skip discovery and return defaults regardless of
+    ambient config files. An explicit ``path`` is honored even when ``isolated``
+    is True (explicit user input is not ambient state).
+    """
+    if path is None and not isolated:
+        path = discover_config_path()
+
+    raw = _read_config_source(path)
 
     params = {**DEFAULTS, **raw}
     rule_overrides = params.pop("rules", {})
@@ -137,6 +149,53 @@ def load_config(path: Path | None) -> Config:
         _rule_overrides=all_overrides,
         _custom_rule_entries=custom_entries,
     )
+
+
+def discover_config_path(start: Path | None = None) -> Path | None:
+    """Walk up from cwd looking for a dbt-lint config source.
+
+    Resolution order: ``pyproject.toml`` containing a ``[tool.dbt-lint]`` section
+    (full walk), then ``dbt-lint.yml`` (full walk). First match wins; sources are
+    not merged.
+    """
+    cwd = (start or Path.cwd()).resolve()
+    search_path = [cwd, *cwd.parents]
+
+    for directory in search_path:
+        candidate = directory / PYPROJECT_FILENAME
+        if candidate.is_file() and _pyproject_has_dbt_lint_section(candidate):
+            return candidate
+
+    for directory in search_path:
+        candidate = directory / CONFIG_FILENAME
+        if candidate.is_file():
+            return candidate
+
+    return None
+
+
+def _read_config_source(path: Path | None) -> dict[str, Any]:
+    """Parse a config source file. ``None`` returns an empty mapping (defaults)."""
+    if path is None:
+        return {}
+    if path.name == PYPROJECT_FILENAME:
+        return _read_pyproject_section(path)
+    return yaml.safe_load(path.read_text()) or {}
+
+
+def _read_pyproject_section(path: Path) -> dict[str, Any]:
+    """Extract ``[tool.dbt-lint]`` from a ``pyproject.toml`` file."""
+    data = tomllib.loads(path.read_text())
+    return data.get("tool", {}).get(PYPROJECT_TOOL_KEY, {}) or {}
+
+
+def _pyproject_has_dbt_lint_section(path: Path) -> bool:
+    """Check whether a ``pyproject.toml`` declares a ``[tool.dbt-lint]`` section."""
+    try:
+        data = tomllib.loads(path.read_text())
+    except (tomllib.TOMLDecodeError, OSError):
+        return False
+    return PYPROJECT_TOOL_KEY in data.get("tool", {})
 
 
 def merge_suppressions(

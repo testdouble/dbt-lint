@@ -58,13 +58,15 @@ def run(  # noqa: PLR0913
     select: tuple[str, ...],
     exclude: tuple[str, ...],
     fail_fast: bool,
+    isolated: bool = False,
 ) -> LintResult:
     """Compose the lint pipeline and return a LintResult.
 
-    None for config_path uses defaults; None for suppressions_path skips merging.
+    None for config_path triggers walk-up discovery (or defaults when
+    ``isolated`` is True). None for suppressions_path skips merging.
     """
     try:
-        config = load_config(config_path)
+        config = load_config(config_path, isolated=isolated)
     except (yaml.YAMLError, OSError, ValueError) as exc:
         raise ConfigError(str(exc)) from exc
 

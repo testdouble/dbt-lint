@@ -109,5 +109,5 @@ steps:
     run: sqlfluff lint models/
 
   - name: Lint dbt project
-    run: dbt-lint target/manifest.json --config dbt_lint.yml
+    run: dbt-lint check target/manifest.json --config dbt-lint.yml
 ```

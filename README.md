@@ -45,23 +45,33 @@ dbt parse  # or dbt compile / dbt run
 ## Usage
 
 ```shell
-dbt-lint [OPTIONS] [MANIFEST]
+dbt-lint check [OPTIONS] MANIFEST
+dbt-lint rule [OPTIONS] [RULE_ID]
 
-Options:
-  --config PATH           Path to dbt_lint.yml config file
-  --format FORMAT         Output format: text, concise, grouped, json (default: text)
-  --select TEXT           Only run these rule IDs (repeatable)
-  --exclude TEXT          Skip these rule IDs (repeatable)
-  --fail-on [warn|error]  Minimum severity that causes exit code 1 (default: warn)
-  --fail-fast             Stop after the first violation
-  --suppressions PATH     Path to suppressions file
-  --list-rules            List all available rules and exit
-  --write-suppressions    Output YAML config that suppresses all current violations
-  --output PATH           Write output to file (use with --write-suppressions)
-  --help                  Show help message and exit
+check options:
+  --config PATH                          Path to dbt-lint.yml config file
+  --output-format [text|concise|grouped|json]
+                                         Output format (default: text)
+  --select TEXT                          Only run these rule IDs (repeatable)
+  --exclude TEXT                         Skip these rule IDs (repeatable)
+  --fail-on [warn|error]                 Minimum severity for exit code 1 (default: warn)
+  --fail-fast                            Stop after the first violation
+  --exit-zero                            Force exit 0 regardless of violations
+  --isolated                             Bypass config discovery and suppressions auto-load
+  --suppressions PATH                    Path to suppressions file
+  --write-suppressions                   Emit a suppressions YAML to stdout
+
+rule options:
+  --all                                  List every rule
+  --output-format [text|concise|grouped|json]
+                                         Output format (default: text)
 ```
 
 Exit codes: `0` clean, `1` violations found, `2` tool error.
+
+Config auto-discovery walks up from cwd looking first for `pyproject.toml [tool.dbt-lint]`, then for `dbt-lint.yml`. Pass `--config PATH` to override or `--isolated` to skip discovery entirely.
+
+When a `.dbt-lint-suppressions.yml` sits next to the discovered config or in the cwd, `check` applies it automatically. `--suppressions PATH` overrides the location; `--isolated` and `--write-suppressions` skip the auto-load.
 
 Color is applied to severity tags and headers when stdout is a TTY. Set `NO_COLOR=1` to disable.
 
@@ -71,16 +81,16 @@ In GitHub Actions runs, dbt-lint automatically emits inline annotations on PR di
 
 ```yaml
 - name: Lint dbt project
-  run: dbt-lint target/manifest.json --config dbt_lint.yml
+  run: dbt-lint check target/manifest.json --config dbt-lint.yml
 ```
 
 ## Rules
 
-Built-in rules cover modeling, testing, documentation, structure, performance, and governance. Run `dbt-lint --list-rules` to see all rules with descriptions, or see [docs/rules.md](docs/rules.md) for the full reference.
+Built-in rules cover modeling, testing, documentation, structure, performance, and governance. Run `dbt-lint rule --all` to see all rules with descriptions, or see [docs/rules.md](docs/rules.md) for the full reference.
 
 ## Configuration
 
-Create `dbt_lint.yml` to override defaults. All settings are optional.
+Create `dbt-lint.yml` to override defaults, or add a `[tool.dbt-lint]` section to `pyproject.toml`. All settings are optional.
 
 ```yaml
 # Adjust thresholds

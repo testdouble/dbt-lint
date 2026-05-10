@@ -1,4 +1,4 @@
-"""CLI entry point: dbt-lint <manifest.json> [options]."""
+"""CLI entry point: dbt-lint check / dbt-lint rule subcommands."""
 
 from __future__ import annotations
 
@@ -12,58 +12,63 @@ from pathlib import Path
 import click
 
 from dbt_lint._lint import LintError, LintResult, run
-from dbt_lint.config import SUPPRESSIONS_FILENAME
+from dbt_lint.config import (
+    SUPPRESSIONS_FILENAME,
+    discover_config_path,
+)
 from dbt_lint.models import Violation
 from dbt_lint.reporter import report
-from dbt_lint.rules import generate_rules_index
+from dbt_lint.rules import RuleInfo, generate_rules_index
 from dbt_lint.suppressions import generate_suppressions
 
-
-def _handle_list_rules(output_format: str) -> None:
-    """Print the rules index and exit."""
-    index = generate_rules_index()
-
-    if output_format == "json":
-        click.echo(json.dumps([dataclasses.asdict(rule) for rule in index], indent=2))
-        return
-
-    for category, rules in groupby(index, key=lambda rule: rule.category):
-        click.echo(f"\n{category}")
-        for rule in rules:
-            click.echo(f"  {rule.id}: {rule.description}")
-
-    categories = {rule.category for rule in index}
-    click.echo(f"\n{len(index)} rules across {len(categories)} categories")
+OUTPUT_FORMATS = ["text", "concise", "grouped", "json"]
+EXAMPLE_USAGE = (
+    "\b\nExamples:\n  dbt-lint check target/manifest.json\n  dbt-lint rule --all"
+)
 
 
 def _resolve_suppressions(
     explicit: Path | None,
-    config_path: Path | None,
+    config_dir: Path | None,
+    *,
+    isolated: bool,
+    skip_auto_load: bool,
 ) -> Path | None:
-    """Find the suppressions file: explicit path, or auto-discover by convention."""
+    """Find the suppressions file: explicit path, or auto-discover by convention.
+
+    Auto-discovery checks the discovered config's directory and cwd. ``isolated``
+    or ``skip_auto_load`` (set by --write-suppressions) skip auto-discovery while
+    still honoring an explicit path.
+    """
     if explicit is not None:
         return explicit
-    search_dir = config_path.parent if config_path is not None else Path.cwd()
-    candidate = search_dir / SUPPRESSIONS_FILENAME
-    return candidate if candidate.exists() else None
+    if isolated or skip_auto_load:
+        return None
+    search_dirs: list[Path] = []
+    if config_dir is not None:
+        search_dirs.append(config_dir)
+    cwd = Path.cwd()
+    if cwd not in search_dirs:
+        search_dirs.append(cwd)
+    for directory in search_dirs:
+        candidate = directory / SUPPRESSIONS_FILENAME
+        if candidate.exists():
+            return candidate
+    return None
 
 
-def _determine_exit_code(violations: list[Violation], fail_on: str) -> int:
-    """Return 1 if any violation meets the fail_on threshold, else 0."""
+def _determine_exit_code(
+    violations: list[Violation], fail_on: str, *, exit_zero: bool
+) -> int:
+    """Return 0 when ``--exit-zero`` is set, else 1 if any violation hits the
+    ``fail_on`` threshold."""
+    if exit_zero:
+        return 0
     if fail_on == "error":
         return (
             1 if any(violation.severity == "error" for violation in violations) else 0
         )
     return 1 if violations else 0
-
-
-def _emit_suppressions(violations: list[Violation], output_path: Path | None) -> None:
-    """Write a generated suppressions YAML to file or stdout."""
-    suppressions = generate_suppressions(violations)
-    if output_path:
-        output_path.write_text(suppressions)
-    else:
-        click.echo(suppressions, nl=False)
 
 
 def _emit_report(result: LintResult, output_format: str) -> None:
@@ -85,22 +90,32 @@ def _emit_report(result: LintResult, output_format: str) -> None:
     click.echo(output)
 
 
-@click.command()
+@click.group(
+    help=(
+        "Static analysis for dbt projects.\n\n" + EXAMPLE_USAGE + "\n\n"
+        "Run 'dbt-lint check --help' or 'dbt-lint rule --help' for"
+        " subcommand options."
+    )
+)
+@click.version_option(package_name="dbt-lint")
+def main() -> None:
+    """Top-level dbt-lint command group."""
+
+
+@main.command(no_args_is_help=True)
 @click.argument(
     "manifest",
     type=click.Path(exists=True, path_type=Path),
-    required=False,
 )
 @click.option(
     "--config",
     type=click.Path(exists=True, path_type=Path),
     default=None,
-    help="Path to dbt_lint.yml config file.",
+    help="Path to dbt-lint.yml config file.",
 )
 @click.option(
-    "--format",
-    "output_format",
-    type=click.Choice(["text", "concise", "grouped", "json"]),
+    "--output-format",
+    type=click.Choice(OUTPUT_FORMATS),
     default="text",
     help="Output format.",
 )
@@ -128,6 +143,18 @@ def _emit_report(result: LintResult, output_format: str) -> None:
     help="Stop after the first violation.",
 )
 @click.option(
+    "--exit-zero",
+    is_flag=True,
+    default=False,
+    help="Force exit code 0 regardless of violations found.",
+)
+@click.option(
+    "--isolated",
+    is_flag=True,
+    default=False,
+    help="Bypass config discovery and suppressions auto-load.",
+)
+@click.option(
     "--suppressions",
     "suppressions_path",
     type=click.Path(exists=True, path_type=Path),
@@ -135,51 +162,36 @@ def _emit_report(result: LintResult, output_format: str) -> None:
     help="Path to .dbt-lint-suppressions.yml file.",
 )
 @click.option(
-    "--list-rules",
-    "list_rules",
-    is_flag=True,
-    default=False,
-    help="List all available rules and exit.",
-)
-@click.option(
     "--write-suppressions",
     "write_suppressions_flag",
     is_flag=True,
     default=False,
-    help="Output a YAML config that suppresses all current violations.",
+    help="Emit a YAML suppressions file from current violations to stdout.",
 )
-@click.option(
-    "--output",
-    "output_path",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Write output to file instead of stdout (use with --write-suppressions).",
-)
-def main(  # noqa: PLR0913
-    manifest: Path | None,
+def check(  # noqa: PLR0913
+    manifest: Path,
     config: Path | None,
     output_format: str,
     select: tuple[str, ...],
     exclude: tuple[str, ...],
     fail_on: str,
     fail_fast: bool,
-    list_rules: bool,
+    exit_zero: bool,
+    isolated: bool,
     suppressions_path: Path | None,
     write_suppressions_flag: bool,
-    output_path: Path | None,
 ) -> None:
     """Lint a dbt project by analyzing its manifest.json."""
-    if list_rules:
-        _handle_list_rules(output_format)
-        return
+    discovered_config = config
+    if discovered_config is None and not isolated:
+        discovered_config = discover_config_path()
+    config_dir = discovered_config.parent if discovered_config is not None else None
 
-    if manifest is None:
-        raise click.UsageError("Missing argument 'MANIFEST'.")
-
-    resolved_suppressions = (
-        None
-        if write_suppressions_flag
-        else _resolve_suppressions(suppressions_path, config)
+    resolved_suppressions = _resolve_suppressions(
+        suppressions_path,
+        config_dir,
+        isolated=isolated,
+        skip_auto_load=write_suppressions_flag,
     )
 
     try:
@@ -190,17 +202,81 @@ def main(  # noqa: PLR0913
             select=select,
             exclude=exclude,
             fail_fast=fail_fast,
+            isolated=isolated,
         )
     except LintError as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(2)
 
     if write_suppressions_flag:
-        _emit_suppressions(result.violations, output_path)
+        click.echo(generate_suppressions(result.violations), nl=False)
         sys.exit(0)
 
     _emit_report(result, output_format)
-    sys.exit(_determine_exit_code(result.violations, fail_on))
+    sys.exit(_determine_exit_code(result.violations, fail_on, exit_zero=exit_zero))
+
+
+@main.command()
+@click.argument("rule_id", required=False)
+@click.option(
+    "--all",
+    "list_all",
+    is_flag=True,
+    default=False,
+    help="List every rule.",
+)
+@click.option(
+    "--output-format",
+    type=click.Choice(OUTPUT_FORMATS),
+    default="text",
+    help="Output format.",
+)
+@click.pass_context
+def rule(
+    context: click.Context,
+    rule_id: str | None,
+    list_all: bool,
+    output_format: str,
+) -> None:
+    """List or explain rules."""
+    if not list_all and rule_id is None:
+        click.echo(context.get_help())
+        sys.exit(2)
+
+    index = generate_rules_index()
+
+    if list_all:
+        _emit_rules_index(index, output_format)
+        return
+
+    matching = next((info for info in index if info.id == rule_id), None)
+    if matching is None:
+        click.echo(f"Error: unknown rule '{rule_id}'", err=True)
+        sys.exit(2)
+    _emit_rule_explain(matching, output_format)
+
+
+def _emit_rules_index(index: list[RuleInfo], output_format: str) -> None:
+    """Render the full rules index (text or JSON)."""
+    if output_format == "json":
+        click.echo(json.dumps([dataclasses.asdict(info) for info in index], indent=2))
+        return
+
+    for category, rules in groupby(index, key=lambda info: info.category):
+        click.echo(f"\n{category}")
+        for info in rules:
+            click.echo(f"  {info.id}: {info.description}")
+
+    categories = {info.category for info in index}
+    click.echo(f"\n{len(index)} rules across {len(categories)} categories")
+
+
+def _emit_rule_explain(info: RuleInfo, output_format: str) -> None:
+    """Render a single rule's metadata."""
+    if output_format == "json":
+        click.echo(json.dumps(dataclasses.asdict(info), indent=2))
+        return
+    click.echo(f"{info.id}: {info.description}")
 
 
 if __name__ == "__main__":

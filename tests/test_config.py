@@ -7,11 +7,18 @@ import pytest
 
 from dbt_lint.config import (
     DEFAULTS,
+    discover_config_path,
     load_config,
     load_suppressions,
     matches_path_filter,
     merge_suppressions,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_cwd(tmp_path, monkeypatch):
+    """Run every test from tmp_path so walk-up discovery is deterministic."""
+    monkeypatch.chdir(tmp_path)
 
 
 class TestDefaults:
@@ -51,7 +58,7 @@ class TestLoadConfig:
         )
 
     def test_load_from_yaml(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             models_fanout_threshold: 5
@@ -67,7 +74,7 @@ class TestLoadConfig:
         )
 
     def test_load_with_rule_overrides(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -86,7 +93,7 @@ class TestLoadConfig:
         assert rc2.enabled is False
 
     def test_load_with_exclude_resources(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -100,7 +107,7 @@ class TestLoadConfig:
         assert "source.pkg.raw.legacy_*" in rc.exclude_resources
 
     def test_empty_yaml_file(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text("")
         config = load_config(config_file)
         assert (
@@ -119,7 +126,7 @@ class TestRuleConfig:
         assert rc.params is config.params
 
     def test_severity_override(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -145,7 +152,7 @@ class TestMergeSuppressions:
         assert merged._rule_overrides == config._rule_overrides
 
     def test_adds_exclude_resources_to_existing_rule(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -173,7 +180,7 @@ class TestMergeSuppressions:
         assert rc.exclude_resources == ["model.pkg.d"]
 
     def test_enabled_false_overrides(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -189,7 +196,7 @@ class TestMergeSuppressions:
         assert rc.severity == "error"
 
     def test_preserves_main_severity(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -212,7 +219,7 @@ class TestMergeSuppressions:
         assert config._rule_overrides == original_overrides
 
     def test_preserves_custom_rule_entries(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text(
             textwrap.dedent("""\
             rules:
@@ -337,19 +344,146 @@ class TestMatchesPathFilter:
 
 class TestConfigRegexValidation:
     def test_invalid_include_rejected_at_load(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text("include: '[invalid'\n")
         with pytest.raises(ValueError, match="Invalid regex"):
             load_config(config_file)
 
     def test_invalid_exclude_rejected_at_load(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text("exclude: '[invalid'\n")
         with pytest.raises(ValueError, match="Invalid regex"):
             load_config(config_file)
 
     def test_valid_regex_accepted(self, tmp_path: Path):
-        config_file = tmp_path / "dbt_lint.yml"
+        config_file = tmp_path / "dbt-lint.yml"
         config_file.write_text(r"include: 'models/staging/stg_\w+\.sql'" + "\n")
         config = load_config(config_file)
         assert config.include == r"models/staging/stg_\w+\.sql"
+
+
+class TestDiscoverConfigPath:
+    """Walk-up discovery of pyproject.toml [tool.dbt-lint] and dbt-lint.yml."""
+
+    def test_returns_none_when_nothing_found(self, tmp_path: Path):
+        assert discover_config_path(tmp_path) is None
+
+    def test_finds_dbt_lint_yml_in_start_dir(self, tmp_path: Path):
+        config_file = tmp_path / "dbt-lint.yml"
+        config_file.write_text("rules: {}\n")
+        assert discover_config_path(tmp_path) == config_file
+
+    def test_walks_up_for_dbt_lint_yml(self, tmp_path: Path):
+        config_file = tmp_path / "dbt-lint.yml"
+        config_file.write_text("rules: {}\n")
+        nested = tmp_path / "a" / "b" / "c"
+        nested.mkdir(parents=True)
+        assert discover_config_path(nested) == config_file
+
+    def test_finds_pyproject_with_tool_section(self, tmp_path: Path):
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            textwrap.dedent("""\
+            [tool.dbt-lint]
+            models_fanout_threshold = 7
+            """)
+        )
+        assert discover_config_path(tmp_path) == pyproject
+
+    def test_skips_pyproject_without_tool_section(self, tmp_path: Path):
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            textwrap.dedent("""\
+            [project]
+            name = "unrelated"
+            """)
+        )
+        assert discover_config_path(tmp_path) is None
+
+    def test_pyproject_takes_precedence_over_yml(self, tmp_path: Path):
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            textwrap.dedent("""\
+            [tool.dbt-lint]
+            models_fanout_threshold = 7
+            """)
+        )
+        (tmp_path / "dbt-lint.yml").write_text("rules: {}\n")
+        assert discover_config_path(tmp_path) == pyproject
+
+    def test_pyproject_in_parent_beats_yml_in_cwd(self, tmp_path: Path):
+        """pyproject sweep is exhaustive before dbt-lint.yml sweep starts."""
+        parent_pyproject = tmp_path / "pyproject.toml"
+        parent_pyproject.write_text(
+            textwrap.dedent("""\
+            [tool.dbt-lint]
+            models_fanout_threshold = 7
+            """)
+        )
+        nested = tmp_path / "child"
+        nested.mkdir()
+        (nested / "dbt-lint.yml").write_text("rules: {}\n")
+        assert discover_config_path(nested) == parent_pyproject
+
+
+class TestLoadConfigDiscovery:
+    """load_config triggers discovery when no path is given."""
+
+    def test_no_path_walks_up_to_dbt_lint_yml(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        config_file = tmp_path / "dbt-lint.yml"
+        config_file.write_text("models_fanout_threshold: 9\n")
+        monkeypatch.chdir(tmp_path)
+        config = load_config()
+        assert config.params["models_fanout_threshold"] == 9
+        assert config.config_dir == tmp_path
+
+    def test_no_path_walks_up_to_pyproject(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            textwrap.dedent("""\
+            [tool.dbt-lint]
+            models_fanout_threshold = 11
+            """)
+        )
+        monkeypatch.chdir(tmp_path)
+        config = load_config()
+        assert config.params["models_fanout_threshold"] == 11
+        assert config.config_dir == tmp_path
+
+    def test_pyproject_rule_overrides_load(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            textwrap.dedent("""\
+            [tool.dbt-lint.rules."modeling/too-many-joins"]
+            severity = "error"
+            """)
+        )
+        monkeypatch.chdir(tmp_path)
+        config = load_config()
+        rc = config.rule_config("modeling/too-many-joins")
+        assert rc.severity == "error"
+
+    def test_isolated_returns_defaults_with_ambient_config(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        config_file = tmp_path / "dbt-lint.yml"
+        config_file.write_text("models_fanout_threshold: 9\n")
+        monkeypatch.chdir(tmp_path)
+        config = load_config(isolated=True)
+        assert (
+            config.params["models_fanout_threshold"]
+            == DEFAULTS["models_fanout_threshold"]
+        )
+        assert config.config_dir is None
+
+    def test_isolated_honors_explicit_path(self, tmp_path: Path):
+        config_file = tmp_path / "dbt-lint.yml"
+        config_file.write_text("models_fanout_threshold: 9\n")
+        config = load_config(config_file, isolated=True)
+        assert config.params["models_fanout_threshold"] == 9

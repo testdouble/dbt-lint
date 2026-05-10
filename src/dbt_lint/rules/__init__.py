@@ -147,7 +147,7 @@ class RuleDef:
 
 @dataclass(frozen=True)
 class RuleInfo:
-    """Summary metadata for a rule, used by generate_rules_index and --list-rules."""
+    """Summary metadata for a rule, used by generate_rules_index."""
 
     id: str
     category: str

@@ -34,7 +34,7 @@ Rules never construct `Violation` directly. The engine populates `rule_id` and `
 
 ## Adding metadata
 
-Optional decorator fields populate `--list-rules` output:
+Optional decorator fields populate `dbt-lint rule --all` output:
 
 ```python
 @rule(
@@ -56,7 +56,7 @@ Use aggregate when the rule needs to compare across resources or traverse the DA
 
 ## Registering in config
 
-Add a `source:` key to the rule entry in `dbt_lint.yml`. The path is relative to the config file.
+Add a `source:` key to the rule entry in `dbt-lint.yml`. The path is relative to the config file.
 
 ```yaml
 rules:

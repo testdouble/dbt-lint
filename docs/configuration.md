@@ -1,6 +1,17 @@
 # Configuration reference
 
-Create `dbt_lint.yml` to override defaults. All settings are optional. If no config file is provided, dbt-lint uses the defaults shown below.
+Configure dbt-lint via `dbt-lint.yml` or a `[tool.dbt-lint]` section in `pyproject.toml`. All settings are optional. If no config file is found, dbt-lint uses the defaults shown below.
+
+## Sources and discovery
+
+Resolution order, first match wins (sources are not merged):
+
+1. Explicit `--config PATH` on the command line
+2. `pyproject.toml` containing a `[tool.dbt-lint]` section, walking up from cwd
+3. `dbt-lint.yml`, walking up from cwd
+4. Built-in defaults
+
+`--isolated` skips discovery entirely and uses defaults regardless of ambient config files.
 
 ## Full example
 
@@ -104,13 +115,13 @@ models:
 For existing projects, generate a suppressions file that suppresses all current violations:
 
 ```bash
-dbt-lint target/manifest.json --write-suppressions --output .dbt-lint-suppressions.yml
+dbt-lint check target/manifest.json --write-suppressions > .dbt-lint-suppressions.yml
 ```
 
-Then pass it on subsequent runs:
+When `.dbt-lint-suppressions.yml` sits next to the discovered config or in the cwd, `check` applies it automatically. Pass `--suppressions PATH` to point at a different file, or `--isolated` to skip the auto-load.
 
 ```bash
-dbt-lint target/manifest.json --suppressions .dbt-lint-suppressions.yml
+dbt-lint check target/manifest.json --suppressions custom-suppressions.yml
 ```
 
 New violations are still reported. Fix existing violations over time and shrink the suppressions file.

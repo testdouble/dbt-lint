@@ -1,6 +1,6 @@
 # Rules reference
 
-Use `dbt-lint --list-rules` for full details including rationale and remediation guidance.
+Use `dbt-lint rule --all` for full details including rationale and remediation guidance.
 
 ## Modeling
 

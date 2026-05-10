@@ -83,7 +83,7 @@ def pipeline_doubles(monkeypatch):
         "config_returned": config,
     }
 
-    def stub_load_config(path):
+    def stub_load_config(path=None, **_kwargs):
         record["load_config"].append(path)
         return config
 
@@ -128,7 +128,7 @@ def pipeline_doubles(monkeypatch):
 
 class TestPipelineThreading:
     def test_loads_config_from_config_path(self, pipeline_doubles, tmp_path):
-        config_path = tmp_path / "dbt_lint.yml"
+        config_path = tmp_path / "dbt-lint.yml"
 
         subject = run
 
@@ -410,7 +410,7 @@ class TestCustomRuleAssembly:
         )
         config.config_dir = config_dir
 
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             return config
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
@@ -419,7 +419,7 @@ class TestCustomRuleAssembly:
 
         subject(
             manifest_path=tmp_path / "manifest.json",
-            config_path=tmp_path / "dbt_lint.yml",
+            config_path=tmp_path / "dbt-lint.yml",
             suppressions_path=None,
             select=(),
             exclude=(),
@@ -503,7 +503,7 @@ class TestConfigErrors:
     def test_yaml_parse_failure_raises_config_error(
         self, pipeline_doubles, monkeypatch, tmp_path
     ):
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             raise yaml.YAMLError("invalid yaml syntax")
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
@@ -514,7 +514,7 @@ class TestConfigErrors:
     def test_config_file_io_failure_raises_config_error(
         self, pipeline_doubles, monkeypatch, tmp_path
     ):
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             raise FileNotFoundError("config missing")
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
@@ -587,7 +587,7 @@ class TestCustomRuleErrors:
         )
         config.config_dir = tmp_path
 
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             return config
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
@@ -618,7 +618,7 @@ class TestCustomRuleErrors:
         )
         config.config_dir = tmp_path
 
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             return config
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
@@ -648,7 +648,7 @@ class TestCustomRuleErrors:
             ]
         )
 
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             return config
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)

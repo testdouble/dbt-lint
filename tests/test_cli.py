@@ -290,6 +290,52 @@ class TestCheckSelectExclude:
         assert "documentation/undocumented-models" not in rule_ids
 
 
+class TestCheckSeverity:
+    def test_severity_error_drops_warn_violations(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                str(manifest_path),
+                "--output-format",
+                "json",
+                "--severity",
+                "error",
+            ],
+        )
+        assert result.exit_code == 0
+        assert json.loads(result.output) == []
+
+    def test_severity_error_with_fail_on_warn_shows_only_errors_and_exits_1(
+        self, tmp_path
+    ):
+        manifest_path = _write_manifest(tmp_path)
+        rule_file = _write_custom_rule(tmp_path)
+        config_path = _write_custom_config(tmp_path, rule_file, severity="error")
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                str(manifest_path),
+                "--config",
+                str(config_path),
+                "--output-format",
+                "json",
+                "--severity",
+                "error",
+                "--fail-on",
+                "warn",
+            ],
+        )
+        assert result.exit_code == 1
+        parsed = json.loads(result.output)
+        assert parsed
+        assert all(violation["severity"] == "error" for violation in parsed)
+
+
 class TestCheckSuppressions:
     """Loading and merging .dbt-lint-suppressions.yml under check."""
 

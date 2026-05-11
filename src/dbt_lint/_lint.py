@@ -16,6 +16,7 @@ from dbt_lint.config import (
     merge_suppressions,
 )
 from dbt_lint.engine import evaluate
+from dbt_lint.filters import filter_rules_by_id, filter_violations_by_severity
 from dbt_lint.graph import build_relationships
 from dbt_lint.manifest import parse_manifest
 from dbt_lint.models import Violation
@@ -62,6 +63,7 @@ def run(  # noqa: PLR0913
     select: tuple[str, ...],
     exclude: tuple[str, ...],
     fail_fast: bool,
+    severity: str | None = None,
     isolated: bool = False,
 ) -> LintResult:
     """Compose the lint pipeline and return a LintResult.
@@ -87,14 +89,17 @@ def run(  # noqa: PLR0913
 
     relationships = build_relationships(resources, edges)
 
-    rules = collect_rules(config)
+    rules = filter_rules_by_id(collect_rules(config), select, exclude)
 
     evaluation = evaluate(
         resources, relationships, config, rules=rules, fail_fast=fail_fast
     )
 
-    violations = _filter_by_rule_id(evaluation.violations, select, exclude)
     resource_counts = dict(Counter(resource.resource_type for resource in resources))
+
+    violations = evaluation.violations
+    if severity is not None:
+        violations = filter_violations_by_severity(violations, minimum=severity)
 
     return LintResult(
         violations=violations,
@@ -122,20 +127,3 @@ def collect_rules(config: Config) -> list[RuleDef]:
         return registry.all()
     except (ImportError, OSError, ValueError) as exc:
         raise CustomRuleError(str(exc)) from exc
-
-
-def _filter_by_rule_id(
-    violations: list[Violation],
-    select: tuple[str, ...],
-    exclude: tuple[str, ...],
-) -> list[Violation]:
-    """Apply --select / --exclude rule-ID filters to a violation list."""
-    if select:
-        violations = [
-            violation for violation in violations if violation.rule_id in select
-        ]
-    if exclude:
-        violations = [
-            violation for violation in violations if violation.rule_id not in exclude
-        ]
-    return violations

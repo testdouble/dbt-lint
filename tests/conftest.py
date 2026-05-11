@@ -1,10 +1,40 @@
-"""Shared test fixtures: Resource, Relationship, and Violation builders."""
+"""Shared test fixtures: Resource, Relationship, Violation, and RuleDef builders."""
 
 from typing import Any
 
 import pytest
 
 from dbt_lint.models import Relationship, Resource, Violation
+from dbt_lint.rules import RuleDef
+
+
+def _noop_rule_fn(*_args: Any, **_kwargs: Any) -> None:
+    """Placeholder rule body for tests that never invoke the rule function."""
+
+
+@pytest.fixture
+def make_rule():
+    """Factory fixture for RuleDef with sensible defaults.
+
+    The default ``fn`` is a no-op; pass an explicit callable when the test
+    invokes the rule (e.g., engine dispatch tests).
+    """
+
+    def _make(
+        rule_id: str = "test/stub",
+        *,
+        fn: Any = _noop_rule_fn,
+        is_per_resource: bool = True,
+    ) -> RuleDef:
+        return RuleDef(
+            id=rule_id,
+            category=rule_id.split("/", maxsplit=1)[0],
+            description=f"stub {rule_id}",
+            fn=fn,
+            is_per_resource=is_per_resource,
+        )
+
+    return _make
 
 
 @pytest.fixture

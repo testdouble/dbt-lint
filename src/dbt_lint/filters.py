@@ -50,3 +50,17 @@ def filter_rules_by_id(
     if exclude:
         rules = [rule for rule in rules if rule.id not in exclude]
     return rules
+
+
+def filter_violations_by_severity(
+    violations: list[Violation],
+    minimum: str,
+) -> list[Violation]:
+    """Keep violations at or above the minimum severity threshold.
+
+    ``minimum="warn"`` returns warn and error violations; ``minimum="error"``
+    returns only error violations.
+    """
+    if minimum == "warn":
+        return list(violations)
+    return [violation for violation in violations if violation.severity == "error"]

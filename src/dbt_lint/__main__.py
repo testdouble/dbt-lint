@@ -139,6 +139,12 @@ def main() -> None:
     help="Skip these rule IDs.",
 )
 @click.option(
+    "--severity",
+    type=click.Choice(["warn", "error"]),
+    default=None,
+    help="Minimum severity to report.",
+)
+@click.option(
     "--fail-on",
     "fail_on",
     type=click.Choice(["warn", "error"]),
@@ -183,6 +189,7 @@ def check(  # noqa: PLR0913
     output_format: str,
     select: tuple[str, ...],
     exclude: tuple[str, ...],
+    severity: str | None,
     fail_on: str,
     fail_fast: bool,
     exit_zero: bool,
@@ -211,6 +218,7 @@ def check(  # noqa: PLR0913
             select=select,
             exclude=exclude,
             fail_fast=fail_fast,
+            severity=severity,
             isolated=isolated,
         )
     except LintError as exc:

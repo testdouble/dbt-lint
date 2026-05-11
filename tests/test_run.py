@@ -35,13 +35,16 @@ def _empty_config(custom_entries: list[CustomRuleEntry] | None = None) -> Config
     )
 
 
-def _violation(rule_id: str = "documentation/undocumented-models") -> Violation:
+def _violation(
+    rule_id: str = "documentation/undocumented-models",
+    severity: str = "warn",
+) -> Violation:
     return Violation(
         rule_id=rule_id,
         resource_id="model.pkg.example",
         resource_name="example",
         message="example violation",
-        severity="warn",
+        severity=severity,
         file_path="models/example.sql",
         patch_path="",
     )
@@ -380,6 +383,32 @@ class TestRuleIdFilters:
 
         eval_rules = pipeline_doubles["evaluate"][0]["rules"]
         assert [rule.id for rule in eval_rules] == ["a/keep"]
+
+
+class TestSeverityFilter:
+    """run() skips the severity filter when ``severity`` is None. Filter
+    semantics and applied-filter behavior are covered in test_filters.py and
+    test_cli.py respectively."""
+
+    def test_severity_none_skips_filter(self, pipeline_doubles, monkeypatch, tmp_path):
+        warn = _violation(severity="warn")
+        error = _violation(severity="error")
+
+        def stub_evaluate(resources, relationships, config, *, rules, fail_fast=False):
+            return EvaluationResult(violations=[warn, error], excluded=0)
+
+        monkeypatch.setattr("dbt_lint._lint.evaluate", stub_evaluate)
+
+        result = run(
+            manifest_path=tmp_path / "manifest.json",
+            config_path=None,
+            suppressions_path=None,
+            select=(),
+            exclude=(),
+            fail_fast=False,
+        )
+
+        assert result.violations == [warn, error]
 
 
 class TestFailFast:

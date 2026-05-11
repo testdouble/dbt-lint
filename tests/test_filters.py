@@ -4,6 +4,7 @@ from dbt_lint.config import Config, RuleConfig
 from dbt_lint.filters import (
     filter_rules_by_id,
     filter_violations_by_resource_exclusions,
+    filter_violations_by_severity,
     is_resource_excluded_from_rule,
 )
 
@@ -136,3 +137,21 @@ class TestFilterViolationsByResourceExclusions:
         )
 
         assert result == [current]
+
+
+class TestFilterViolationsBySeverity:
+    def test_warn_threshold_returns_warn_and_error_violations(self, make_violation):
+        warn = make_violation(severity="warn")
+        error = make_violation(severity="error")
+
+        result = filter_violations_by_severity([warn, error], minimum="warn")
+
+        assert result == [warn, error]
+
+    def test_error_threshold_returns_only_error_violations(self, make_violation):
+        warn = make_violation(severity="warn")
+        error = make_violation(severity="error")
+
+        result = filter_violations_by_severity([warn, error], minimum="error")
+
+        assert result == [error]

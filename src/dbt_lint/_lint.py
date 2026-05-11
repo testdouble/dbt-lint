@@ -16,7 +16,7 @@ from dbt_lint.config import (
     merge_suppressions,
 )
 from dbt_lint.engine import evaluate
-from dbt_lint.filters import filter_rules_by_id
+from dbt_lint.filters import filter_rules_by_id, filter_violations_by_severity
 from dbt_lint.graph import build_relationships
 from dbt_lint.manifest import parse_manifest
 from dbt_lint.models import Violation
@@ -63,6 +63,7 @@ def run(  # noqa: PLR0913
     select: tuple[str, ...],
     exclude: tuple[str, ...],
     fail_fast: bool,
+    severity: str | None = None,
     isolated: bool = False,
 ) -> LintResult:
     """Compose the lint pipeline and return a LintResult.
@@ -96,8 +97,12 @@ def run(  # noqa: PLR0913
 
     resource_counts = dict(Counter(resource.resource_type for resource in resources))
 
+    violations = evaluation.violations
+    if severity is not None:
+        violations = filter_violations_by_severity(violations, minimum=severity)
+
     return LintResult(
-        violations=evaluation.violations,
+        violations=violations,
         excluded=evaluation.excluded,
         resource_counts=resource_counts,
     )

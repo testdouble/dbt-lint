@@ -11,9 +11,9 @@ import yaml
 
 from dbt_lint.config import (
     Config,
-    load_baseline,
     load_config,
-    merge_baseline,
+    load_suppressions,
+    merge_suppressions,
 )
 from dbt_lint.engine import evaluate
 from dbt_lint.graph import build_relationships
@@ -32,7 +32,7 @@ class LintError(Exception):
 
 
 class ConfigError(LintError):
-    """Failure loading config or baseline (YAML parse, file IO, regex validation)."""
+    """Failure loading config or suppressions (YAML parse, file IO, regex validation)."""
 
 
 class ManifestError(LintError):
@@ -41,6 +41,10 @@ class ManifestError(LintError):
 
 class CustomRuleError(LintError):
     """Failure assembling custom rules (import, validation, missing config dir)."""
+
+
+class UnknownRuleError(LintError):
+    """No rule in the rule index matches the requested rule ID."""
 
 
 @dataclass
@@ -54,23 +58,25 @@ def run(  # noqa: PLR0913
     *,
     manifest_path: Path,
     config_path: Path | None,
-    baseline_path: Path | None,
+    suppressions_path: Path | None,
     select: tuple[str, ...],
     exclude: tuple[str, ...],
     fail_fast: bool,
+    isolated: bool = False,
 ) -> LintResult:
     """Compose the lint pipeline and return a LintResult.
 
-    None for config_path uses defaults; None for baseline_path skips merging.
+    None for config_path triggers walk-up discovery (or defaults when
+    ``isolated`` is True). None for suppressions_path skips merging.
     """
     try:
-        config = load_config(config_path)
+        config = load_config(config_path, isolated=isolated)
     except (yaml.YAMLError, OSError, ValueError) as exc:
         raise ConfigError(str(exc)) from exc
 
-    if baseline_path is not None:
+    if suppressions_path is not None:
         try:
-            config = merge_baseline(config, load_baseline(baseline_path))
+            config = merge_suppressions(config, load_suppressions(suppressions_path))
         except (yaml.YAMLError, OSError, ValueError) as exc:
             raise ConfigError(str(exc)) from exc
 
@@ -81,10 +87,7 @@ def run(  # noqa: PLR0913
 
     relationships = build_relationships(resources, edges)
 
-    try:
-        rules = _assemble_rules(config)
-    except (ImportError, OSError, ValueError) as exc:
-        raise CustomRuleError(str(exc)) from exc
+    rules = collect_rules(config)
 
     evaluation = evaluate(
         resources, relationships, config, rules=rules, fail_fast=fail_fast
@@ -100,16 +103,25 @@ def run(  # noqa: PLR0913
     )
 
 
-def _assemble_rules(config: Config) -> list[RuleDef]:
-    """Build the rule list: built-ins plus any custom rules from config."""
-    registry = Registry()
-    if config._custom_rule_entries:
-        if config.config_dir is None:
-            msg = "Custom rules require a config file (source paths are relative)"
-            raise ValueError(msg)
-        for entry in config._custom_rule_entries:
-            registry.register_from_path(entry.source, entry.rule_id, config.config_dir)
-    return registry.all()
+def collect_rules(config: Config) -> list[RuleDef]:
+    """Build the rule list: built-ins plus any custom rules from config.
+
+    Wraps import/IO/validation failures in CustomRuleError so the CLI
+    (and any other caller) does not need to translate exception types.
+    """
+    try:
+        registry = Registry()
+        if config._custom_rule_entries:
+            if config.config_dir is None:
+                msg = "Custom rules require a config file (source paths are relative)"
+                raise ValueError(msg)
+            for entry in config._custom_rule_entries:
+                registry.register_from_path(
+                    entry.source, entry.rule_id, config.config_dir
+                )
+        return registry.all()
+    except (ImportError, OSError, ValueError) as exc:
+        raise CustomRuleError(str(exc)) from exc
 
 
 def _filter_by_rule_id(

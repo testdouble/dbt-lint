@@ -75,24 +75,24 @@ def pipeline_doubles(monkeypatch):
     config = _empty_config()
     record: dict[str, Any] = {
         "load_config": [],
-        "load_baseline": [],
-        "merge_baseline": [],
+        "load_suppressions": [],
+        "merge_suppressions": [],
         "parse_manifest": [],
         "build_relationships": [],
         "evaluate": [],
         "config_returned": config,
     }
 
-    def stub_load_config(path):
+    def stub_load_config(path=None, **_kwargs):
         record["load_config"].append(path)
         return config
 
-    def stub_load_baseline(path):
-        record["load_baseline"].append(path)
+    def stub_load_suppressions(path):
+        record["load_suppressions"].append(path)
         return {"some-rule": {"enabled": False}}
 
-    def stub_merge_baseline(config, baseline_rules):
-        record["merge_baseline"].append((config, baseline_rules))
+    def stub_merge_suppressions(config, suppressions_rules):
+        record["merge_suppressions"].append((config, suppressions_rules))
         return config
 
     def stub_parse_manifest(path, config):
@@ -116,8 +116,8 @@ def pipeline_doubles(monkeypatch):
         return EvaluationResult(violations=[], excluded=0)
 
     monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
-    monkeypatch.setattr("dbt_lint._lint.load_baseline", stub_load_baseline)
-    monkeypatch.setattr("dbt_lint._lint.merge_baseline", stub_merge_baseline)
+    monkeypatch.setattr("dbt_lint._lint.load_suppressions", stub_load_suppressions)
+    monkeypatch.setattr("dbt_lint._lint.merge_suppressions", stub_merge_suppressions)
     monkeypatch.setattr("dbt_lint._lint.parse_manifest", stub_parse_manifest)
     monkeypatch.setattr("dbt_lint._lint.build_relationships", stub_build_relationships)
     monkeypatch.setattr("dbt_lint._lint.evaluate", stub_evaluate)
@@ -128,14 +128,14 @@ def pipeline_doubles(monkeypatch):
 
 class TestPipelineThreading:
     def test_loads_config_from_config_path(self, pipeline_doubles, tmp_path):
-        config_path = tmp_path / "dbt_lint.yml"
+        config_path = tmp_path / "dbt-lint.yml"
 
         subject = run
 
         subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=config_path,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=False,
@@ -151,7 +151,7 @@ class TestPipelineThreading:
         subject(
             manifest_path=manifest_path,
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=False,
@@ -177,7 +177,7 @@ class TestPipelineThreading:
         subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=False,
@@ -203,7 +203,7 @@ class TestPipelineThreading:
         subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=False,
@@ -230,7 +230,7 @@ class TestLintResultShape:
         result = subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=False,
@@ -252,7 +252,7 @@ class TestLintResultShape:
         result = subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=False,
@@ -280,7 +280,7 @@ class TestLintResultShape:
         result = subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=False,
@@ -289,39 +289,41 @@ class TestLintResultShape:
         assert result.resource_counts == {"model": 2, "source": 1, "exposure": 1}
 
 
-class TestBaseline:
-    def test_no_baseline_path_skips_merge(self, pipeline_doubles, tmp_path):
+class TestSuppressions:
+    def test_no_suppressions_path_skips_merge(self, pipeline_doubles, tmp_path):
         subject = run
 
         subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=False,
         )
 
-        assert pipeline_doubles["load_baseline"] == []
-        assert pipeline_doubles["merge_baseline"] == []
+        assert pipeline_doubles["load_suppressions"] == []
+        assert pipeline_doubles["merge_suppressions"] == []
 
-    def test_explicit_baseline_path_loads_and_merges(self, pipeline_doubles, tmp_path):
-        baseline_path = tmp_path / "dbt-lint-baseline.yml"
+    def test_explicit_suppressions_path_loads_and_merges(
+        self, pipeline_doubles, tmp_path
+    ):
+        suppressions_path = tmp_path / ".dbt-lint-suppressions.yml"
 
         subject = run
 
         subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
-            baseline_path=baseline_path,
+            suppressions_path=suppressions_path,
             select=(),
             exclude=(),
             fail_fast=False,
         )
 
-        assert pipeline_doubles["load_baseline"] == [baseline_path]
-        assert len(pipeline_doubles["merge_baseline"]) == 1
-        merged_config, merged_rules = pipeline_doubles["merge_baseline"][0]
+        assert pipeline_doubles["load_suppressions"] == [suppressions_path]
+        assert len(pipeline_doubles["merge_suppressions"]) == 1
+        merged_config, merged_rules = pipeline_doubles["merge_suppressions"][0]
         assert merged_config is pipeline_doubles["config_returned"]
         assert merged_rules == {"some-rule": {"enabled": False}}
 
@@ -343,7 +345,7 @@ class TestRuleIdFilters:
         result = subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=("documentation/undocumented-models",),
             exclude=(),
             fail_fast=False,
@@ -367,7 +369,7 @@ class TestRuleIdFilters:
         result = subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=("documentation/undocumented-models",),
             fail_fast=False,
@@ -383,7 +385,7 @@ class TestFailFast:
         subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=True,
@@ -408,7 +410,7 @@ class TestCustomRuleAssembly:
         )
         config.config_dir = config_dir
 
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             return config
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
@@ -417,8 +419,8 @@ class TestCustomRuleAssembly:
 
         subject(
             manifest_path=tmp_path / "manifest.json",
-            config_path=tmp_path / "dbt_lint.yml",
-            baseline_path=None,
+            config_path=tmp_path / "dbt-lint.yml",
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=False,
@@ -436,7 +438,7 @@ class TestCustomRuleAssembly:
         subject(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=False,
@@ -458,7 +460,7 @@ class TestFixtureManifest:
         result = subject(
             manifest_path=manifest_path,
             config_path=None,
-            baseline_path=None,
+            suppressions_path=None,
             select=(),
             exclude=(),
             fail_fast=False,
@@ -475,12 +477,12 @@ def _run_with_defaults(
     manifest_path,
     *,
     config_path=None,
-    baseline_path=None,
+    suppressions_path=None,
 ):
     return run(
         manifest_path=manifest_path,
         config_path=config_path,
-        baseline_path=baseline_path,
+        suppressions_path=suppressions_path,
         select=(),
         exclude=(),
         fail_fast=False,
@@ -501,7 +503,7 @@ class TestConfigErrors:
     def test_yaml_parse_failure_raises_config_error(
         self, pipeline_doubles, monkeypatch, tmp_path
     ):
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             raise yaml.YAMLError("invalid yaml syntax")
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
@@ -512,7 +514,7 @@ class TestConfigErrors:
     def test_config_file_io_failure_raises_config_error(
         self, pipeline_doubles, monkeypatch, tmp_path
     ):
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             raise FileNotFoundError("config missing")
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
@@ -520,18 +522,18 @@ class TestConfigErrors:
         with pytest.raises(ConfigError, match="config missing"):
             _run_with_defaults(tmp_path / "manifest.json")
 
-    def test_baseline_load_failure_raises_config_error(
+    def test_suppressions_load_failure_raises_config_error(
         self, pipeline_doubles, monkeypatch, tmp_path
     ):
-        def stub_load_baseline(path):
-            raise yaml.YAMLError("bad baseline")
+        def stub_load_suppressions(path):
+            raise yaml.YAMLError("bad suppressions")
 
-        monkeypatch.setattr("dbt_lint._lint.load_baseline", stub_load_baseline)
+        monkeypatch.setattr("dbt_lint._lint.load_suppressions", stub_load_suppressions)
 
-        with pytest.raises(ConfigError, match="bad baseline"):
+        with pytest.raises(ConfigError, match="bad suppressions"):
             _run_with_defaults(
                 tmp_path / "manifest.json",
-                baseline_path=tmp_path / "dbt-lint-baseline.yml",
+                suppressions_path=tmp_path / ".dbt-lint-suppressions.yml",
             )
 
 
@@ -585,7 +587,7 @@ class TestCustomRuleErrors:
         )
         config.config_dir = tmp_path
 
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             return config
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
@@ -616,7 +618,7 @@ class TestCustomRuleErrors:
         )
         config.config_dir = tmp_path
 
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             return config
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)
@@ -646,7 +648,7 @@ class TestCustomRuleErrors:
             ]
         )
 
-        def stub_load_config(path):
+        def stub_load_config(path=None, **_kwargs):
             return config
 
         monkeypatch.setattr("dbt_lint._lint.load_config", stub_load_config)

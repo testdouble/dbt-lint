@@ -1,18 +1,25 @@
-"""Tests for CLI: argument parsing, exit codes, format selection."""
+"""Tests for CLI: subcommand dispatch, argument parsing, exit codes, format selection."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 from click.testing import CliRunner
 
-from dbt_lint.__main__ import main
-from dbt_lint.rules import get_all_rules
+from dbt_lint.__main__ import _emit_rule_explain, main
+from dbt_lint.rules import RuleInfo, get_all_rules
 from helpers import fixture_manifest_dict
 
-EXIT_COMMAND_SYNTAX_ERROR = 2
+EXIT_USAGE = 2
+
+
+@pytest.fixture(autouse=True)
+def _isolate_cwd(tmp_path, monkeypatch):
+    """Run every test from a clean tmp_path so config walk-up can't reach real files."""
+    monkeypatch.chdir(tmp_path)
 
 
 def _write_manifest(tmp_path: Path) -> Path:
@@ -22,100 +29,155 @@ def _write_manifest(tmp_path: Path) -> Path:
     return path
 
 
-class TestCliBasic:
-    """Basic CLI invocation and argument parsing."""
+class TestTopLevelGroup:
+    """Bare `dbt-lint` and unknown commands."""
+
+    def test_bare_invocation_prints_help(self):
+        runner = CliRunner()
+        result = runner.invoke(main, [])
+        # No-args on a click group returns 0 by default (no_args_is_help=True).
+        assert result.exit_code in (0, 2)
+        assert "check" in result.output
+        assert "rule" in result.output
+
+    def test_help_lists_examples_before_commands(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["--help"])
+        assert result.exit_code == 0
+        assert result.output.index("Examples:") < result.output.index("Commands:")
+        assert "dbt-lint check" in result.output
+        assert "dbt-lint rule --all" in result.output
+
+    def test_unknown_command_errors(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, [str(manifest_path)])
+        assert result.exit_code == EXIT_USAGE
+
+
+class TestCheckBasic:
+    """`dbt-lint check` argument parsing and dispatch."""
+
+    def test_no_args_prints_help(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["check"])
+        assert result.exit_code == EXIT_USAGE
+        assert "MANIFEST" in result.output
 
     def test_help_flag(self):
         runner = CliRunner()
-        result = runner.invoke(main, ["--help"])
+        result = runner.invoke(main, ["check", "--help"])
         assert result.exit_code == 0
         assert "manifest" in result.output.lower()
 
     def test_missing_manifest_exits_2(self, tmp_path):
         runner = CliRunner()
-        result = runner.invoke(main, [str(tmp_path / "nonexistent.json")])
-        assert result.exit_code == EXIT_COMMAND_SYNTAX_ERROR
+        result = runner.invoke(main, ["check", str(tmp_path / "nonexistent.json")])
+        assert result.exit_code == EXIT_USAGE
 
     def test_invalid_manifest_exits_2(self, tmp_path):
         bad = tmp_path / "bad.json"
         bad.write_text("not json")
         runner = CliRunner()
-        result = runner.invoke(main, [str(bad)])
-        assert result.exit_code == EXIT_COMMAND_SYNTAX_ERROR
+        result = runner.invoke(main, ["check", str(bad)])
+        assert result.exit_code == EXIT_USAGE
 
 
-class TestCliFormats:
-    """Output format selection."""
+class TestCheckFormats:
+    """Output format selection on check."""
 
     def test_text_format_default(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path)])
-        # Text output has category headers
-        assert result.exit_code == 1  # violations found
+        result = runner.invoke(main, ["check", str(manifest_path)])
+        assert result.exit_code == 1
         out = result.output.lower()
         assert "documentation" in out or "governance" in out
 
     def test_json_format(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--format", "json"])
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--output-format", "json"]
+        )
         assert result.exit_code == 1
         parsed = json.loads(result.output)
         assert isinstance(parsed, list)
-        assert len(parsed) > 0
+        assert parsed
 
     def test_text_format_explicit(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--format", "text"])
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--output-format", "text"]
+        )
         assert result.exit_code == 1
         assert "Found" in result.output
 
 
-class TestCliExitCodes:
-    """Exit code behavior with --fail-on."""
+class TestCheckExitCodes:
+    """Exit code behavior on check."""
 
     def test_violations_exit_1(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path)])
+        result = runner.invoke(main, ["check", str(manifest_path)])
         assert result.exit_code == 1
 
     def test_fail_on_error_exits_0_for_warnings(self, tmp_path):
-        """With --fail-on error, warnings-only should exit 0."""
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--fail-on", "error"])
-        # Default severity is warn, so all violations are warnings
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--fail-on", "error"]
+        )
         assert result.exit_code == 0
 
     def test_fail_on_warn_exits_1(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--fail-on", "warn"])
+        result = runner.invoke(main, ["check", str(manifest_path), "--fail-on", "warn"])
         assert result.exit_code == 1
 
+    def test_exit_zero_overrides_violations(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, ["check", str(manifest_path), "--exit-zero"])
+        assert result.exit_code == 0
+        assert "Found" in result.output
 
-class TestCliGitHubAnnotations:
+    def test_exit_zero_composes_with_write_suppressions(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["check", str(manifest_path), "--exit-zero", "--write-suppressions"],
+        )
+        assert result.exit_code == 0
+
+
+class TestCheckGitHubAnnotations:
     """GitHub Actions annotation output via GITHUB_ACTIONS env var."""
 
     def test_annotations_when_github_actions_env(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner(env={"GITHUB_ACTIONS": "true"})
-        result = runner.invoke(main, [str(manifest_path), "--format", "text"])
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--output-format", "text"]
+        )
         assert "::" in result.output
 
     def test_no_annotations_without_env(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner(env={"GITHUB_ACTIONS": None})
-        result = runner.invoke(main, [str(manifest_path), "--format", "text"])
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--output-format", "text"]
+        )
         assert "::warning" not in result.output
         assert "::error" not in result.output
 
 
-class TestCliConfig:
-    """Config file loading."""
+class TestCheckConfig:
+    """Config file loading on check."""
 
     def test_custom_config_disables_rule(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
@@ -126,35 +188,78 @@ class TestCliConfig:
         config_path.write_text(config_yaml)
         runner = CliRunner()
         result = runner.invoke(
-            main, [str(manifest_path), "--config", str(config_path), "--format", "json"]
+            main,
+            [
+                "check",
+                str(manifest_path),
+                "--config",
+                str(config_path),
+                "--output-format",
+                "json",
+            ],
         )
         parsed = json.loads(result.output)
         rule_ids = {v["rule_id"] for v in parsed}
         assert "documentation/undocumented-models" not in rule_ids
 
 
-class TestCliFailFast:
-    """--fail-fast flag for early exit."""
+class TestCheckIsolated:
+    """--isolated bypasses both config discovery and suppressions auto-load."""
 
+    def test_isolated_skips_config_discovery(self, tmp_path, monkeypatch):
+        manifest_path = _write_manifest(tmp_path)
+        config_path = tmp_path / "dbt-lint.yml"
+        config_path.write_text(
+            "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
+        )
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["check", str(manifest_path), "--isolated", "--output-format", "json"],
+        )
+        parsed = json.loads(result.output)
+        rule_ids = {v["rule_id"] for v in parsed}
+        # Without isolated, this rule would be disabled by the discovered config.
+        assert "documentation/undocumented-models" in rule_ids
+
+    def test_isolated_skips_suppressions_auto_load(self, tmp_path, monkeypatch):
+        manifest_path = _write_manifest(tmp_path)
+        suppressions_path = tmp_path / ".dbt-lint-suppressions.yml"
+        suppressions_path.write_text(
+            "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
+        )
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["check", str(manifest_path), "--isolated", "--output-format", "json"],
+        )
+        parsed = json.loads(result.output)
+        rule_ids = {v["rule_id"] for v in parsed}
+        # Without isolated, auto-load would disable this rule.
+        assert "documentation/undocumented-models" in rule_ids
+
+
+class TestCheckFailFast:
     def test_fail_fast_flag_accepted(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--fail-fast"])
+        result = runner.invoke(main, ["check", str(manifest_path), "--fail-fast"])
         assert result.exit_code == 1
         assert "Found" in result.output
 
 
-class TestCliSelectExclude:
-    """--select and --exclude filter rules."""
-
+class TestCheckSelectExclude:
     def test_select_single_rule(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
         result = runner.invoke(
             main,
             [
+                "check",
                 str(manifest_path),
-                "--format",
+                "--output-format",
                 "json",
                 "--select",
                 "documentation/undocumented-models",
@@ -171,8 +276,9 @@ class TestCliSelectExclude:
         result = runner.invoke(
             main,
             [
+                "check",
                 str(manifest_path),
-                "--format",
+                "--output-format",
                 "json",
                 "--exclude",
                 "documentation/undocumented-models",
@@ -184,49 +290,26 @@ class TestCliSelectExclude:
         assert "documentation/undocumented-models" not in rule_ids
 
 
-class TestCliBaselineLoading:
-    """Loading and merging dbt-lint-baseline.yml."""
+class TestCheckSuppressions:
+    """Loading and merging .dbt-lint-suppressions.yml under check."""
 
     def test_auto_discover_next_to_config(self, tmp_path):
-        """Baseline file next to --config is auto-discovered and merged."""
         manifest_path = _write_manifest(tmp_path)
         config_path = tmp_path / "dbt-lint.yml"
         config_path.write_text("rules: {}\n")
-        baseline_path = tmp_path / "dbt-lint-baseline.yml"
-        baseline_path.write_text(
-            "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
-        )
-        runner = CliRunner()
-        result = runner.invoke(
-            main,
-            [str(manifest_path), "--config", str(config_path), "--format", "json"],
-        )
-        parsed = json.loads(result.output)
-        rule_ids = {v["rule_id"] for v in parsed}
-        assert "documentation/undocumented-models" not in rule_ids
-
-    def test_no_baseline_no_error(self, tmp_path):
-        """Missing baseline file is silently ignored."""
-        manifest_path = _write_manifest(tmp_path)
-        runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path)])
-        assert result.exit_code in (0, 1)
-
-    def test_explicit_baseline_flag(self, tmp_path):
-        """--baseline with explicit path loads the file."""
-        manifest_path = _write_manifest(tmp_path)
-        baseline_path = tmp_path / "custom-baseline.yml"
-        baseline_path.write_text(
+        suppressions_path = tmp_path / ".dbt-lint-suppressions.yml"
+        suppressions_path.write_text(
             "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
         )
         runner = CliRunner()
         result = runner.invoke(
             main,
             [
+                "check",
                 str(manifest_path),
-                "--baseline",
-                str(baseline_path),
-                "--format",
+                "--config",
+                str(config_path),
+                "--output-format",
                 "json",
             ],
         )
@@ -234,85 +317,105 @@ class TestCliBaselineLoading:
         rule_ids = {v["rule_id"] for v in parsed}
         assert "documentation/undocumented-models" not in rule_ids
 
-    def test_generate_baseline_skips_existing_baseline(self, tmp_path):
-        """--generate-baseline ignores existing baseline to show full violations."""
+    def test_auto_discover_in_cwd(self, tmp_path, monkeypatch):
         manifest_path = _write_manifest(tmp_path)
-        config_path = tmp_path / "dbt-lint.yml"
-        config_path.write_text("rules: {}\n")
-        # Baseline that disables everything
-        baseline_path = tmp_path / "dbt-lint-baseline.yml"
-        baseline_path.write_text(
+        suppressions_path = tmp_path / ".dbt-lint-suppressions.yml"
+        suppressions_path.write_text(
+            "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
+        )
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--output-format", "json"]
+        )
+        parsed = json.loads(result.output)
+        rule_ids = {v["rule_id"] for v in parsed}
+        assert "documentation/undocumented-models" not in rule_ids
+
+    def test_no_suppressions_file_no_error(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, ["check", str(manifest_path)])
+        assert result.exit_code in (0, 1)
+
+    def test_explicit_suppressions_flag(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        suppressions_path = tmp_path / "custom-suppressions.yml"
+        suppressions_path.write_text(
             "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
         )
         runner = CliRunner()
         result = runner.invoke(
             main,
-            [str(manifest_path), "--config", str(config_path), "--generate-baseline"],
+            [
+                "check",
+                str(manifest_path),
+                "--suppressions",
+                str(suppressions_path),
+                "--output-format",
+                "json",
+            ],
+        )
+        parsed = json.loads(result.output)
+        rule_ids = {v["rule_id"] for v in parsed}
+        assert "documentation/undocumented-models" not in rule_ids
+
+    def test_write_suppressions_skips_auto_load(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        config_path = tmp_path / "dbt-lint.yml"
+        config_path.write_text("rules: {}\n")
+        suppressions_path = tmp_path / ".dbt-lint-suppressions.yml"
+        suppressions_path.write_text(
+            "rules:\n  documentation/undocumented-models:\n    enabled: false\n"
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                str(manifest_path),
+                "--config",
+                str(config_path),
+                "--write-suppressions",
+            ],
         )
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
-        # Should still contain undocumented-models since baseline was skipped
         assert "documentation/undocumented-models" in parsed["rules"]
 
     def test_round_trip_generate_then_load(self, tmp_path):
-        """Generate baseline, then load it. Suppressed rules should vanish."""
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        # Step 1: generate baseline
-        gen_result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        gen_result = runner.invoke(
+            main, ["check", str(manifest_path), "--write-suppressions"]
+        )
         assert gen_result.exit_code == 0
-        baseline_path = tmp_path / "dbt-lint-baseline.yml"
-        baseline_path.write_text(gen_result.output)
-        # Step 2: run with baseline
+        suppressions_path = tmp_path / ".dbt-lint-suppressions.yml"
+        suppressions_path.write_text(gen_result.output)
         result = runner.invoke(
             main,
-            [str(manifest_path), "--baseline", str(baseline_path), "--format", "json"],
+            [
+                "check",
+                str(manifest_path),
+                "--suppressions",
+                str(suppressions_path),
+                "--output-format",
+                "json",
+            ],
         )
         parsed = json.loads(result.output)
         assert len(parsed) == 0
 
 
-class TestCliListRules:
-    """--list-rules flag for rule discovery."""
-
-    def test_text_output_includes_totals(self):
-        runner = CliRunner()
-        result = runner.invoke(main, ["--list-rules"])
-        assert result.exit_code == 0
-        assert f"{len(get_all_rules())} rules" in result.output
-
-    def test_text_output_includes_categories(self):
-        runner = CliRunner()
-        result = runner.invoke(main, ["--list-rules"])
-        assert result.exit_code == 0
-        assert "modeling" in result.output.lower()
-        assert "documentation" in result.output.lower()
-
-    def test_json_output_matches_rule_count(self):
-        runner = CliRunner()
-        result = runner.invoke(main, ["--list-rules", "--format", "json"])
-        assert result.exit_code == 0
-        parsed = json.loads(result.output)
-        assert len(parsed) == len(get_all_rules())
-
-    def test_no_manifest_required(self):
-        runner = CliRunner()
-        result = runner.invoke(main, ["--list-rules"])
-        assert result.exit_code == 0
-
-    def test_manifest_still_required_without_flag(self):
-        runner = CliRunner()
-        result = runner.invoke(main, [])
-        assert result.exit_code == EXIT_COMMAND_SYNTAX_ERROR
-
-
-class TestCliGenerateBaseline:
-    """--generate-baseline flag for producing suppressions config."""
+class TestCheckWriteSuppressions:
+    """--write-suppressions emits YAML to stdout."""
 
     def test_outputs_valid_yaml(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--write-suppressions"]
+        )
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
         assert "rules" in parsed
@@ -320,50 +423,45 @@ class TestCliGenerateBaseline:
     def test_exits_0(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--write-suppressions"]
+        )
         assert result.exit_code == 0
 
     def test_skips_normal_report(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--write-suppressions"]
+        )
         assert "Found" not in result.output
 
     def test_contains_header_comment(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--write-suppressions"]
+        )
         assert "Generated by dbt-lint" in result.output
 
     def test_contains_violated_rules(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(main, [str(manifest_path), "--generate-baseline"])
-        parsed = yaml.safe_load(result.output)
-        assert len(parsed["rules"]) > 0
-
-    def test_output_file(self, tmp_path):
-        manifest_path = _write_manifest(tmp_path)
-        output_path = tmp_path / "baseline.yml"
-        runner = CliRunner()
         result = runner.invoke(
-            main,
-            [str(manifest_path), "--generate-baseline", "--output", str(output_path)],
+            main, ["check", str(manifest_path), "--write-suppressions"]
         )
-        assert result.exit_code == 0
-        assert output_path.exists()
-        parsed = yaml.safe_load(output_path.read_text())
-        assert "rules" in parsed
+        parsed = yaml.safe_load(result.output)
+        assert parsed["rules"]
 
     def test_select_filters_config(self, tmp_path):
-        """--select should limit which rules appear in the config."""
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
         result = runner.invoke(
             main,
             [
+                "check",
                 str(manifest_path),
-                "--generate-baseline",
+                "--write-suppressions",
                 "--select",
                 "documentation/undocumented-models",
             ],
@@ -371,6 +469,160 @@ class TestCliGenerateBaseline:
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
         assert set(parsed["rules"].keys()) <= {"documentation/undocumented-models"}
+
+
+def _rule_info(**overrides) -> RuleInfo:
+    """Build a RuleInfo for rendering tests. Defaults are obviously arbitrary."""
+    defaults: dict = {
+        "id": "category-x/dummy-rule",
+        "category": "category-x",
+        "description": "A dummy rule.",
+        "is_per_resource": True,
+        "rationale": "",
+        "remediation": "",
+        "exceptions": "",
+        "examples": (),
+    }
+    defaults.update(overrides)
+    return RuleInfo(**defaults)
+
+
+class TestRule:
+    """`dbt-lint rule` subcommand surface: no-args, listing, error paths."""
+
+    def test_no_args_exits_non_zero_with_help(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule"])
+        assert result.exit_code == EXIT_USAGE
+        assert "Usage" in result.output
+
+    def test_all_text_output_includes_totals(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule", "--all"])
+        assert result.exit_code == 0
+        assert f"{len(get_all_rules())} rules" in result.output
+
+    def test_all_text_output_includes_categories(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule", "--all"])
+        assert result.exit_code == 0
+        assert "modeling" in result.output.lower()
+        assert "documentation" in result.output.lower()
+
+    def test_all_json_output_matches_rule_count(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule", "--all", "--output-format", "json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.output)
+        assert len(parsed) == len(get_all_rules())
+
+
+class TestEmitRuleExplain:
+    """Rendering logic for _emit_rule_explain. Subject is the helper itself."""
+
+    def test_text_omits_every_empty_section(self, capsys):
+        _emit_rule_explain(_rule_info(), "text")
+        out = capsys.readouterr().out
+        assert "category-x/dummy-rule: A dummy rule." in out
+        assert "Rationale:" not in out
+        assert "Remediation:" not in out
+        assert "Exceptions:" not in out
+        assert "Examples:" not in out
+
+    def test_text_renders_each_present_section(self, capsys):
+        info = _rule_info(
+            rationale="Why this matters.",
+            remediation="Do this instead.",
+            exceptions="When to skip.",
+            examples=("Example one.", "Example two."),
+        )
+        _emit_rule_explain(info, "text")
+        out = capsys.readouterr().out
+        assert "Rationale:\nWhy this matters." in out
+        assert "Remediation:\nDo this instead." in out
+        assert "Exceptions:\nWhen to skip." in out
+        assert "Examples:\n- Example one.\n- Example two." in out
+
+    def test_text_omits_only_the_empty_section(self, capsys):
+        info = _rule_info(rationale="R", remediation="M")
+        _emit_rule_explain(info, "text")
+        out = capsys.readouterr().out
+        assert "Rationale:" in out
+        assert "Remediation:" in out
+        assert "Exceptions:" not in out
+        assert "Examples:" not in out
+
+    def test_json_dumps_the_full_dataclass(self, capsys):
+        info = _rule_info(rationale="R", examples=("ex",))
+        _emit_rule_explain(info, "json")
+        parsed = json.loads(capsys.readouterr().out)
+        assert parsed == {
+            "id": "category-x/dummy-rule",
+            "category": "category-x",
+            "description": "A dummy rule.",
+            "is_per_resource": True,
+            "rationale": "R",
+            "remediation": "",
+            "exceptions": "",
+            "examples": ["ex"],
+        }
+
+
+class TestRuleExplain:
+    """CLI wire-through for `dbt-lint rule <id>`. Rendering covered by TestEmitRuleExplain."""
+
+    def test_text_reaches_the_explain_renderer(self):
+        rule_id = next(iter(get_all_rules())).id
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule", rule_id])
+        assert result.exit_code == 0
+        assert rule_id in result.output
+
+    def test_json_format_flag_flows_through(self):
+        rule_id = next(iter(get_all_rules())).id
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule", rule_id, "--output-format", "json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.output)
+        assert parsed["id"] == rule_id
+
+    def test_unknown_rule_exits_2_with_message(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule", "no/such-rule"])
+        assert result.exit_code == EXIT_USAGE
+        assert "unknown rule 'no/such-rule'" in result.output.lower()
+
+
+class TestRuleCustomRuleDiscovery:
+    """`rule --config` and `rule --isolated` for custom rule visibility."""
+
+    def test_config_loads_custom_rule_into_index(self, tmp_path):
+        rule_file = _write_custom_rule(tmp_path)
+        config_path = _write_custom_config(tmp_path, rule_file)
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule", "--all", "--config", str(config_path)])
+        assert result.exit_code == 0
+        assert "custom/no-select-star" in result.output
+
+    def test_config_enables_explain_for_custom_rule(self, tmp_path):
+        rule_file = _write_custom_rule(tmp_path)
+        config_path = _write_custom_config(tmp_path, rule_file)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["rule", "custom/no-select-star", "--config", str(config_path)],
+        )
+        assert result.exit_code == 0
+        assert "custom/no-select-star" in result.output
+
+    def test_isolated_skips_custom_rule_loading(self, tmp_path, monkeypatch):
+        rule_file = _write_custom_rule(tmp_path)
+        _write_custom_config(tmp_path, rule_file)
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule", "--all", "--isolated"])
+        assert result.exit_code == 0
+        assert "custom/no-select-star" not in result.output
 
 
 def _write_custom_rule(tmp_path: Path) -> Path:
@@ -399,7 +651,7 @@ def _write_custom_config(tmp_path: Path, rule_file: Path, **overrides) -> Path:
     return config_path
 
 
-class TestCliCustomRule:
+class TestCheckCustomRule:
     """E2E: custom rule loaded via source directive produces CLI output."""
 
     def test_custom_rule_violation_in_json_output(self, tmp_path):
@@ -409,14 +661,21 @@ class TestCliCustomRule:
         runner = CliRunner()
         result = runner.invoke(
             main,
-            [str(manifest_path), "--config", str(config_path), "--format", "json"],
+            [
+                "check",
+                str(manifest_path),
+                "--config",
+                str(config_path),
+                "--output-format",
+                "json",
+            ],
         )
         assert result.exit_code == 1
         parsed = json.loads(result.output)
         custom_violations = [
             v for v in parsed if v["rule_id"] == "custom/no-select-star"
         ]
-        assert len(custom_violations) > 0
+        assert custom_violations
 
     def test_custom_rule_disabled(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
@@ -425,13 +684,20 @@ class TestCliCustomRule:
         runner = CliRunner()
         result = runner.invoke(
             main,
-            [str(manifest_path), "--config", str(config_path), "--format", "json"],
+            [
+                "check",
+                str(manifest_path),
+                "--config",
+                str(config_path),
+                "--output-format",
+                "json",
+            ],
         )
         parsed = json.loads(result.output)
         custom_violations = [
             v for v in parsed if v["rule_id"] == "custom/no-select-star"
         ]
-        assert len(custom_violations) == 0
+        assert not custom_violations
 
     def test_custom_rule_severity_override(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
@@ -440,12 +706,19 @@ class TestCliCustomRule:
         runner = CliRunner()
         result = runner.invoke(
             main,
-            [str(manifest_path), "--config", str(config_path), "--format", "json"],
+            [
+                "check",
+                str(manifest_path),
+                "--config",
+                str(config_path),
+                "--output-format",
+                "json",
+            ],
         )
         assert result.exit_code == 1
         parsed = json.loads(result.output)
         custom_violations = [
             v for v in parsed if v["rule_id"] == "custom/no-select-star"
         ]
-        assert len(custom_violations) > 0
+        assert custom_violations
         assert all(v["severity"] == "error" for v in custom_violations)

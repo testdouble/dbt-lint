@@ -328,54 +328,58 @@ class TestSuppressions:
         assert merged_rules == {"some-rule": {"enabled": False}}
 
 
+def _seed_registry(monkeypatch, rules: list[RuleDef]) -> None:
+    """Replace ``Registry`` so ``collect_rules`` returns the supplied rules."""
+
+    class SeededRegistry(FakeRegistry):
+        def __init__(self) -> None:
+            super().__init__()
+            self._rules = list(rules)
+
+    monkeypatch.setattr("dbt_lint._lint.Registry", SeededRegistry)
+
+
 class TestRuleIdFilters:
-    def test_select_keeps_only_matching_rule_ids(
-        self, pipeline_doubles, monkeypatch, tmp_path
+    """run() filters the rule list pre-evaluation so --fail-fast respects
+    --select/--exclude. Filter semantics are unit-tested in test_filters.py."""
+
+    def test_select_narrows_rules_passed_to_evaluate(
+        self, pipeline_doubles, monkeypatch, make_rule, tmp_path
     ):
-        keep = _violation(rule_id="documentation/undocumented-models")
-        drop = _violation(rule_id="modeling/staging-from-source")
+        kept = make_rule("a/keep")
+        dropped = make_rule("b/drop")
+        _seed_registry(monkeypatch, [kept, dropped])
 
-        def stub_evaluate(resources, relationships, config, *, rules, fail_fast=False):
-            return EvaluationResult(violations=[keep, drop], excluded=0)
-
-        monkeypatch.setattr("dbt_lint._lint.evaluate", stub_evaluate)
-
-        subject = run
-
-        result = subject(
+        run(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
             suppressions_path=None,
-            select=("documentation/undocumented-models",),
+            select=("a/keep",),
             exclude=(),
             fail_fast=False,
         )
 
-        assert result.violations == [keep]
+        eval_rules = pipeline_doubles["evaluate"][0]["rules"]
+        assert [rule.id for rule in eval_rules] == ["a/keep"]
 
-    def test_exclude_drops_matching_rule_ids(
-        self, pipeline_doubles, monkeypatch, tmp_path
+    def test_exclude_drops_rules_passed_to_evaluate(
+        self, pipeline_doubles, monkeypatch, make_rule, tmp_path
     ):
-        keep = _violation(rule_id="modeling/staging-from-source")
-        drop = _violation(rule_id="documentation/undocumented-models")
+        kept = make_rule("a/keep")
+        dropped = make_rule("b/drop")
+        _seed_registry(monkeypatch, [kept, dropped])
 
-        def stub_evaluate(resources, relationships, config, *, rules, fail_fast=False):
-            return EvaluationResult(violations=[keep, drop], excluded=0)
-
-        monkeypatch.setattr("dbt_lint._lint.evaluate", stub_evaluate)
-
-        subject = run
-
-        result = subject(
+        run(
             manifest_path=tmp_path / "manifest.json",
             config_path=None,
             suppressions_path=None,
             select=(),
-            exclude=("documentation/undocumented-models",),
+            exclude=("b/drop",),
             fail_fast=False,
         )
 
-        assert result.violations == [keep]
+        eval_rules = pipeline_doubles["evaluate"][0]["rules"]
+        assert [rule.id for rule in eval_rules] == ["a/keep"]
 
 
 class TestFailFast:
@@ -471,6 +475,42 @@ class TestFixtureManifest:
         assert "governance/public-models-without-contract" in rule_ids
         assert "governance/undocumented-public-models" in rule_ids
         assert result.resource_counts == {"model": 2, "source": 1, "exposure": 1}
+
+    def test_exclude_first_firing_rule_with_fail_fast_still_returns_violations(
+        self, tmp_path
+    ):
+        """Regression: rule-ID exclusion is applied pre-evaluation. Otherwise
+        ``fail_fast`` returns after the excluded rule fires, then the
+        post-evaluation filter strips that violation, masking every other
+        rule's output."""
+        manifest_path = tmp_path / "manifest.json"
+        manifest_path.write_text(json.dumps(fixture_manifest_dict()))
+
+        baseline = run(
+            manifest_path=manifest_path,
+            config_path=None,
+            suppressions_path=None,
+            select=(),
+            exclude=(),
+            fail_fast=True,
+        )
+        assert baseline.violations, "fixture should produce at least one violation"
+        first_firing_rule = baseline.violations[0].rule_id
+
+        result = run(
+            manifest_path=manifest_path,
+            config_path=None,
+            suppressions_path=None,
+            select=(),
+            exclude=(first_firing_rule,),
+            fail_fast=True,
+        )
+
+        assert result.violations, (
+            f"expected a violation from a different rule after excluding "
+            f"{first_firing_rule}; got none"
+        )
+        assert first_firing_rule not in {v.rule_id for v in result.violations}
 
 
 def _run_with_defaults(

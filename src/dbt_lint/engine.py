@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from fnmatch import fnmatch
 
-from dbt_lint.config import Config, RuleConfig, matches_path_filter
+from dbt_lint.config import Config
+from dbt_lint.filters import (
+    filter_violations_by_resource_exclusions,
+    is_resource_excluded_from_rule,
+)
 from dbt_lint.models import Relationship, Resource, Violation
 from dbt_lint.rules import RuleContext, RuleDef
 
@@ -41,7 +44,9 @@ def evaluate(
 
         if rule_def.is_per_resource:
             for resource in resources:
-                if _is_excluded(resource, rule_def.id, rule_config, config):
+                if is_resource_excluded_from_rule(
+                    resource, rule_def.id, rule_config, config
+                ):
                     continue
                 violation = rule_def.fn(resource, context)
                 if violation:
@@ -52,40 +57,15 @@ def evaluate(
             eligible = [
                 r
                 for r in resources
-                if not _is_excluded(r, rule_def.id, rule_config, config)
+                if not is_resource_excluded_from_rule(
+                    r, rule_def.id, rule_config, config
+                )
             ]
             raw = rule_def.fn(eligible, relationships, context)
-            kept = _post_filter(raw, rule_config)
+            kept = filter_violations_by_resource_exclusions(raw, rule_config)
             result.excluded += len(raw) - len(kept)
             result.violations.extend(kept)
             if fail_fast and result.violations:
                 return result
 
     return result
-
-
-def _is_excluded(
-    resource: Resource,
-    rule_id: str,
-    rule_config: RuleConfig,
-    config: Config,
-) -> bool:
-    if rule_id in resource.skip_rules:
-        return True
-    if any(fnmatch(resource.resource_id, pat) for pat in rule_config.exclude_resources):
-        return True
-    return not matches_path_filter(resource.file_path, config.include, config.exclude)
-
-
-def _post_filter(
-    violations: list[Violation],
-    rule_config: RuleConfig,
-) -> list[Violation]:
-    """Remove violations for resources excluded via config."""
-    if not rule_config.exclude_resources:
-        return violations
-    return [
-        v
-        for v in violations
-        if not any(fnmatch(v.resource_id, pat) for pat in rule_config.exclude_resources)
-    ]

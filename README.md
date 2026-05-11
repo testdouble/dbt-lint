@@ -63,8 +63,9 @@ check options:
 
 rule options:
   --all                                  List every rule
-  --output-format [text|concise|grouped|json]
-                                         Output format (default: text)
+  --config PATH                          Path to dbt-lint.yml config file
+  --isolated                             Bypass config discovery (skips custom-rule loading)
+  --output-format [text|json]            Output format (default: text)
 ```
 
 Exit codes: `0` clean, `1` violations found, `2` tool error.

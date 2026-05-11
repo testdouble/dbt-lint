@@ -43,6 +43,10 @@ class CustomRuleError(LintError):
     """Failure assembling custom rules (import, validation, missing config dir)."""
 
 
+class UnknownRuleError(LintError):
+    """No rule in the rule index matches the requested rule ID."""
+
+
 @dataclass
 class LintResult:
     violations: list[Violation] = field(default_factory=list)
@@ -83,10 +87,7 @@ def run(  # noqa: PLR0913
 
     relationships = build_relationships(resources, edges)
 
-    try:
-        rules = _assemble_rules(config)
-    except (ImportError, OSError, ValueError) as exc:
-        raise CustomRuleError(str(exc)) from exc
+    rules = collect_rules(config)
 
     evaluation = evaluate(
         resources, relationships, config, rules=rules, fail_fast=fail_fast
@@ -102,16 +103,25 @@ def run(  # noqa: PLR0913
     )
 
 
-def _assemble_rules(config: Config) -> list[RuleDef]:
-    """Build the rule list: built-ins plus any custom rules from config."""
-    registry = Registry()
-    if config._custom_rule_entries:
-        if config.config_dir is None:
-            msg = "Custom rules require a config file (source paths are relative)"
-            raise ValueError(msg)
-        for entry in config._custom_rule_entries:
-            registry.register_from_path(entry.source, entry.rule_id, config.config_dir)
-    return registry.all()
+def collect_rules(config: Config) -> list[RuleDef]:
+    """Build the rule list: built-ins plus any custom rules from config.
+
+    Wraps import/IO/validation failures in CustomRuleError so the CLI
+    (and any other caller) does not need to translate exception types.
+    """
+    try:
+        registry = Registry()
+        if config._custom_rule_entries:
+            if config.config_dir is None:
+                msg = "Custom rules require a config file (source paths are relative)"
+                raise ValueError(msg)
+            for entry in config._custom_rule_entries:
+                registry.register_from_path(
+                    entry.source, entry.rule_id, config.config_dir
+                )
+        return registry.all()
+    except (ImportError, OSError, ValueError) as exc:
+        raise CustomRuleError(str(exc)) from exc
 
 
 def _filter_by_rule_id(

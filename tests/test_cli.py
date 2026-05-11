@@ -9,8 +9,8 @@ import pytest
 import yaml
 from click.testing import CliRunner
 
-from dbt_lint.__main__ import main
-from dbt_lint.rules import get_all_rules
+from dbt_lint.__main__ import _emit_rule_explain, main
+from dbt_lint.rules import RuleInfo, get_all_rules
 from helpers import fixture_manifest_dict
 
 EXIT_USAGE = 2
@@ -471,8 +471,24 @@ class TestCheckWriteSuppressions:
         assert set(parsed["rules"].keys()) <= {"documentation/undocumented-models"}
 
 
+def _rule_info(**overrides) -> RuleInfo:
+    """Build a RuleInfo for rendering tests. Defaults are obviously arbitrary."""
+    defaults: dict = {
+        "id": "category-x/dummy-rule",
+        "category": "category-x",
+        "description": "A dummy rule.",
+        "is_per_resource": True,
+        "rationale": "",
+        "remediation": "",
+        "exceptions": "",
+        "examples": (),
+    }
+    defaults.update(overrides)
+    return RuleInfo(**defaults)
+
+
 class TestRule:
-    """`dbt-lint rule` listing and explain entry points."""
+    """`dbt-lint rule` subcommand surface: no-args, listing, error paths."""
 
     def test_no_args_exits_non_zero_with_help(self):
         runner = CliRunner()
@@ -500,18 +516,113 @@ class TestRule:
         parsed = json.loads(result.output)
         assert len(parsed) == len(get_all_rules())
 
-    def test_explain_known_rule(self):
+
+class TestEmitRuleExplain:
+    """Rendering logic for _emit_rule_explain. Subject is the helper itself."""
+
+    def test_text_omits_every_empty_section(self, capsys):
+        _emit_rule_explain(_rule_info(), "text")
+        out = capsys.readouterr().out
+        assert "category-x/dummy-rule: A dummy rule." in out
+        assert "Rationale:" not in out
+        assert "Remediation:" not in out
+        assert "Exceptions:" not in out
+        assert "Examples:" not in out
+
+    def test_text_renders_each_present_section(self, capsys):
+        info = _rule_info(
+            rationale="Why this matters.",
+            remediation="Do this instead.",
+            exceptions="When to skip.",
+            examples=("Example one.", "Example two."),
+        )
+        _emit_rule_explain(info, "text")
+        out = capsys.readouterr().out
+        assert "Rationale:\nWhy this matters." in out
+        assert "Remediation:\nDo this instead." in out
+        assert "Exceptions:\nWhen to skip." in out
+        assert "Examples:\n- Example one.\n- Example two." in out
+
+    def test_text_omits_only_the_empty_section(self, capsys):
+        info = _rule_info(rationale="R", remediation="M")
+        _emit_rule_explain(info, "text")
+        out = capsys.readouterr().out
+        assert "Rationale:" in out
+        assert "Remediation:" in out
+        assert "Exceptions:" not in out
+        assert "Examples:" not in out
+
+    def test_json_dumps_the_full_dataclass(self, capsys):
+        info = _rule_info(rationale="R", examples=("ex",))
+        _emit_rule_explain(info, "json")
+        parsed = json.loads(capsys.readouterr().out)
+        assert parsed == {
+            "id": "category-x/dummy-rule",
+            "category": "category-x",
+            "description": "A dummy rule.",
+            "is_per_resource": True,
+            "rationale": "R",
+            "remediation": "",
+            "exceptions": "",
+            "examples": ["ex"],
+        }
+
+
+class TestRuleExplain:
+    """CLI wire-through for `dbt-lint rule <id>`. Rendering covered by TestEmitRuleExplain."""
+
+    def test_text_reaches_the_explain_renderer(self):
         rule_id = next(iter(get_all_rules())).id
         runner = CliRunner()
         result = runner.invoke(main, ["rule", rule_id])
         assert result.exit_code == 0
         assert rule_id in result.output
 
-    def test_explain_unknown_rule_exits_2(self):
+    def test_json_format_flag_flows_through(self):
+        rule_id = next(iter(get_all_rules())).id
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule", rule_id, "--output-format", "json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.output)
+        assert parsed["id"] == rule_id
+
+    def test_unknown_rule_exits_2_with_message(self):
         runner = CliRunner()
         result = runner.invoke(main, ["rule", "no/such-rule"])
         assert result.exit_code == EXIT_USAGE
-        assert "unknown rule" in result.output.lower()
+        assert "unknown rule 'no/such-rule'" in result.output.lower()
+
+
+class TestRuleCustomRuleDiscovery:
+    """`rule --config` and `rule --isolated` for custom rule visibility."""
+
+    def test_config_loads_custom_rule_into_index(self, tmp_path):
+        rule_file = _write_custom_rule(tmp_path)
+        config_path = _write_custom_config(tmp_path, rule_file)
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule", "--all", "--config", str(config_path)])
+        assert result.exit_code == 0
+        assert "custom/no-select-star" in result.output
+
+    def test_config_enables_explain_for_custom_rule(self, tmp_path):
+        rule_file = _write_custom_rule(tmp_path)
+        config_path = _write_custom_config(tmp_path, rule_file)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["rule", "custom/no-select-star", "--config", str(config_path)],
+        )
+        assert result.exit_code == 0
+        assert "custom/no-select-star" in result.output
+
+    def test_isolated_skips_custom_rule_loading(self, tmp_path, monkeypatch):
+        rule_file = _write_custom_rule(tmp_path)
+        _write_custom_config(tmp_path, rule_file)
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(main, ["rule", "--all", "--isolated"])
+        assert result.exit_code == 0
+        assert "custom/no-select-star" not in result.output
 
 
 def _write_custom_rule(tmp_path: Path) -> Path:

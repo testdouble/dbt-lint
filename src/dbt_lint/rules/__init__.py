@@ -147,7 +147,7 @@ class RuleDef:
 
 @dataclass(frozen=True)
 class RuleInfo:
-    """Summary metadata for a rule, used by generate_rules_index."""
+    """Summary metadata for a rule, used by build_rule_index."""
 
     id: str
     category: str
@@ -159,9 +159,8 @@ class RuleInfo:
     examples: tuple[str, ...]
 
 
-def generate_rules_index() -> list[RuleInfo]:
-    """Build a sorted index of all rules from structured metadata."""
-    rules = get_all_rules()
+def build_rule_index(rules: list[RuleDef]) -> list[RuleInfo]:
+    """Build a sorted RuleInfo index from a RuleDef list (built-ins or custom)."""
     index = []
     for rule_def in rules:
         meta: RuleMeta = rule_def.fn._rule_meta

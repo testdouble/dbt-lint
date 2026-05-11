@@ -10,18 +10,27 @@ from itertools import groupby
 from pathlib import Path
 
 import click
+import yaml
 
-from dbt_lint._lint import LintError, LintResult, run
+from dbt_lint._lint import (
+    LintError,
+    LintResult,
+    UnknownRuleError,
+    collect_rules,
+    run,
+)
 from dbt_lint.config import (
     SUPPRESSIONS_FILENAME,
     discover_config_path,
+    load_config,
 )
 from dbt_lint.models import Violation
 from dbt_lint.reporter import report
-from dbt_lint.rules import RuleInfo, generate_rules_index
+from dbt_lint.rules import RuleInfo, build_rule_index
 from dbt_lint.suppressions import generate_suppressions
 
-OUTPUT_FORMATS = ["text", "concise", "grouped", "json"]
+CHECK_OUTPUT_FORMATS = ["text", "concise", "grouped", "json"]
+RULE_OUTPUT_FORMATS = ["text", "json"]
 EXAMPLE_USAGE = (
     "\b\nExamples:\n  dbt-lint check target/manifest.json\n  dbt-lint rule --all"
 )
@@ -115,7 +124,7 @@ def main() -> None:
 )
 @click.option(
     "--output-format",
-    type=click.Choice(OUTPUT_FORMATS),
+    type=click.Choice(CHECK_OUTPUT_FORMATS),
     default="text",
     help="Output format.",
 )
@@ -226,16 +235,30 @@ def check(  # noqa: PLR0913
     help="List every rule.",
 )
 @click.option(
+    "--config",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Path to dbt-lint.yml config file.",
+)
+@click.option(
+    "--isolated",
+    is_flag=True,
+    default=False,
+    help="Bypass config discovery (skips custom-rule loading).",
+)
+@click.option(
     "--output-format",
-    type=click.Choice(OUTPUT_FORMATS),
+    type=click.Choice(RULE_OUTPUT_FORMATS),
     default="text",
     help="Output format.",
 )
 @click.pass_context
-def rule(
+def rule(  # noqa: PLR0913
     context: click.Context,
     rule_id: str | None,
     list_all: bool,
+    config: Path | None,
+    isolated: bool,
     output_format: str,
 ) -> None:
     """List or explain rules."""
@@ -243,17 +266,26 @@ def rule(
         click.echo(context.get_help())
         sys.exit(2)
 
-    index = generate_rules_index()
-
-    if list_all:
-        _emit_rules_index(index, output_format)
-        return
-
-    matching = next((info for info in index if info.id == rule_id), None)
-    if matching is None:
-        click.echo(f"Error: unknown rule '{rule_id}'", err=True)
+    try:
+        loaded_config = load_config(config, isolated=isolated)
+    except (yaml.YAMLError, OSError, ValueError) as exc:
+        click.echo(f"Error: {exc}", err=True)
         sys.exit(2)
-    _emit_rule_explain(matching, output_format)
+
+    try:
+        rules = collect_rules(loaded_config)
+        index = build_rule_index(rules)
+        if list_all:
+            _emit_rules_index(index, output_format)
+            return
+        info = next((entry for entry in index if entry.id == rule_id), None)
+        if info is None:
+            raise UnknownRuleError(f"unknown rule '{rule_id}'")
+    except LintError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(2)
+
+    _emit_rule_explain(info, output_format)
 
 
 def _emit_rules_index(index: list[RuleInfo], output_format: str) -> None:
@@ -272,11 +304,22 @@ def _emit_rules_index(index: list[RuleInfo], output_format: str) -> None:
 
 
 def _emit_rule_explain(info: RuleInfo, output_format: str) -> None:
-    """Render a single rule's metadata."""
+    """Render a single rule's metadata. Empty sections are omitted."""
     if output_format == "json":
         click.echo(json.dumps(dataclasses.asdict(info), indent=2))
         return
-    click.echo(f"{info.id}: {info.description}")
+
+    examples_block = "\n".join(f"- {example}" for example in info.examples)
+    sections = [f"{info.id}: {info.description}"]
+    for heading, body in (
+        ("Rationale", info.rationale),
+        ("Remediation", info.remediation),
+        ("Exceptions", info.exceptions),
+        ("Examples", examples_block),
+    ):
+        if body:
+            sections.append(f"{heading}:\n{body}")
+    click.echo("\n\n".join(sections))
 
 
 if __name__ == "__main__":

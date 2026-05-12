@@ -59,9 +59,9 @@ check options:
   --exit-zero                            Force exit 0 regardless of violations
   --isolated                             Bypass config discovery and suppressions auto-load
   --suppressions PATH                    Path to suppressions file
-  --write-suppressions[=PATH|=-]         Write suppressions YAML; bare flag writes
-                                         to the default location, =PATH to a file,
-                                         =- to stdout (use = not a space)
+  --write-suppressions[=PATH|=-]         Write suppressions YAML; bare flag (placed
+                                         last) writes to the default location, =PATH
+                                         to a file, =- to stdout
 
 rule options:
   --all                                  List every rule

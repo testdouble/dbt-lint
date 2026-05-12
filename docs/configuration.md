@@ -123,7 +123,7 @@ The bare flag writes `.dbt-lint-suppressions.yml` next to your config (or in cwd
 - `--write-suppressions=PATH` writes to an explicit path.
 - `--write-suppressions=-` emits YAML to stdout (for piping).
 
-Pass the value with `=`, not a space; `--write-suppressions PATH` is ambiguous with the positional manifest argument.
+The bare form must come last on the command line (after the manifest path) so it isn't parsed as taking a value. The `=PATH` and `=-` forms can appear in any position.
 
 When `.dbt-lint-suppressions.yml` sits next to the discovered config or in the cwd, `check` applies it automatically. Pass `--suppressions PATH` to point at a different file, or `--isolated` to skip the auto-load.
 

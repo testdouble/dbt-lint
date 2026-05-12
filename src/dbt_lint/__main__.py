@@ -188,10 +188,9 @@ def main() -> None:
     default=None,
     help=(
         "Write a YAML suppressions file from current violations. "
-        "--write-suppressions writes .dbt-lint-suppressions.yml next to your config (or in cwd if none). "
+        "--write-suppressions, placed last, writes .dbt-lint-suppressions.yml next to your config (or in cwd if none). "
         "--write-suppressions=PATH writes to PATH. "
-        "--write-suppressions=- writes to stdout. "
-        "Use =, not a space."
+        "--write-suppressions=- writes to stdout."
     ),
 )
 def check(  # noqa: PLR0913

@@ -115,8 +115,15 @@ models:
 For existing projects, generate a suppressions file that suppresses all current violations:
 
 ```bash
-dbt-lint check target/manifest.json --write-suppressions > .dbt-lint-suppressions.yml
+dbt-lint check target/manifest.json --write-suppressions
 ```
+
+The bare flag writes `.dbt-lint-suppressions.yml` next to your config (or in cwd if none) and overwrites any existing file at that path. Two alternate forms:
+
+- `--write-suppressions=PATH` writes to an explicit path.
+- `--write-suppressions=-` emits YAML to stdout (for piping).
+
+The bare form must come last on the command line (after the manifest path) so it isn't parsed as taking a value. The `=PATH` and `=-` forms can appear in any position.
 
 When `.dbt-lint-suppressions.yml` sits next to the discovered config or in the cwd, `check` applies it automatically. Pass `--suppressions PATH` to point at a different file, or `--isolated` to skip the auto-load.
 

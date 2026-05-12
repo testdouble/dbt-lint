@@ -35,6 +35,10 @@ EXAMPLE_USAGE = (
     "\b\nExamples:\n  dbt-lint check target/manifest.json\n  dbt-lint rule --all"
 )
 
+# Click's flag_value must be a string; the null byte makes the sentinel unreachable as a path.
+_WRITE_SUPPRESSIONS_BARE = "\x00bare"
+_WRITE_SUPPRESSIONS_STDOUT = "-"
+
 
 def _resolve_suppressions(
     explicit: Path | None,
@@ -178,10 +182,16 @@ def main() -> None:
 )
 @click.option(
     "--write-suppressions",
-    "write_suppressions_flag",
-    is_flag=True,
-    default=False,
-    help="Emit a YAML suppressions file from current violations to stdout.",
+    "write_suppressions",
+    is_flag=False,
+    flag_value=_WRITE_SUPPRESSIONS_BARE,
+    default=None,
+    help=(
+        "Write a YAML suppressions file from current violations. "
+        "--write-suppressions, placed last, writes .dbt-lint-suppressions.yml next to your config (or in cwd if none). "
+        "--write-suppressions=PATH writes to PATH. "
+        "--write-suppressions=- writes to stdout."
+    ),
 )
 def check(  # noqa: PLR0913
     manifest: Path,
@@ -195,7 +205,7 @@ def check(  # noqa: PLR0913
     exit_zero: bool,
     isolated: bool,
     suppressions_path: Path | None,
-    write_suppressions_flag: bool,
+    write_suppressions: str | None,
 ) -> None:
     """Lint a dbt project by analyzing its manifest.json."""
     discovered_config = config
@@ -207,7 +217,7 @@ def check(  # noqa: PLR0913
         suppressions_path,
         config_dir,
         isolated=isolated,
-        skip_auto_load=write_suppressions_flag,
+        skip_auto_load=write_suppressions is not None,
     )
 
     try:
@@ -225,12 +235,32 @@ def check(  # noqa: PLR0913
         click.echo(f"Error: {exc}", err=True)
         sys.exit(2)
 
-    if write_suppressions_flag:
-        click.echo(generate_suppressions(result.violations), nl=False)
+    if write_suppressions is not None:
+        _emit_suppressions(result.violations, write_suppressions, config_dir)
         sys.exit(0)
 
     _emit_report(result, output_format)
     sys.exit(_determine_exit_code(result.violations, fail_on, exit_zero=exit_zero))
+
+
+def _emit_suppressions(
+    violations: list[Violation],
+    mode: str,
+    config_dir: Path | None,
+) -> None:
+    """Route the generated suppressions YAML to stdout or a file."""
+    yaml_text = generate_suppressions(violations)
+    if mode == _WRITE_SUPPRESSIONS_STDOUT:
+        click.echo(yaml_text, nl=False)
+        return
+    if mode == _WRITE_SUPPRESSIONS_BARE:
+        base_dir = config_dir if config_dir is not None else Path.cwd()
+        target = base_dir / SUPPRESSIONS_FILENAME
+    else:
+        target = Path(mode)
+    target.write_text(yaml_text)
+    count = len({v.rule_id for v in violations})
+    click.echo(f"Wrote {count} suppressions to {target}", err=True)
 
 
 @main.command()

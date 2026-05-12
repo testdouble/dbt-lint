@@ -150,7 +150,7 @@ class TestCheckExitCodes:
         runner = CliRunner()
         result = runner.invoke(
             main,
-            ["check", str(manifest_path), "--exit-zero", "--write-suppressions"],
+            ["check", str(manifest_path), "--exit-zero", "--write-suppressions=-"],
         )
         assert result.exit_code == 0
 
@@ -422,7 +422,7 @@ class TestCheckSuppressions:
                 str(manifest_path),
                 "--config",
                 str(config_path),
-                "--write-suppressions",
+                "--write-suppressions=-",
             ],
         )
         assert result.exit_code == 0
@@ -433,7 +433,7 @@ class TestCheckSuppressions:
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
         gen_result = runner.invoke(
-            main, ["check", str(manifest_path), "--write-suppressions"]
+            main, ["check", str(manifest_path), "--write-suppressions=-"]
         )
         assert gen_result.exit_code == 0
         suppressions_path = tmp_path / ".dbt-lint-suppressions.yml"
@@ -453,14 +453,153 @@ class TestCheckSuppressions:
         assert len(parsed) == 0
 
 
+class TestCheckWriteSuppressionsDefaultPath:
+    """Bare --write-suppressions writes to the auto-load destination."""
+
+    def test_bare_flag_writes_to_cwd_when_no_config(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--write-suppressions"]
+        )
+
+        assert result.exit_code == 0
+        written = tmp_path / ".dbt-lint-suppressions.yml"
+        assert written.exists()
+        parsed = yaml.safe_load(written.read_text())
+        assert parsed.get("rules")
+
+    def test_bare_flag_writes_to_config_dir_when_config_discovered(
+        self, tmp_path, monkeypatch
+    ):
+        subdir = tmp_path / "project"
+        subdir.mkdir()
+        manifest_path = _write_manifest(subdir)
+        config_path = tmp_path / "dbt-lint.yml"
+        config_path.write_text("rules: {}\n")
+        monkeypatch.chdir(subdir)
+        runner = CliRunner()
+
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--write-suppressions"]
+        )
+
+        assert result.exit_code == 0
+        assert (tmp_path / ".dbt-lint-suppressions.yml").exists()
+        assert not (subdir / ".dbt-lint-suppressions.yml").exists()
+
+
+class TestCheckWriteSuppressionsExplicitPath:
+    """--write-suppressions=PATH writes to PATH; =- writes to stdout."""
+
+    def test_explicit_path_writes_to_that_path(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        target = tmp_path / "elsewhere" / "custom.yml"
+        target.parent.mkdir()
+        runner = CliRunner()
+
+        result = runner.invoke(
+            main,
+            [
+                "check",
+                str(manifest_path),
+                f"--write-suppressions={target}",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert target.exists()
+        assert not (tmp_path / ".dbt-lint-suppressions.yml").exists()
+        parsed = yaml.safe_load(target.read_text())
+        assert "rules" in parsed
+
+    def test_stdout_dash_emits_yaml_to_stdout(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--write-suppressions=-"]
+        )
+
+        assert result.exit_code == 0
+        parsed = yaml.safe_load(result.output)
+        assert "rules" in parsed
+        assert not (tmp_path / ".dbt-lint-suppressions.yml").exists()
+
+
+class TestCheckWriteSuppressionsStderrConfirmation:
+    """File writes confirm to stderr; stdout mode stays silent on stderr."""
+
+    def test_file_write_prints_confirmation_to_stderr(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        target = tmp_path / "out.yml"
+        runner = CliRunner()
+
+        result = runner.invoke(
+            main,
+            ["check", str(manifest_path), f"--write-suppressions={target}"],
+        )
+
+        assert result.exit_code == 0
+        assert "Wrote" in result.stderr
+        assert f"suppressions to {target}" in result.stderr
+
+    def test_stdout_mode_does_not_print_stderr_confirmation(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        runner = CliRunner()
+
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--write-suppressions=-"]
+        )
+
+        assert result.exit_code == 0
+        assert "Wrote" not in result.stderr
+
+
+class TestCheckWriteSuppressionsOverwrite:
+    """File writes overwrite an existing target without prompting."""
+
+    def test_default_path_overwrites_existing_file(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        existing = tmp_path / ".dbt-lint-suppressions.yml"
+        existing.write_text("stale: true\n")
+        runner = CliRunner()
+
+        result = runner.invoke(
+            main, ["check", str(manifest_path), "--write-suppressions"]
+        )
+
+        assert result.exit_code == 0
+        parsed = yaml.safe_load(existing.read_text())
+        assert "rules" in parsed
+        assert "stale" not in parsed
+
+    def test_explicit_path_overwrites_existing_file(self, tmp_path):
+        manifest_path = _write_manifest(tmp_path)
+        target = tmp_path / "out.yml"
+        target.write_text("stale: true\n")
+        runner = CliRunner()
+
+        result = runner.invoke(
+            main,
+            ["check", str(manifest_path), f"--write-suppressions={target}"],
+        )
+
+        assert result.exit_code == 0
+        parsed = yaml.safe_load(target.read_text())
+        assert "rules" in parsed
+        assert "stale" not in parsed
+
+
 class TestCheckWriteSuppressions:
-    """--write-suppressions emits YAML to stdout."""
+    """--write-suppressions=- emits YAML to stdout."""
 
     def test_outputs_valid_yaml(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
         result = runner.invoke(
-            main, ["check", str(manifest_path), "--write-suppressions"]
+            main, ["check", str(manifest_path), "--write-suppressions=-"]
         )
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
@@ -470,7 +609,7 @@ class TestCheckWriteSuppressions:
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
         result = runner.invoke(
-            main, ["check", str(manifest_path), "--write-suppressions"]
+            main, ["check", str(manifest_path), "--write-suppressions=-"]
         )
         assert result.exit_code == 0
 
@@ -478,7 +617,7 @@ class TestCheckWriteSuppressions:
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
         result = runner.invoke(
-            main, ["check", str(manifest_path), "--write-suppressions"]
+            main, ["check", str(manifest_path), "--write-suppressions=-"]
         )
         assert "Found" not in result.output
 
@@ -486,7 +625,7 @@ class TestCheckWriteSuppressions:
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
         result = runner.invoke(
-            main, ["check", str(manifest_path), "--write-suppressions"]
+            main, ["check", str(manifest_path), "--write-suppressions=-"]
         )
         assert "Generated by dbt-lint" in result.output
 
@@ -494,7 +633,7 @@ class TestCheckWriteSuppressions:
         manifest_path = _write_manifest(tmp_path)
         runner = CliRunner()
         result = runner.invoke(
-            main, ["check", str(manifest_path), "--write-suppressions"]
+            main, ["check", str(manifest_path), "--write-suppressions=-"]
         )
         parsed = yaml.safe_load(result.output)
         assert parsed["rules"]
@@ -507,7 +646,7 @@ class TestCheckWriteSuppressions:
             [
                 "check",
                 str(manifest_path),
-                "--write-suppressions",
+                "--write-suppressions=-",
                 "--select",
                 "documentation/undocumented-models",
             ],

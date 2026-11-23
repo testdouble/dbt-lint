@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 import yaml
 from click.testing import CliRunner
 
-from dbt_lint.__main__ import _emit_rule_explain, main
+from dbt_lint.__main__ import _emit_report, _emit_rule_explain, main
+from dbt_lint._lint import LintResult
 from dbt_lint.rules import RuleInfo, get_all_rules
 from helpers import fixture_manifest_dict
 
@@ -85,6 +87,18 @@ class TestCheckBasic:
 
 class TestCheckFormats:
     """Output format selection on check."""
+
+    def test_color_is_enabled_for_tty_stdout(self, monkeypatch):
+        stdout = Mock()
+        stdout.isatty.return_value = True
+        report = Mock(return_value="")
+        monkeypatch.setattr("dbt_lint.__main__.sys.stdout", stdout)
+        monkeypatch.setattr("dbt_lint.__main__.report", report)
+        monkeypatch.setattr("dbt_lint.__main__.click.echo", Mock())
+
+        _emit_report(LintResult(), "text")
+
+        assert report.call_args.kwargs["color"] is True
 
     def test_text_format_default(self, tmp_path):
         manifest_path = _write_manifest(tmp_path)

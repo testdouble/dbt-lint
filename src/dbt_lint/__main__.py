@@ -90,7 +90,7 @@ def _emit_report(result: LintResult, output_format: str) -> None:
     use_color = (
         output_format != "json"
         and os.environ.get("NO_COLOR") is None
-        and click.get_text_stream("stdout").isatty()
+        and sys.stdout.isatty()
     )
     output = report(
         result.violations,

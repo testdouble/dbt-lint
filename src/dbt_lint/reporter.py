@@ -14,6 +14,7 @@ _SEVERITY_COLORS = {"error": "red", "warn": "yellow"}
 
 def report(  # noqa: PLR0913
     violations: list[Violation],
+    *,
     output_format: str = "text",
     github_annotations: bool = False,
     excluded: int = 0,

@@ -194,6 +194,7 @@ def main() -> None:
     ),
 )
 def check(  # noqa: PLR0913
+    *,
     manifest: Path,
     config: Path | None,
     output_format: str,
@@ -293,6 +294,7 @@ def _emit_suppressions(
 @click.pass_context
 def rule(  # noqa: PLR0913
     context: click.Context,
+    *,
     rule_id: str | None,
     list_all: bool,
     config: Path | None,

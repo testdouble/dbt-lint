@@ -3,17 +3,25 @@
 from __future__ import annotations
 
 import json
+import os
+import pty
+import select
+import sys
 from pathlib import Path
 
 import pytest
 import yaml
 from click.testing import CliRunner
 
-from dbt_lint.__main__ import _emit_rule_explain, main
+from dbt_lint.__main__ import _emit_report, _emit_rule_explain, main
+from dbt_lint._lint import LintResult
 from dbt_lint.rules import RuleInfo, get_all_rules
 from helpers import fixture_manifest_dict
 
 EXIT_USAGE = 2
+ANSI_ESCAPE = "\x1b["
+PTY_READ_BYTES = 65536
+PTY_READ_TIMEOUT_SECONDS = 2
 
 
 @pytest.fixture(autouse=True)
@@ -174,6 +182,52 @@ class TestCheckGitHubAnnotations:
         )
         assert "::warning" not in result.output
         assert "::error" not in result.output
+
+
+class TestEmitReportColor:
+    """Color is on only when stdout is a TTY and NO_COLOR is unset."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+
+    def test_color_when_stdout_is_tty(self, monkeypatch, make_violation):
+        output = _emit_report_to_tty(
+            LintResult(violations=[make_violation()]), monkeypatch
+        )
+        assert ANSI_ESCAPE in output
+
+    def test_no_color_when_stdout_is_not_tty(self, capsys, make_violation):
+        _emit_report(LintResult(violations=[make_violation()]), "text")
+        output = capsys.readouterr().out
+        assert "stg_users" in output
+        assert ANSI_ESCAPE not in output
+
+    def test_no_color_when_no_color_set(self, monkeypatch, make_violation):
+        monkeypatch.setenv("NO_COLOR", "1")
+        output = _emit_report_to_tty(
+            LintResult(violations=[make_violation()]), monkeypatch
+        )
+        assert "stg_users" in output
+        assert ANSI_ESCAPE not in output
+
+
+def _emit_report_to_tty(result: LintResult, monkeypatch) -> str:
+    """Run _emit_report with sys.stdout on a real pseudo-terminal; return its output."""
+    controller, terminal = pty.openpty()
+    stream = open(terminal, "w", encoding="utf-8")  # noqa: SIM115
+    try:
+        # Not a fixture: pytest's capture reinstalls sys.stdout before the test call.
+        with monkeypatch.context() as patch:
+            patch.setattr(sys, "stdout", stream)
+            _emit_report(result, "text")
+        stream.flush()
+        ready, _, _ = select.select([controller], [], [], PTY_READ_TIMEOUT_SECONDS)
+        return os.read(controller, PTY_READ_BYTES).decode() if ready else ""
+    finally:
+        stream.close()
+        os.close(controller)
 
 
 class TestCheckConfig:
